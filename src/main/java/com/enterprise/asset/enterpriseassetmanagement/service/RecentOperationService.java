@@ -1,0 +1,451 @@
+package com.enterprise.asset.enterpriseassetmanagement.service;
+
+import com.enterprise.asset.enterpriseassetmanagement.dto.DashboardOperationsDTO;
+import com.enterprise.asset.enterpriseassetmanagement.dto.RecentOperationDTO;
+import com.enterprise.asset.enterpriseassetmanagement.entity.AssetApplication;
+import com.enterprise.asset.enterpriseassetmanagement.entity.AssetInventory;
+import com.enterprise.asset.enterpriseassetmanagement.entity.PurchaseRequest;
+import com.enterprise.asset.enterpriseassetmanagement.entity.SysLog;
+import com.enterprise.asset.enterpriseassetmanagement.entity.User;
+import com.enterprise.asset.enterpriseassetmanagement.repository.AssetApplicationRepository;
+import com.enterprise.asset.enterpriseassetmanagement.repository.AssetInventoryRepository;
+import com.enterprise.asset.enterpriseassetmanagement.repository.PurchaseRequestRepository;
+import com.enterprise.asset.enterpriseassetmanagement.repository.SysLogRepository;
+import com.enterprise.asset.enterpriseassetmanagement.repository.UserRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import java.time.LocalDateTime;
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Optional;
+
+@Service
+public class RecentOperationService {
+
+    @Autowired
+    private SysLogRepository sysLogRepository;
+
+    @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
+    private AssetApplicationRepository assetApplicationRepository;
+
+    @Autowired
+    private PurchaseRequestRepository purchaseRequestRepository;
+
+    @Autowired
+    private AssetInventoryRepository assetInventoryRepository;
+
+    public DashboardOperationsDTO getDashboardOperations(int limit, User user) {
+        List<RecentOperationDTO> pendingTasks = new ArrayList<>();
+
+        boolean isAdmin = "admin".equals(user.getRole());
+        boolean isLeader = "leader".equals(user.getRole());
+        boolean isManager = "manager".equals(user.getRole());
+        boolean isUser = !isAdmin && !isLeader && !isManager;
+        Long userDeptId = user.getDeptId();
+
+        // 1. 获取待处理任务（领导和管理员可见）
+        if (isAdmin || isLeader) {
+            // 待审批的采购需求
+            List<PurchaseRequest> pendingPurchases = isAdmin
+                    ? purchaseRequestRepository.findByStatus("pending")
+                    : purchaseRequestRepository.findByDepartmentIdAndStatus(userDeptId, "pending");
+            for (PurchaseRequest req : pendingPurchases) {
+                RecentOperationDTO dto = new RecentOperationDTO();
+                dto.setTime(req.getApplicationDate());
+                dto.setTimeText(formatTime(req.getApplicationDate()));
+                String applicantName = req.getApplicantName() != null ? req.getApplicantName() : "未知用户";
+                dto.setContent("[采购] " + applicantName + "提交了采购需求申请：" + req.getItemName());
+                dto.setType("purchase");
+                dto.setOperator(applicantName);
+                dto.setPending(true);
+                pendingTasks.add(dto);
+            }
+
+            // 待审批的资产申请
+            List<AssetApplication> pendingApplications = isAdmin
+                    ? assetApplicationRepository.findByStatus("pending")
+                    : assetApplicationRepository.findByStatusAndDepartmentId("pending", userDeptId);
+            for (AssetApplication app : pendingApplications) {
+                RecentOperationDTO dto = new RecentOperationDTO();
+                dto.setTime(app.getApplicationDate());
+                dto.setTimeText(formatTime(app.getApplicationDate()));
+                String applicantName = app.getApplicantName() != null ? app.getApplicantName() : "未知用户";
+                String appType = getApplicationTypeTextShort(app.getApplicationType());
+                String assetName = app.getAssetName() != null ? app.getAssetName() : app.getItemName();
+                String assetNo = app.getAssetNo() != null ? " (" + app.getAssetNo() + ")" : "";
+                dto.setContent("[资产] " + applicantName + " 申请" + appType + "："
+                        + (assetName != null ? assetName : "未知物品") + assetNo);
+                dto.setType("application");
+                dto.setOperator(applicantName);
+                dto.setPending(true);
+                pendingTasks.add(dto);
+            }
+
+            // 待处理的盘点任务（只有分配给当前用户的任务才显示）
+            List<AssetInventory> pendingInventories = assetInventoryRepository.findByStatus("pending");
+            for (AssetInventory inv : pendingInventories) {
+                // 只有分配给当前用户的任务才显示为待处理
+                // assigneeId不为空且等于当前用户ID
+                if (inv.getAssigneeId() != null && inv.getAssigneeId().equals(user.getId())) {
+                    RecentOperationDTO dto = new RecentOperationDTO();
+                    dto.setTime(inv.getCreateTime());
+                    dto.setTimeText(formatTime(inv.getCreateTime()));
+                    String planName = inv.getInventoryName() != null ? inv.getInventoryName() : inv.getPlanName();
+                    dto.setContent("[盘点] 盘点任务：" + planName);
+                    dto.setType("inventory");
+                    dto.setOperator(inv.getCreatorName());
+                    dto.setPending(true);
+                    pendingTasks.add(dto);
+                }
+            }
+
+            // 排序待处理任务（最新的在前）
+            pendingTasks.sort(Comparator.comparing(RecentOperationDTO::getTime).reversed());
+            if (pendingTasks.size() > limit) {
+                pendingTasks = pendingTasks.subList(0, limit);
+            }
+        }
+
+        // 2. 获取最近动态
+        List<RecentOperationDTO> allActivities = new ArrayList<>();
+
+        // 系统日志
+        List<SysLog> sysLogs = sysLogRepository.findRecentLogs(limit * 2);
+        for (SysLog log : sysLogs) {
+            if (checkPermission(log.getUserId(), user, isAdmin, isLeader, isManager, userDeptId)) {
+                RecentOperationDTO dto = new RecentOperationDTO();
+                dto.setTime(log.getCreateTime());
+                dto.setTimeText(formatTime(log.getCreateTime()));
+                // 根据日志类型显示不同的标签
+                String logType = getLogTypeLabel(log.getLogType());
+                // 生成人性化的消息内容
+                String content = formatLogContent(log.getOperation(), log.getParams(), log.getLogType());
+                dto.setContent(logType + " " + content);
+                dto.setType(log.getLogType().toLowerCase());
+                dto.setOperator(log.getUsername());
+                dto.setPending(false);
+                allActivities.add(dto);
+            }
+        }
+
+        // 用户自己的申请记录（用于显示审批结果）
+        if (isUser || isManager) {
+            List<AssetApplication> userApps = assetApplicationRepository
+                    .findByApplicantIdOrderByUpdateTimeDesc(user.getId());
+            for (AssetApplication app : userApps) {
+                if (!"pending".equals(app.getStatus())) {
+                    RecentOperationDTO dto = new RecentOperationDTO();
+                    dto.setTime(app.getUpdateTime() != null ? app.getUpdateTime() : app.getApplicationDate());
+                    dto.setTimeText(
+                            formatTime(app.getUpdateTime() != null ? app.getUpdateTime() : app.getApplicationDate()));
+                    String appType = getApplicationTypeText(app.getApplicationType());
+                    String assetName = app.getAssetName() != null ? app.getAssetName() : app.getItemName();
+                    String statusText = getStatusText(app.getStatus());
+                    String statusIcon = "approved".equals(app.getStatus().toLowerCase()) ? "✓" : "✗";
+                    dto.setContent("[资产] " + statusIcon + " 您的" + appType + "已" + statusText + "："
+                            + (assetName != null ? assetName : "未知物品"));
+                    dto.setType("application");
+                    dto.setOperator(user.getRealName());
+                    dto.setPending(false);
+                    allActivities.add(dto);
+                }
+            }
+
+            if (isManager) {
+                List<PurchaseRequest> userPurchases = purchaseRequestRepository
+                        .findByApplicantIdOrderByUpdateTimeDesc(user.getId());
+                for (PurchaseRequest req : userPurchases) {
+                    if (!"pending".equals(req.getStatus())) {
+                        RecentOperationDTO dto = new RecentOperationDTO();
+                        dto.setTime(req.getUpdateTime() != null ? req.getUpdateTime() : req.getApplicationDate());
+                        dto.setTimeText(formatTime(
+                                req.getUpdateTime() != null ? req.getUpdateTime() : req.getApplicationDate()));
+                        String statusText = getPurchaseStatusText(req.getStatus());
+                        String statusIcon = "approved".equals(req.getStatus().toLowerCase()) ? "✓" : "✗";
+                        dto.setContent("[采购] " + statusIcon + " 您的采购需求申请已" + statusText + "：" + req.getItemName());
+                        dto.setType("purchase");
+                        dto.setOperator(user.getRealName());
+                        dto.setPending(false);
+                        allActivities.add(dto);
+                    }
+                }
+            }
+        }
+
+        // 领导的审批记录
+        if (isLeader || isAdmin) {
+            List<PurchaseRequest> approvedPurchases = purchaseRequestRepository
+                    .findByApproverIdOrderByApprovalDateDesc(user.getId());
+            for (PurchaseRequest req : approvedPurchases) {
+                RecentOperationDTO dto = new RecentOperationDTO();
+                dto.setTime(req.getApprovalDate());
+                dto.setTimeText(formatTime(req.getApprovalDate()));
+                String statusIcon = "approved".equals(req.getStatus().toLowerCase()) ? "✓" : "✗";
+                String action = "approved".equals(req.getStatus().toLowerCase()) ? "批准" : "拒绝";
+                dto.setContent("[采购] " + statusIcon + " 您" + action + "了采购需求申请：" + req.getItemName());
+                dto.setType("purchase");
+                dto.setOperator(user.getRealName());
+                dto.setPending(false);
+                allActivities.add(dto);
+            }
+        }
+
+        // 排序并限制数量
+        allActivities.sort(Comparator.comparing(RecentOperationDTO::getTime).reversed());
+        if (allActivities.size() > limit) {
+            allActivities = allActivities.subList(0, limit);
+        }
+
+        return new DashboardOperationsDTO(pendingTasks, allActivities);
+    }
+
+    // 保留原有方法用于兼容性
+    public List<RecentOperationDTO> getRecentOperations(int limit, User user) {
+        DashboardOperationsDTO dto = getDashboardOperations(limit, user);
+        List<RecentOperationDTO> combined = new ArrayList<>();
+        combined.addAll(dto.getPendingTasks());
+        combined.addAll(dto.getRecentActivities());
+        combined.sort(Comparator.comparing(RecentOperationDTO::getTime).reversed());
+        if (combined.size() > limit) {
+            return combined.subList(0, limit);
+        }
+        return combined;
+    }
+
+    private String formatTime(LocalDateTime time) {
+        if (time == null)
+            return "";
+
+        LocalDateTime now = LocalDateTime.now();
+        Duration duration = Duration.between(time, now);
+
+        long seconds = duration.getSeconds();
+        if (seconds < 60) {
+            return "刚刚";
+        } else if (seconds < 3600) {
+            return (seconds / 60) + "分钟前";
+        } else if (seconds < 86400) {
+            return (seconds / 3600) + "小时前";
+        } else if (seconds < 604800) {
+            return (seconds / 86400) + "天前";
+        } else {
+            return time.toLocalDate().toString();
+        }
+    }
+
+    private boolean checkPermission(Long logUserId, User user,
+            boolean isAdmin, boolean isLeader, boolean isManager, Long deptId) {
+        if (isAdmin)
+            return true;
+        if (logUserId == null)
+            return false;
+        if (logUserId.equals(user.getId()))
+            return true;
+
+        if ((isLeader || isManager) && deptId != null) {
+            Optional<User> logUserOpt = userRepository.findById(logUserId);
+            return logUserOpt.map(logUser -> deptId.equals(logUser.getDeptId())).orElse(false);
+        }
+
+        return false;
+    }
+
+    private String getApplicationTypeText(String type) {
+        if (type == null)
+            return "资产申请";
+        switch (type.toUpperCase()) {
+            case "RECEIVE":
+                return "申请领用资产";
+            case "TRANSFER":
+                return "申请转移资产";
+            case "REPAIR":
+                return "申请维修资产";
+            case "DISPOSAL":
+                return "申请报废资产";
+            default:
+                return "资产申请";
+        }
+    }
+
+    private String getApplicationTypeTextShort(String type) {
+        if (type == null)
+            return "资产";
+        switch (type.toUpperCase()) {
+            case "RECEIVE":
+                return "领用";
+            case "TRANSFER":
+                return "转移";
+            case "REPAIR":
+                return "维修";
+            case "DISPOSAL":
+                return "报废";
+            default:
+                return "资产";
+        }
+    }
+
+    private String getStatusText(String status) {
+        if (status == null)
+            return "未知状态";
+        switch (status.toLowerCase()) {
+            case "pending":
+                return "待审批";
+            case "approved":
+                return "批准";
+            case "rejected":
+                return "拒绝";
+            case "completed":
+                return "完成";
+            case "pending_leader":
+                return "待领导审批";
+            case "leader_approved":
+                return "领导批准";
+            default:
+                return status;
+        }
+    }
+
+    private String getPurchaseStatusText(String status) {
+        if (status == null)
+            return "未知状态";
+        switch (status.toLowerCase()) {
+            case "pending":
+                return "待审批";
+            case "approved":
+                return "批准";
+            case "rejected":
+                return "拒绝";
+            case "ordered":
+                return "已下单";
+            case "completed":
+                return "完成";
+            default:
+                return status;
+        }
+    }
+
+    /**
+     * 根据日志类型返回更友好的标签
+     */
+    private String getLogTypeLabel(String logType) {
+        if (logType == null) {
+            return "[系统]";
+        }
+        switch (logType.toUpperCase()) {
+            case "ASSET":
+                return "[资产]";
+            case "INVENTORY":
+                return "[盘点]";
+            case "PURCHASE":
+                return "[采购]";
+            case "DEPRECIATION":
+                return "[折旧]";
+            case "SYSTEM":
+            default:
+                return "[系统]";
+        }
+    }
+
+    /**
+     * 将日志内容格式化为更人性化的消息
+     */
+    private String formatLogContent(String operation, String params, String logType) {
+        if (operation == null) {
+            return params != null ? params : "操作记录";
+        }
+
+        // 盘点相关操作
+        if ("INVENTORY".equalsIgnoreCase(logType)) {
+            return formatInventoryContent(operation, params);
+        }
+
+        // 资产相关操作
+        if ("ASSET".equalsIgnoreCase(logType)) {
+            return formatAssetContent(operation, params);
+        }
+
+        // 默认格式化
+        if (operation.startsWith("批准")) {
+            return "✓ " + operation + (params != null ? "：" + params : "");
+        } else if (operation.startsWith("拒绝")) {
+            return "✗ " + operation + (params != null ? "：" + params : "");
+        } else if (operation.startsWith("提交")) {
+            return "→ " + operation + (params != null ? "：" + params : "");
+        }
+
+        return operation + (params != null && !params.isEmpty() ? "：" + params : "");
+    }
+
+    /**
+     * 格式化盘点相关日志内容
+     */
+    private String formatInventoryContent(String operation, String params) {
+        if ("创建盘点计划".equals(operation)) {
+            if (params != null && params.startsWith("创建了盘点计划: ")) {
+                String planName = params.substring(10);
+                return "创建了盘点计划「" + planName + "」";
+            }
+            return "创建了盘点计划";
+        } else if ("分配盘点任务".equals(operation)) {
+            if (params != null && params.contains("分配给")) {
+                // 格式：将盘点计划'xxx'分配给: xxx
+                String result = params.replace("将盘点计划'", "").replace("'分配给: ", " → ");
+                return "分配盘点任务「" + result.split(" → ")[0] + "」给 " + result.split(" → ")[1];
+            }
+            return "分配了盘点任务";
+        } else if ("收到盘点任务".equals(operation)) {
+            if (params != null && params.contains("分配给您盘点任务: ")) {
+                // 格式：xxx 分配给您盘点任务: xxx
+                String[] parts = params.split(" 分配给您盘点任务: ");
+                if (parts.length == 2) {
+                    return parts[0] + " 分配给您盘点任务「" + parts[1] + "」";
+                }
+            }
+            return "收到盘点任务";
+        } else if ("开始盘点".equals(operation)) {
+            if (params != null && params.startsWith("开始执行盘点任务: ")) {
+                String planName = params.substring(12);
+                return "开始执行盘点「" + planName + "」";
+            }
+            return "开始执行盘点任务";
+        } else if ("完成盘点".equals(operation)) {
+            if (params != null && params.startsWith("完成盘点任务: ")) {
+                String planInfo = params.substring(10);
+                return "完成盘点「" + planInfo + "」";
+            }
+            return "完成盘点任务";
+        } else if ("删除盘点计划".equals(operation)) {
+            if (params != null && params.startsWith("删除了盘点计划: ")) {
+                String planName = params.substring(10);
+                return "删除了盘点计划「" + planName + "」";
+            }
+            return "删除了盘点计划";
+        }
+        return operation + (params != null ? "：" + params : "");
+    }
+
+    /**
+     * 格式化资产相关日志内容
+     */
+    private String formatAssetContent(String operation, String params) {
+        if ("新增资产".equals(operation)) {
+            return "新增资产" + (params != null ? "：" + params : "");
+        } else if ("修改资产".equals(operation)) {
+            return "修改资产信息" + (params != null ? "：" + params : "");
+        } else if ("删除资产".equals(operation)) {
+            return "删除资产" + (params != null ? "：" + params : "");
+        } else if ("转移资产".equals(operation)) {
+            return "转移资产" + (params != null ? "：" + params : "");
+        } else if ("报废资产".equals(operation)) {
+            return "报废资产" + (params != null ? "：" + params : "");
+        }
+        return operation + (params != null ? "：" + params : "");
+    }
+
+}
