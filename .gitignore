@@ -31,3 +31,18 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### Node.js ###
+node_modules/
+fronted/dist/
+fronted/build/
+fronted/.vite/
+
+### Logs ###
+*.log
+logs/
+
+### Environment ###
+.env
+.env.local
+application-local.properties
