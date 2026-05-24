@@ -7,21 +7,26 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 
+/**
+ * 资产数据访问接口
+ * 关联表: asset(资产表)
+ * 主要操作: 资产的增删改查、统计查询
+ */
 @Repository
 public interface AssetRepository extends JpaRepository<Asset, Long> {
 
-    // 查询所有资产，不限制status
+    /** 查询所有资产总数(包含所有状态) */
     @Query(value = "SELECT COUNT(*) FROM asset", nativeQuery = true)
     long countAllAssets();
 
-    // 根据部门查询资产，不限制status
+    /** 根据部门ID查询资产总数 */
     @Query(value = "SELECT COUNT(*) FROM asset WHERE dept_id = ?1", nativeQuery = true)
     long countAllAssetsByDepartment(Long departmentId);
 
-    // 根据用户查询资产，不限制status
+    /** 根据用户ID查询资产总数 */
     @Query(value = "SELECT COUNT(*) FROM asset WHERE user_id = ?1", nativeQuery = true)
     long countAllAssetsByUser(Long userId);
 
-    // 根据部门ID查询资产列表
+    /** 根据部门ID查询资产列表 */
     List<Asset> findByDeptId(Long deptId);
 }

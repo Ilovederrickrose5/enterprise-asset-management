@@ -9,6 +9,7 @@ import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 
+/** 双倍余额递减法折旧计算器 - 前期折旧快后期慢的加速折旧方法 */
 public class DoubleDecliningBalanceDepreciationCalculator implements DepreciationCalculator {
     
     private static final String DEPRECIATION_METHOD = "DOUBLE_DECLINING_BALANCE";

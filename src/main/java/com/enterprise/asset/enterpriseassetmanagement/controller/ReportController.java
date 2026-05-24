@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
+/** 报表控制器 - 处理资产统计报表查询（权限控制：admin可查看全部，leader/manager查看本部门） */
 @RestController
 @RequestMapping("/api/reports")
 public class ReportController {
@@ -27,26 +28,27 @@ public class ReportController {
     @Autowired
     private UserService userService;
 
+    /**
+     * GET /api/reports/department-stats - 获取部门资产统计
+     * 权限：admin查看全部，leader/manager查看本部门，普通用户无权限
+     * @return 部门资产统计列表
+     */
     @GetMapping("/department-stats")
     public ResponseEntity<Result<List<DepartmentAssetStatsDTO>>> getDepartmentAssetStats() {
         try {
-            // 获取当前用户信息
             Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
             if (authentication != null && authentication.isAuthenticated()) {
                 String username = authentication.getName();
                 User user = userService.getUserByUsername(username);
                 if (user != null) {
-                    // 检查用户角色
                     boolean isAdmin = "admin".equals(user.getRole());
                     boolean isLeader = "leader".equals(user.getRole());
                     boolean isManager = "manager".equals(user.getRole());
 
-                    // 普通员工只能查看自己的资产数据
                     if (!isAdmin && !isLeader && !isManager) {
                         return ResponseEntity.ok(Result.error(403, "无权限访问部门资产统计"));
                     }
 
-                    // 部门资产管理员和领导只能查看本部门数据
                     if ((isManager || isLeader) && user.getDeptId() != null) {
                         List<DepartmentAssetStatsDTO> stats = reportService
                                 .getDepartmentAssetStatsByDepartment(user.getDeptId());
@@ -55,7 +57,6 @@ public class ReportController {
                 }
             }
 
-            // 只有系统管理员可以查看所有部门数据
             List<DepartmentAssetStatsDTO> stats = reportService.getDepartmentAssetStats();
             return ResponseEntity.ok(Result.success(stats));
         } catch (Exception e) {
@@ -64,21 +65,23 @@ public class ReportController {
         }
     }
 
+    /**
+     * GET /api/reports/department-stats/{departmentId} - 获取指定部门资产统计
+     * 权限：admin可查看任意部门，leader/manager只能查看本部门
+     * @param departmentId 部门ID
+     * @return 部门资产统计列表
+     */
     @GetMapping("/department-stats/{departmentId}")
     public ResponseEntity<Result<List<DepartmentAssetStatsDTO>>> getDepartmentAssetStatsByDepartment(
             @PathVariable Long departmentId) {
         try {
-            // 获取当前用户信息
             Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
             if (authentication != null && authentication.isAuthenticated()) {
                 String username = authentication.getName();
                 User user = userService.getUserByUsername(username);
                 if (user != null) {
-                    // 检查用户角色
                     boolean isAdmin = "admin".equals(user.getRole());
 
-                    // 只有系统管理员可以查看任意部门数据
-                    // 领导和部门资产管理员只能查看本部门数据
                     if (!isAdmin && (user.getDeptId() == null || !user.getDeptId().equals(departmentId))) {
                         return ResponseEntity.ok(Result.error(403, "无权限访问该部门资产统计"));
                     }
@@ -93,26 +96,27 @@ public class ReportController {
         }
     }
 
+    /**
+     * GET /api/reports/status-distribution - 获取资产状态分布
+     * 权限：admin查看全部，leader/manager查看本部门，普通用户无权限
+     * @return 资产状态分布列表
+     */
     @GetMapping("/status-distribution")
     public ResponseEntity<Result<List<AssetStatusDistributionDTO>>> getAssetStatusDistribution() {
         try {
-            // 获取当前用户信息
             Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
             if (authentication != null && authentication.isAuthenticated()) {
                 String username = authentication.getName();
                 User user = userService.getUserByUsername(username);
                 if (user != null) {
-                    // 检查用户角色
                     boolean isAdmin = "admin".equals(user.getRole());
                     boolean isLeader = "leader".equals(user.getRole());
                     boolean isManager = "manager".equals(user.getRole());
 
-                    // 普通员工只能查看自己的资产数据
                     if (!isAdmin && !isLeader && !isManager) {
                         return ResponseEntity.ok(Result.error(403, "无权限访问资产状态分布"));
                     }
 
-                    // 部门资产管理员和领导只能查看本部门数据
                     if ((isManager || isLeader) && user.getDeptId() != null) {
                         List<AssetStatusDistributionDTO> distribution = reportService
                                 .getAssetStatusDistributionByDepartment(user.getDeptId());
@@ -121,7 +125,6 @@ public class ReportController {
                 }
             }
 
-            // 只有系统管理员可以查看所有资产数据
             List<AssetStatusDistributionDTO> distribution = reportService.getAssetStatusDistribution();
             return ResponseEntity.ok(Result.success(distribution));
         } catch (Exception e) {

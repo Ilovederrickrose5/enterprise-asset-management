@@ -14,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
+/** 资产服务 - 处理资产CRUD操作与权限控制 */
 @Service
 public class AssetService {
 
@@ -27,12 +28,8 @@ public class AssetService {
     private UserRepository userRepository;
 
     /**
-     * 获取所有资产
-     * 根据用户角色返回不同的资产数据：
-     * - 系统管理员：可以看到所有资产
-     * - 部门资产管理员：只能看到本部门的资产
-     * - 部门领导：只能看到本部门的资产
-     * - 普通员工：只能看到自己的资产
+     * 获取所有资产（根据用户角色返回不同数据）
+     * 权限规则：admin查看全部，manager/leader查看本部门，普通用户查看个人资产
      */
     public List<Asset> getAllAssets() {
         List<Asset> allAssets = assetRepository.findAll();

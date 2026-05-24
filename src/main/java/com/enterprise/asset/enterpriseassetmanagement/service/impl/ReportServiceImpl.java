@@ -17,6 +17,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+/** 报表服务实现 - 处理资产统计报表查询（权限控制：admin可查看全部，leader/manager查看本部门） */
 @Service
 public class ReportServiceImpl implements ReportService {
 
@@ -29,6 +30,10 @@ public class ReportServiceImpl implements ReportService {
     @Autowired
     private DepartmentRepository departmentRepository;
 
+    /**
+     * 获取所有部门资产统计
+     * 业务逻辑：按部门分组资产→统计资产数量、总价值、平均价值→统计各状态资产数量
+     */
     @Override
     public List<DepartmentAssetStatsDTO> getDepartmentAssetStats() {
         List<Asset> assets = assetRepository.findAll();

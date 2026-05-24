@@ -6,10 +6,17 @@ import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
 
+/**
+ * 角色数据访问接口
+ * 关联表: role(角色表)
+ * 主要操作: 角色的增删改查、角色编码查询
+ */
 @Repository
 public interface RoleRepository extends JpaRepository<Role, Long> {
     
+    /** 根据角色编码查询角色 */
     Optional<Role> findByCode(String code);
     
+    /** 判断角色编码是否存在 */
     boolean existsByCode(String code);
 }

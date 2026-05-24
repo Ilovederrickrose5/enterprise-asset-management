@@ -37,6 +37,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
 
+/** 折旧报表服务实现 - 处理折旧报表生成与导出（支持按分类/部门统计、Excel/PDF导出） */
 @Service
 public class DepreciationReportServiceImpl implements DepreciationReportService {
 

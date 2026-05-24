@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 import java.util.Optional;
 
+/** 资产分类服务实现 - 处理资产分类CRUD与编码生成 */
 @Service
 public class AssetCategoryServiceImpl implements AssetCategoryService {
 
@@ -36,9 +37,13 @@ public class AssetCategoryServiceImpl implements AssetCategoryService {
         return assetCategoryRepository.findByCategoryCode(categoryCode).orElse(null);
     }
 
+    /**
+     * 创建分类
+     * 业务流程：自动生成分类编码→保存分类
+     * 编码规则：顶级分类使用3位字母前缀（EQU/OFF/TR...），子分类使用父编码+序号
+     */
     @Override
     public AssetCategory createCategory(AssetCategory category) {
-        // 生成分类编码
         String generatedCode = generateCategoryCode(category);
         category.setCategoryCode(generatedCode);
         return assetCategoryRepository.save(category);

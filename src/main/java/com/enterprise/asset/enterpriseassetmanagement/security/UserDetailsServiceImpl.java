@@ -9,6 +9,7 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+/** Spring Security用户详情服务实现 - 负责用户登录认证时的用户信息查询与权限加载 */
 @Service
 public class UserDetailsServiceImpl implements UserDetailsService {
     

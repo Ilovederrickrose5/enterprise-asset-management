@@ -30,6 +30,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 
+/** 采购订单服务实现 - 处理采购订单CRUD与状态管理（含订单完成自动创建资产） */
 @Service
 public class PurchaseOrderServiceImpl implements PurchaseOrderService {
 

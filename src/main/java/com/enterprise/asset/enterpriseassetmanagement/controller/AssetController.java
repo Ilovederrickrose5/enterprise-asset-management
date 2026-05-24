@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+/** 资产控制器 - 处理资产的CRUD操作及状态管理 */
 @RestController
 @RequestMapping("/api/assets")
 public class AssetController {
@@ -17,7 +18,8 @@ public class AssetController {
     private AssetService assetService;
 
     /**
-     * 获取所有资产
+     * GET /api/assets - 获取所有资产列表
+     * @return 资产列表
      */
     @GetMapping
     public ResponseEntity<Result<List<Asset>>> getAllAssets() {
@@ -26,7 +28,9 @@ public class AssetController {
     }
 
     /**
-     * 根据ID获取资产
+     * GET /api/assets/{id} - 根据ID获取资产详情
+     * @param id 资产ID
+     * @return 资产详情
      */
     @GetMapping("/{id}")
     public ResponseEntity<Result<Asset>> getAssetById(@PathVariable Long id) {
@@ -38,7 +42,9 @@ public class AssetController {
     }
 
     /**
-     * 创建资产
+     * POST /api/assets - 创建新资产
+     * @param asset 资产实体（包含名称、编号、类别、购置价格等）
+     * @return 创建后的资产
      */
     @PostMapping
     public ResponseEntity<Result<Asset>> createAsset(@RequestBody Asset asset) {
@@ -47,7 +53,10 @@ public class AssetController {
     }
 
     /**
-     * 更新资产
+     * PUT /api/assets/{id} - 更新资产信息
+     * @param id 资产ID
+     * @param asset 更新的资产数据
+     * @return 更新后的资产
      */
     @PutMapping("/{id}")
     public ResponseEntity<Result<Asset>> updateAsset(
@@ -61,7 +70,9 @@ public class AssetController {
     }
 
     /**
-     * 删除资产
+     * DELETE /api/assets/{id} - 删除资产
+     * @param id 资产ID
+     * @return 删除结果
      */
     @DeleteMapping("/{id}")
     public ResponseEntity<Result<String>> deleteAsset(@PathVariable Long id) {
@@ -73,7 +84,10 @@ public class AssetController {
     }
 
     /**
-     * 更新资产状态
+     * PUT /api/assets/{id}/status - 更新资产状态
+     * @param id 资产ID
+     * @param statusUpdate 状态更新请求体 {"status": "..."}
+     * @return 更新后的资产
      */
     @PutMapping("/{id}/status")
     public ResponseEntity<Result<Asset>> updateAssetStatus(
@@ -92,23 +106,19 @@ public class AssetController {
         }
     }
 
-    /**
-     * 状态更新请求体
-     */
+    /** 状态更新请求体 */
     static class StatusUpdateRequest {
         private String status;
 
-        public String getStatus() {
-            return status;
-        }
-
-        public void setStatus(String status) {
-            this.status = status;
-        }
+        public String getStatus() { return status; }
+        public void setStatus(String status) { this.status = status; }
     }
 
     /**
-     * 更新资产使用状态
+     * PUT /api/assets/{id}/use-status - 更新资产使用状态
+     * @param id 资产ID
+     * @param useStatusUpdate 使用状态更新请求体 {"useStatus": "..."}
+     * @return 更新后的资产
      */
     @PutMapping("/{id}/use-status")
     public ResponseEntity<Result<Asset>> updateAssetUseStatus(
@@ -121,23 +131,18 @@ public class AssetController {
         return ResponseEntity.ok(Result.success(asset));
     }
 
-    /**
-     * 使用状态更新请求体
-     */
+    /** 使用状态更新请求体 */
     static class UseStatusUpdateRequest {
         private String useStatus;
 
-        public String getUseStatus() {
-            return useStatus;
-        }
-
-        public void setUseStatus(String useStatus) {
-            this.useStatus = useStatus;
-        }
+        public String getUseStatus() { return useStatus; }
+        public void setUseStatus(String useStatus) { this.useStatus = useStatus; }
     }
 
     /**
-     * 获取所有资产（不再按部门过滤）
+     * GET /api/assets/department/{departmentId} - 获取指定部门资产
+     * @param departmentId 部门ID
+     * @return 资产列表
      */
     @GetMapping("/department/{departmentId}")
     public ResponseEntity<Result<List<Asset>>> getAssetsByDepartment(@PathVariable Long departmentId) {
@@ -146,7 +151,9 @@ public class AssetController {
     }
 
     /**
-     * 根据用户ID获取资产
+     * GET /api/assets/user/{userId} - 获取用户名下资产
+     * @param userId 用户ID
+     * @return 用户资产列表
      */
     @GetMapping("/user/{userId}")
     public ResponseEntity<Result<List<Asset>>> getAssetsByUser(@PathVariable Long userId) {
@@ -155,7 +162,9 @@ public class AssetController {
     }
 
     /**
-     * 根据状态获取资产
+     * GET /api/assets/status/{status} - 按状态筛选资产
+     * @param status 资产状态 (using/maintenance/scrapped等)
+     * @return 资产列表
      */
     @GetMapping("/status/{status}")
     public ResponseEntity<Result<List<Asset>>> getAssetsByStatus(@PathVariable String status) {
@@ -164,7 +173,9 @@ public class AssetController {
     }
 
     /**
-     * 根据使用状态获取资产
+     * GET /api/assets/use-status/{useStatus} - 按使用状态筛选资产
+     * @param useStatus 使用状态
+     * @return 资产列表
      */
     @GetMapping("/use-status/{useStatus}")
     public ResponseEntity<Result<List<Asset>>> getAssetsByUseStatus(@PathVariable String useStatus) {
@@ -173,7 +184,8 @@ public class AssetController {
     }
 
     /**
-     * 获取资产总数
+     * GET /api/assets/count - 获取资产总数
+     * @return 资产数量
      */
     @GetMapping("/count")
     public ResponseEntity<Result<Long>> getAssetCount() {
@@ -182,7 +194,9 @@ public class AssetController {
     }
 
     /**
-     * 获取资产总数（不再按部门过滤）
+     * GET /api/assets/count/department/{departmentId} - 获取部门资产数量
+     * @param departmentId 部门ID
+     * @return 资产数量
      */
     @GetMapping("/count/department/{departmentId}")
     public ResponseEntity<Result<Long>> getAssetCountByDepartment(@PathVariable Long departmentId) {
@@ -191,7 +205,9 @@ public class AssetController {
     }
 
     /**
-     * 获取用户资产数量
+     * GET /api/assets/count/user/{userId} - 获取用户资产数量
+     * @param userId 用户ID
+     * @return 资产数量
      */
     @GetMapping("/count/user/{userId}")
     public ResponseEntity<Result<Long>> getAssetCountByUser(@PathVariable Long userId) {
@@ -200,7 +216,8 @@ public class AssetController {
     }
 
     /**
-     * 获取所有地点列表
+     * GET /api/assets/locations - 获取所有资产地点列表
+     * @return 地点列表
      */
     @GetMapping("/locations")
     public ResponseEntity<Result<List<String>>> getAllLocations() {
@@ -209,8 +226,8 @@ public class AssetController {
     }
 
     /**
-     * 获取可领用的资产（未分配给用户的资产）
-     * 用于资产领用申请
+     * GET /api/assets/available - 获取可领用资产（未分配状态）
+     * @return 可领用资产列表
      */
     @GetMapping("/available")
     public ResponseEntity<Result<List<Asset>>> getAvailableAssets() {

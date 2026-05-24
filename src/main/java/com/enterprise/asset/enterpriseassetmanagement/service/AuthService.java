@@ -16,6 +16,7 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 import java.util.stream.Collectors;
 
+/** 认证服务 - 处理用户登录认证与JWT生成 */
 @Service
 public class AuthService {
 
@@ -28,6 +29,13 @@ public class AuthService {
         @Autowired
         private DepartmentRepository departmentRepository;
 
+        /**
+         * 用户登录认证
+         * 业务流程：用户名密码验证 → 获取用户详情 → 生成JWT令牌 → 查询部门名称 → 返回登录响应
+         * 外部调用：AuthenticationManager认证、JwtUtil生成令牌、DepartmentRepository查询部门
+         * @param loginRequest 登录请求（用户名、密码）
+         * @return 登录响应（包含JWT、用户信息、角色列表）
+         */
         public LoginResponse login(LoginRequest loginRequest) {
                 Authentication authentication = authenticationManager.authenticate(
                                 new UsernamePasswordAuthenticationToken(loginRequest.getUsername(),
@@ -42,7 +50,6 @@ public class AuthService {
                                 .map(item -> item.getAuthority())
                                 .collect(Collectors.toList());
 
-                // 查询部门名称
                 String departmentName = null;
                 if (userDetails.getDepartmentId() != null) {
                         Department department = departmentRepository.findById(userDetails.getDepartmentId())

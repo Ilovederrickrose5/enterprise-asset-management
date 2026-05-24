@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+/** 仪表盘控制器 - 处理首页统计数据和操作记录（根据角色返回不同数据） */
 @RestController
 @RequestMapping("/api/dashboard")
 public class DashboardController {
@@ -39,6 +40,11 @@ public class DashboardController {
     @Autowired
     private RecentOperationService recentOperationService;
 
+    /**
+     * GET /api/dashboard/stats - 获取仪表盘统计数据
+     * 权限：admin查看全部统计，manager/leader查看部门统计，普通用户查看个人资产统计
+     * @return 统计数据
+     */
     @GetMapping("/stats")
     public ResponseEntity<Result<DashboardStatsDTO>> getStats() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
@@ -52,7 +58,6 @@ public class DashboardController {
         User user = userOpt.get();
         DashboardStatsDTO stats;
 
-        // 根据用户角色返回不同的统计数据
         boolean isAdmin = "admin".equals(user.getRole());
         boolean isManager = "manager".equals(user.getRole());
         boolean isLeader = "leader".equals(user.getRole());
@@ -68,7 +73,10 @@ public class DashboardController {
         return ResponseEntity.ok(Result.success(stats));
     }
 
-    // 测试接口，直接查询资产表
+    /**
+     * GET /api/dashboard/test-asset-count - 测试接口：查询资产总数
+     * @return 资产统计结果
+     */
     @GetMapping("/test-asset-count")
     public ResponseEntity<Result<Map<String, Object>>> testAssetCount() {
         Map<String, Object> result = new HashMap<>();
@@ -86,7 +94,11 @@ public class DashboardController {
         return ResponseEntity.ok(Result.success(result));
     }
 
-    // 获取最近操作记录（旧版本，保持兼容性）
+    /**
+     * GET /api/dashboard/recent-operations - 获取最近操作记录（旧版本，保持兼容性）
+     * @param limit 返回数量限制，默认10
+     * @return 最近操作记录列表
+     */
     @GetMapping("/recent-operations")
     public ResponseEntity<Result<List<RecentOperationDTO>>> getRecentOperations(
             @RequestParam(defaultValue = "10") int limit) {
@@ -109,7 +121,12 @@ public class DashboardController {
         }
     }
 
-    // 获取仪表盘操作数据（新版，包含待处理任务和最近动态）
+    /**
+     * GET /api/dashboard/operations - 获取仪表盘操作数据（新版）
+     * 包含待处理任务和最近动态
+     * @param limit 返回数量限制，默认10
+     * @return 仪表盘操作数据
+     */
     @GetMapping("/operations")
     public ResponseEntity<Result<DashboardOperationsDTO>> getDashboardOperations(
             @RequestParam(defaultValue = "10") int limit) {

@@ -12,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
+/** 用户服务 - 处理用户CRUD操作与权限管理 */
 @Service
 public class UserService {
 
@@ -24,56 +25,61 @@ public class UserService {
     @Autowired
     private PasswordEncoder passwordEncoder;
 
+    /** 获取所有用户列表 */
     public List<User> getAllUsers() {
         return userRepository.findAll();
     }
 
+    /** 获取活跃用户列表（status=1） */
     public List<User> getActiveUsers() {
         return userRepository.findAll().stream()
                 .filter(user -> user.getStatus() == 1)
                 .toList();
     }
 
+    /** 根据ID获取用户 */
     public User getUserById(Long id) {
         return userRepository.findById(id).orElse(null);
     }
 
+    /** 根据用户名获取用户 */
     public User getUserByUsername(String username) {
         return userRepository.findByUsername(username).orElse(null);
     }
 
+    /** 根据部门ID获取用户列表 */
     public List<User> getUsersByDepartment(Long departmentId) {
         return userRepository.findAll().stream()
                 .filter(user -> user.getDeptId() != null && user.getDeptId().equals(departmentId))
                 .toList();
     }
 
+    /**
+     * 创建用户
+     * 业务规则：用户名/邮箱/手机号唯一校验 → 角色默认user → 密码加密存储
+     * 事务处理：@Transactional保证数据一致性
+     */
     @Transactional
     public User createUser(User user) {
-        // 检查用户名是否已存在
         if (userRepository.findByUsername(user.getUsername()).isPresent()) {
             throw new RuntimeException("用户名已存在");
         }
 
-        // 检查邮箱是否已存在（如果提供了邮箱）
         if (user.getEmail() != null && !user.getEmail().isEmpty()) {
             if (userRepository.findByEmail(user.getEmail()).isPresent()) {
                 throw new RuntimeException("邮箱已被使用");
             }
         }
 
-        // 检查手机号是否已存在（如果提供了手机号）
         if (user.getPhone() != null && !user.getPhone().isEmpty()) {
             if (userRepository.findByPhone(user.getPhone()).isPresent()) {
                 throw new RuntimeException("手机号已被使用");
             }
         }
 
-        // 如果角色为空，默认设置为普通用户
         if (user.getRole() == null || user.getRole().isEmpty()) {
             user.setRole("user");
         } else {
-            // 将角色转换为小写
             user.setRole(user.getRole().toLowerCase());
         }
 
@@ -83,6 +89,11 @@ public class UserService {
         return userRepository.save(user);
     }
 
+    /**
+     * 更新用户信息
+     * 业务规则：更新基本信息，密码需重新加密，角色转换为小写
+     * 事务处理：@Transactional保证数据一致性
+     */
     @Transactional
     public User updateUser(Long id, User user) {
         User existingUser = userRepository.findById(id).orElse(null);
@@ -98,7 +109,6 @@ public class UserService {
         existingUser.setDeptId(user.getDeptId());
         existingUser.setPosition(user.getPosition());
         existingUser.setStatus(user.getStatus());
-        // 将角色转换为小写
         if (user.getRole() != null) {
             existingUser.setRole(user.getRole().toLowerCase());
         }
@@ -110,6 +120,10 @@ public class UserService {
         return userRepository.save(existingUser);
     }
 
+    /**
+     * 删除用户
+     * 事务处理：@Transactional保证数据一致性
+     */
     @Transactional
     public boolean deleteUser(Long id) {
         if (userRepository.existsById(id)) {
@@ -119,6 +133,11 @@ public class UserService {
         return false;
     }
 
+    /**
+     * 更新用户角色
+     * 业务规则：支持角色ID（数字）或角色代码（字符串），自动转换为小写角色代码
+     * 事务处理：@Transactional保证数据一致性
+     */
     @Transactional
     public User updateRole(Long userId, String roleIdStr) {
         User user = userRepository.findById(userId).orElse(null);
@@ -126,7 +145,6 @@ public class UserService {
             return null;
         }
 
-        // 如果传入的是角色ID（数字），转换为角色代码
         String roleCode = roleIdStr;
         try {
             Long roleId = Long.parseLong(roleIdStr);
@@ -135,10 +153,8 @@ public class UserService {
                 roleCode = role.getCode();
             }
         } catch (NumberFormatException e) {
-            // 如果不是数字，直接使用作为角色代码
         }
 
-        // 将角色代码转换为小写
         if (roleCode != null) {
             roleCode = roleCode.toLowerCase();
         }
@@ -146,10 +162,12 @@ public class UserService {
         return userRepository.save(user);
     }
 
+    /** 获取活跃用户数量 */
     public long getActiveUserCount() {
         return userRepository.countActiveUsers();
     }
 
+    /** 获取指定部门的用户数量 */
     public long getUserCountByDepartment(Long departmentId) {
         return userRepository.countByDeptId(departmentId);
     }

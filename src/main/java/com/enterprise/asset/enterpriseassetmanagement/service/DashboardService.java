@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.Optional;
 
+/** 仪表盘服务 - 处理首页统计数据查询（根据角色返回不同数据） */
 @Service
 public class DashboardService {
 
@@ -26,14 +27,16 @@ public class DashboardService {
     @Autowired
     private AssetApplicationRepository assetApplicationRepository;
 
+    /**
+     * 获取管理员仪表盘统计数据
+     * 统计内容：资产总数、待审批数量、部门数、用户数
+     */
     public DashboardStatsDTO getStatsForAdmin() {
         DashboardStatsDTO stats = new DashboardStatsDTO();
 
-        // 查询所有资产，不限制status
         long assetCount = assetRepository.countAllAssets();
         stats.setAssetCount(assetCount);
 
-        // 查询所有待审批的申请数量（所有类型）
         long totalPending = assetApplicationRepository.countByStatus("pending");
         stats.setPendingCount(totalPending);
         stats.setDepartmentCount(departmentRepository.countByStatus(1));
@@ -49,10 +52,13 @@ public class DashboardService {
         return stats;
     }
 
+    /**
+     * 获取部门仪表盘统计数据
+     * 统计内容：部门资产数、部门用户数
+     */
     public DashboardStatsDTO getStatsForDepartment(Long deptId) {
         DashboardStatsDTO stats = new DashboardStatsDTO();
 
-        // 查询部门资产，不限制status
         long assetCount = assetRepository.countAllAssetsByDepartment(deptId);
         stats.setAssetCount(assetCount);
 
@@ -71,10 +77,13 @@ public class DashboardService {
         return stats;
     }
 
+    /**
+     * 获取个人仪表盘统计数据
+     * 统计内容：个人资产数
+     */
     public DashboardStatsDTO getStatsForUser(Long userId) {
         DashboardStatsDTO stats = new DashboardStatsDTO();
 
-        // 查询用户资产，不限制status
         long assetCount = assetRepository.countAllAssetsByUser(userId);
         stats.setAssetCount(assetCount);
 

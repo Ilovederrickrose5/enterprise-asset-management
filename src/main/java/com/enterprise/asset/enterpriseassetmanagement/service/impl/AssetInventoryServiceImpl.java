@@ -25,6 +25,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+/** 资产盘点服务实现 - 处理盘点计划管理与执行（含权限校验、任务分配、结果统计） */
 @Service
 public class AssetInventoryServiceImpl implements AssetInventoryService {
 

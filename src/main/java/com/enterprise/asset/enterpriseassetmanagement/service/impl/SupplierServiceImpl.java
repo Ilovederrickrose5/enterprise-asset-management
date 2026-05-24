@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 import java.util.Optional;
 
+/** 供应商服务实现 - 处理供应商CRUD操作 */
 @Service
 public class SupplierServiceImpl implements SupplierService {
 
@@ -31,6 +32,10 @@ public class SupplierServiceImpl implements SupplierService {
         return supplierRepository.save(supplier);
     }
 
+    /**
+     * 更新供应商信息
+     * 业务流程：查询供应商→更新字段（名称、联系人、电话、地址、状态）→保存
+     */
     @Override
     public Supplier updateSupplier(Long id, Supplier supplier) {
         Optional<Supplier> existingSupplier = supplierRepository.findById(id);

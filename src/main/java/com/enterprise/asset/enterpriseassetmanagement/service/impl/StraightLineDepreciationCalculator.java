@@ -9,6 +9,7 @@ import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 
+/** 直线法折旧计算器 - 按资产原值和使用年限平均分摊折旧 */
 public class StraightLineDepreciationCalculator implements DepreciationCalculator {
 
     private static final String DEPRECIATION_METHOD = "STRAIGHT_LINE";

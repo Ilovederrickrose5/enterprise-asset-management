@@ -24,6 +24,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
+/** 采购申请服务实现 - 处理采购申请流程管理（含权限校验、审批流程、日志记录） */
 @Service
 public class PurchaseRequestServiceImpl implements PurchaseRequestService {
 

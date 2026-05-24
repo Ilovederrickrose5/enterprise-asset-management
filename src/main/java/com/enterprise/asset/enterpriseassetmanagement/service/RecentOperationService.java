@@ -22,6 +22,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 
+/** 最近操作服务 - 处理仪表盘待办任务和操作记录查询 */
 @Service
 public class RecentOperationService {
 
@@ -40,6 +41,10 @@ public class RecentOperationService {
     @Autowired
     private AssetInventoryRepository assetInventoryRepository;
 
+    /**
+     * 获取仪表盘操作数据（待办任务+最近动态）
+     * 权限规则：admin/leader查看待审批任务，普通用户查看自己的申请结果
+     */
     public DashboardOperationsDTO getDashboardOperations(int limit, User user) {
         List<RecentOperationDTO> pendingTasks = new ArrayList<>();
 
