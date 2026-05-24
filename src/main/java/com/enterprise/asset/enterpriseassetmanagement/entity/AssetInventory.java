@@ -53,10 +53,10 @@ public class AssetInventory {
 
     @Column(name = "actual_completion_time")
     private LocalDateTime actualCompletionTime;
-
+    // 被分配人ID
     @Column(name = "assignee_id")
     private Long assigneeId;
-
+    // 被分配人姓名
     @Column(name = "assignee_name")
     private String assigneeName;
 
