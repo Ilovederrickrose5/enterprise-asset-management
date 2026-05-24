@@ -201,7 +201,7 @@ public class AssetApplicationController {
         return ResponseEntity.ok(Result.success(application));
     }
 
-    /** 创建报废终审申请 - 触发领导审批流程 */
+    // 部门资产管理员创建报废终审申请
     @PostMapping("/create-final-approval")
     public ResponseEntity<Result<AssetApplication>> createFinalApproval(
             @RequestBody AssetApplication finalApprovalRequest) {
