@@ -182,7 +182,7 @@ public class DepreciationServiceImpl implements DepreciationService {
             throw new RuntimeException("折旧计算结果验证失败");
         }
 
-        // 保存记录（更新或新增）
+        // 当月已有记录（执行更新逻辑）
         if (!existingRecords.isEmpty()) {
             DepreciationRecord existingRecord = existingRecords.get(0);
             existingRecord.setDepreciationMethod(record.getDepreciationMethod());
@@ -192,6 +192,7 @@ public class DepreciationServiceImpl implements DepreciationService {
             existingRecord.setUsedMonths(record.getUsedMonths());
             existingRecord.setDepreciationPeriod(record.getDepreciationPeriod());
             record = depreciationRecordRepository.save(existingRecord);
+            // 当月没有记录（执行新增逻辑）
         } else {
             record = depreciationRecordRepository.save(record);
         }

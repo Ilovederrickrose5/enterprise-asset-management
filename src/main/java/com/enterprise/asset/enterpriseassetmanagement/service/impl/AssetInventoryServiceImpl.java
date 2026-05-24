@@ -296,11 +296,11 @@ public class AssetInventoryServiceImpl implements AssetInventoryService {
 
         // 记录操作日志（使用inventoryName显示更准确的计划名称）
         String planName = savedPlan.getInventoryName() != null ? savedPlan.getInventoryName() : savedPlan.getPlanName();
-        
+
         // 记录分配人的日志
         saveInventoryLog(currentUserId, currentUsername, "分配盘点任务",
                 "将盘点计划'" + planName + "'分配给: " + assigneeName, "INVENTORY");
-        
+
         // 记录被分配人的日志（让被分配人能看到"谁分配了任务给我"）
         saveInventoryLog(assigneeId, assigneeName, "收到盘点任务",
                 currentUsername + " 分配给您盘点任务: " + planName, "INVENTORY");
@@ -536,11 +536,11 @@ public class AssetInventoryServiceImpl implements AssetInventoryService {
     private void calculateInventoryResult(AssetInventory plan) {
         List<AssetInventoryDetail> details = assetInventoryDetailRepository.findByInventoryId(plan.getId());
 
-        int totalCount = details.size();
-        int actualCount = 0;
+        int totalCount = details.size();// 资产总数
+        int actualCount = 0;// 实际盘点数
         int surplusCount = 0; // 盘盈（实际数量 > 系统数量）
         int shortageCount = 0; // 盘亏（实际数量 < 系统数量）
-
+        // 遍历盘点明细，判断盘盈/盘亏
         for (AssetInventoryDetail detail : details) {
             // 更新差异数量
             int diff = detail.getActualQuantity() - detail.getSystemQuantity();
