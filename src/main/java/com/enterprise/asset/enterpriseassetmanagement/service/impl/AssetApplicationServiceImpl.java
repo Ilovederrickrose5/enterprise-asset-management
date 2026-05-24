@@ -75,6 +75,7 @@ public class AssetApplicationServiceImpl implements AssetApplicationService {
         // 接收Controller传来的申请对象
         application.setApplicationDate(LocalDateTime.now());
         if (application.getStatus() == null || application.getStatus().isEmpty()) {
+            // 提交申请后资产状态为“待审批”
             application.setStatus("pending");
         }
 

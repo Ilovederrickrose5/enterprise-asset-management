@@ -152,7 +152,7 @@ public class AssetApplicationController {
             return ResponseEntity.ok(Result.error(404, "申请不存在"));
         }
 
-        // 报废申请二级审批逻辑
+        // 领导审批（一级）
         if ("DISPOSAL".equals(existingApplication.getApplicationType())) {
             if ("ROLE_admin".equals(userRole) || "ROLE_leader".equals(userRole)) {
                 if ("pending_leader".equals(existingApplication.getStatus())) {
@@ -171,6 +171,7 @@ public class AssetApplicationController {
                     return ResponseEntity.ok(Result.success(application));
                 }
             } else {
+                // 资产管理员审批（二级）
                 if ("leader_approved".equalsIgnoreCase(existingApplication.getStatus())) {
                     AssetApplication application = assetApplicationService.approveApplication(
                             id, approvalRequest.getApproverId(), approvalRequest.getApproverName(),
