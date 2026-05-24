@@ -23,7 +23,16 @@ import java.util.Optional;
 
 /**
  * 折旧计算服务实现类
- * 负责资产折旧的计算、批量处理、任务管理和记录查询
+ * 
+ * 【职责】：处理折旧计算业务逻辑 → 调用计算器 → 保存结果 → 返回给控制器
+ * 
+ * 【数据流向】：
+ * Controller传入参数 → 查询资产信息 → 查询累计折旧 → 选择计算器 → 计算 → 保存记录 → 返回
+ * 
+ * 【依赖组件】：
+ * - AssetRepository：查询资产信息
+ * - DepreciationRecordRepository：查询和保存折旧记录
+ * - DepreciationCalculatorFactory：根据方法类型获取对应的计算器
  */
 @Service
 public class DepreciationServiceImpl implements DepreciationService {
@@ -31,13 +40,13 @@ public class DepreciationServiceImpl implements DepreciationService {
     private static final Logger logger = LoggerFactory.getLogger(DepreciationServiceImpl.class);
 
     @Autowired
-    private AssetRepository assetRepository;
+    private AssetRepository assetRepository; // ↓ 资产数据访问
 
     @Autowired
-    private DepreciationRecordRepository depreciationRecordRepository;
+    private DepreciationRecordRepository depreciationRecordRepository; // ↓ 折旧记录数据访问
 
     @Autowired
-    private DepreciationCalculatorFactory calculatorFactory;
+    private DepreciationCalculatorFactory calculatorFactory; // ↓ 计算器工厂
 
     @Override
     @Transactional
@@ -108,73 +117,72 @@ public class DepreciationServiceImpl implements DepreciationService {
         return record;
     }
 
+    /**
+     * 计算单个资产折旧（支持自定义折旧方法）
+     * 流程：查资产→校验→查累计折旧→选方法→调计算器→保存记录→更新净值
+     * 参数：assetId, startDate, endDate, depreciationMethod(可选),
+     * actualWorkUnits(工作量法用)
+     */
     @Override
     @Transactional
     public DepreciationRecord calculateAssetDepreciation(Long assetId, LocalDate startDate, LocalDate endDate,
             String depreciationMethod, Integer actualWorkUnits) {
+        // 查资产
         Optional<Asset> assetOpt = assetRepository.findById(assetId);
-        if (assetOpt.isEmpty()) {
+        if (assetOpt.isEmpty())
             throw new RuntimeException("资产不存在: " + assetId);
-        }
-
         Asset asset = assetOpt.get();
 
+        // 校验状态和字段
         if (!"in_stock".equals(asset.getStatus()) && !"using".equals(asset.getStatus())
                 && !"maintenance".equals(asset.getStatus())) {
             throw new RuntimeException("资产状态不允许计提折旧: " + asset.getStatus());
         }
-
         if (asset.getOriginalValue() == null || asset.getOriginalValue().compareTo(BigDecimal.ZERO) <= 0) {
             throw new RuntimeException("资产原值必须大于0");
         }
-
         if (asset.getUsefulLife() == null || asset.getUsefulLife() <= 0) {
             throw new RuntimeException("资产使用年限必须大于0");
         }
 
+        // 查累计折旧和已使用月数
         Optional<DepreciationRecord> lastRecordOpt = depreciationRecordRepository
                 .findTopByAssetIdOrderByCreateTimeDesc(assetId);
         BigDecimal accumulatedDepreciation = lastRecordOpt.map(DepreciationRecord::getAccumulatedDepreciation)
                 .orElse(BigDecimal.ZERO);
         Integer usedMonths = lastRecordOpt.map(DepreciationRecord::getUsedMonths).orElse(0);
 
+        // 检查使用年限
         if (usedMonths >= asset.getUsefulLife()) {
             logger.info("资产已达到使用年限，不再计提折旧: {}", asset.getAssetNo());
             return null;
         }
 
-        // 使用传入的折旧方法，如果没有传入则使用资产预设的方法
+        // 确定折旧方法（优先级：传入 > 资产预设 > 默认直线法）
         String method = (depreciationMethod != null && !depreciationMethod.isEmpty())
                 ? depreciationMethod
                 : (asset.getDepreciationMethod() != null ? asset.getDepreciationMethod() : "STRAIGHT_LINE");
 
-        // 检查当月是否已有折旧记录，如果有则更新而不是插入新记录
+        // 检查当月是否已有记录
         String depreciationMonth = startDate.getYear() + "-" + String.format("%02d", startDate.getMonthValue());
         List<DepreciationRecord> existingRecords = depreciationRecordRepository
                 .findByAssetId(assetId).stream()
                 .filter(r -> depreciationMonth.equals(r.getDepreciationMonth()))
                 .toList();
 
+        // 调计算器计算
         DepreciationCalculator calculator = calculatorFactory.getCalculator(method);
+        DepreciationRecord record = "WORK_UNIT".equals(method)
+                ? calculator.calculateDepreciation(asset, startDate, endDate, accumulatedDepreciation, usedMonths,
+                        BigDecimal.valueOf(actualWorkUnits != null ? actualWorkUnits : 1))
+                : calculator.calculateDepreciation(asset, startDate, endDate, accumulatedDepreciation, usedMonths);
 
-        DepreciationRecord record;
-        if ("WORK_UNIT".equals(method)) {
-            // 对于工作量法，使用传入的实际工作量，如果没有传入则默认使用1
-            BigDecimal workUnits = (actualWorkUnits != null) ? BigDecimal.valueOf(actualWorkUnits) : BigDecimal.ONE;
-            record = calculator.calculateDepreciation(asset, startDate, endDate, accumulatedDepreciation, usedMonths,
-                    workUnits);
-        } else {
-            record = calculator.calculateDepreciation(asset, startDate, endDate, accumulatedDepreciation, usedMonths);
-        }
-
-        // 设置计算使用的折旧方法
         record.setDepreciationMethod(method);
-
         if (!validateDepreciationCalculation(asset, record)) {
             throw new RuntimeException("折旧计算结果验证失败");
         }
 
-        // 如果当月已有记录，更新现有记录；否则保存新记录
+        // 保存记录（更新或新增）
         if (!existingRecords.isEmpty()) {
             DepreciationRecord existingRecord = existingRecords.get(0);
             existingRecord.setDepreciationMethod(record.getDepreciationMethod());
@@ -188,12 +196,12 @@ public class DepreciationServiceImpl implements DepreciationService {
             record = depreciationRecordRepository.save(record);
         }
 
+        // 更新资产净值
         asset.setNetValue(record.getCurrentNetValue());
         assetRepository.save(asset);
 
         logger.info("资产折旧计算完成(自定义方法): {} 折旧方法: {} 折旧金额: {} 净值: {}",
                 asset.getAssetNo(), method, record.getDepreciationAmount(), record.getCurrentNetValue());
-
         return record;
     }
 
@@ -255,18 +263,20 @@ public class DepreciationServiceImpl implements DepreciationService {
 
     @Override
     @Transactional
-    public List<DepreciationRecord> calculateBatchDepreciation(List<Long> assetIds, String depreciationMonth, String depreciationMethod) {
+    public List<DepreciationRecord> calculateBatchDepreciation(List<Long> assetIds, String depreciationMonth,
+            String depreciationMethod) {
         // 解析折旧月份，格式为 "yyyy-MM"
         LocalDate startDate = LocalDate.parse(depreciationMonth + "-01");
         LocalDate endDate = startDate.plusMonths(1).minusDays(1);
-        
+
         List<DepreciationRecord> results = new ArrayList<>();
         int successCount = 0;
         int failureCount = 0;
 
         for (Long assetId : assetIds) {
             try {
-                DepreciationRecord record = calculateAssetDepreciation(assetId, startDate, endDate, depreciationMethod, null);
+                DepreciationRecord record = calculateAssetDepreciation(assetId, startDate, endDate, depreciationMethod,
+                        null);
                 if (record != null) {
                     results.add(record);
                     successCount++;

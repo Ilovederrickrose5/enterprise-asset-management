@@ -11,7 +11,10 @@ import org.springframework.web.bind.annotation.*;
 import java.time.LocalDate;
 import java.util.List;
 
-/** 折旧计算控制器 - 处理资产折旧计算与记录管理 */
+/**
+ * 折旧计算控制器 - 处理资产折旧计算与记录管理
+ * 职责：接收前端请求 → 转发给业务层 → 返回响应
+ */
 @RestController
 @RequestMapping("/api/depreciation")
 public class DepreciationController {
@@ -21,12 +24,9 @@ public class DepreciationController {
 
     /**
      * POST /api/depreciation/calculate/{assetId} - 计算单个资产折旧
-     * @param assetId 资产ID
-     * @param startDate 开始日期
-     * @param endDate 结束日期
-     * @param depreciationMethod 折旧方法（可选）
-     * @param actualWorkUnits 实际工作量（工作量法时使用）
-     * @return 折旧记录
+     * 流程：接收前端参数 → 调用Service → 返回结果
+     * 参数：assetId(路径), startDate, endDate, depreciationMethod(可选),
+     * actualWorkUnits(工作量法用)
      */
     @PostMapping("/calculate/{assetId}")
     public ResponseEntity<Result<DepreciationRecord>> calculateAssetDepreciation(
@@ -46,8 +46,9 @@ public class DepreciationController {
 
     /**
      * POST /api/depreciation/calculate/batch - 批量计算资产折旧
-     * @param assetIds 资产ID列表
-     * @param depreciationMonth 折旧月份
+     * 
+     * @param assetIds           资产ID列表
+     * @param depreciationMonth  折旧月份
      * @param depreciationMethod 折旧方法（可选）
      * @return 折旧记录列表
      */
@@ -67,8 +68,9 @@ public class DepreciationController {
 
     /**
      * POST /api/depreciation/calculate/all - 计算所有资产折旧
+     * 
      * @param startDate 开始日期
-     * @param endDate 结束日期
+     * @param endDate   结束日期
      * @return 折旧记录列表
      */
     @PostMapping("/calculate/all")
@@ -85,6 +87,7 @@ public class DepreciationController {
 
     /**
      * GET /api/depreciation/records/{recordId} - 获取折旧记录详情
+     * 
      * @param recordId 记录ID
      * @return 折旧记录
      */
@@ -100,6 +103,7 @@ public class DepreciationController {
 
     /**
      * GET /api/depreciation/records/asset/{assetId} - 获取资产的所有折旧记录
+     * 
      * @param assetId 资产ID
      * @return 折旧记录列表
      */
@@ -116,6 +120,7 @@ public class DepreciationController {
 
     /**
      * GET /api/depreciation/records/asset/{assetId}/latest - 获取资产最新折旧记录
+     * 
      * @param assetId 资产ID
      * @return 最新折旧记录
      */
@@ -131,8 +136,9 @@ public class DepreciationController {
 
     /**
      * GET /api/depreciation/records/date-range - 按日期范围查询折旧记录
+     * 
      * @param startDate 开始日期
-     * @param endDate 结束日期
+     * @param endDate   结束日期
      * @return 折旧记录列表
      */
     @GetMapping("/records/date-range")
@@ -150,6 +156,7 @@ public class DepreciationController {
 
     /**
      * GET /api/depreciation/records/category/{categoryId} - 按类别查询折旧记录
+     * 
      * @param categoryId 类别ID
      * @return 折旧记录列表
      */
@@ -166,6 +173,7 @@ public class DepreciationController {
 
     /**
      * GET /api/depreciation/records/department/{departmentId} - 按部门查询折旧记录
+     * 
      * @param departmentId 部门ID
      * @return 折旧记录列表
      */
@@ -182,6 +190,7 @@ public class DepreciationController {
 
     /**
      * DELETE /api/depreciation/records/{recordId}/rollback - 回滚折旧记录
+     * 
      * @param recordId 记录ID
      * @return 回滚结果
      */

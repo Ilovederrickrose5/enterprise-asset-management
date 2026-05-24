@@ -131,7 +131,8 @@ public class AssetApplicationServiceImpl implements AssetApplicationService {
 
     /**
      * 批准申请
-     * Controller传入: id(申请ID)、approverId(审批人ID)、approverName(审批人姓名)、approvalRemark(审批备注)
+     * Controller传入:
+     * id(申请ID)、approverId(审批人ID)、approverName(审批人姓名)、approvalRemark(审批备注)
      * 业务逻辑: 更新申请状态→根据申请类型更新资产状态(领用/转移/报废)→添加审批日志
      * 返回: 批准后的申请记录
      */
@@ -202,7 +203,8 @@ public class AssetApplicationServiceImpl implements AssetApplicationService {
 
     @Override
     @Transactional
-    public AssetApplication approveApplicationForLeader(Long id, Long approverId, String approverName, String approvalRemark) {
+    public AssetApplication approveApplicationForLeader(Long id, Long approverId, String approverName,
+            String approvalRemark) {
         AssetApplication application = assetApplicationRepository.findById(id).orElse(null);
         if (application == null) {
             return null;
@@ -373,10 +375,14 @@ public class AssetApplicationServiceImpl implements AssetApplicationService {
 
     /** 申请类型英文转中文 */
     private String getTypeNameCN(String applicationType) {
-        if ("RECEIVE".equals(applicationType)) return "资产领用";
-        if ("TRANSFER".equals(applicationType)) return "资产转移";
-        if ("MAINTENANCE".equals(applicationType) || "REPAIR".equals(applicationType)) return "资产维修";
-        if ("DISPOSAL".equals(applicationType)) return "资产报废";
+        if ("RECEIVE".equals(applicationType))
+            return "资产领用";
+        if ("TRANSFER".equals(applicationType))
+            return "资产转移";
+        if ("MAINTENANCE".equals(applicationType) || "REPAIR".equals(applicationType))
+            return "资产维修";
+        if ("DISPOSAL".equals(applicationType))
+            return "资产报废";
         return applicationType;
     }
 
