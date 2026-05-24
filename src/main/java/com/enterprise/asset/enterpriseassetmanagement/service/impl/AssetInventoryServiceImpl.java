@@ -542,11 +542,11 @@ public class AssetInventoryServiceImpl implements AssetInventoryService {
         int shortageCount = 0; // 盘亏（实际数量 < 系统数量）
         // 遍历盘点明细，判断盘盈/盘亏
         for (AssetInventoryDetail detail : details) {
-            // 更新差异数量
+            // 计算差异：实际数量 - 系统数量
             int diff = detail.getActualQuantity() - detail.getSystemQuantity();
             detail.setDifferenceQuantity(diff);
 
-            // 更新状态
+            // 根据差异判断状态
             if (detail.getActualQuantity() > detail.getSystemQuantity()) {
                 detail.setStatus("surplus"); // 盘盈
                 surplusCount++;
