@@ -153,7 +153,7 @@ public class AssetApplicationServiceImpl implements AssetApplicationService {
         application.setApprovalRemark(approvalRemark);
         AssetApplication savedApplication = assetApplicationRepository.save(application);
 
-        // 根据申请类型处理资产
+        // 根据申请类型更新资产状态
         Asset asset = assetRepository.findById(application.getAssetId()).orElse(null);
         if (asset != null) {
             if ("RECEIVE".equals(application.getApplicationType())) {
@@ -178,7 +178,6 @@ public class AssetApplicationServiceImpl implements AssetApplicationService {
             } else if ("MAINTENANCE".equals(application.getApplicationType())) {
                 // 维修: 批准后资产状态不变，等待点击开始维修
             }
-
             // 保存资产状态变更(维修除外)
             if (!("MAINTENANCE".equals(application.getApplicationType()))) {
                 assetRepository.save(asset);
