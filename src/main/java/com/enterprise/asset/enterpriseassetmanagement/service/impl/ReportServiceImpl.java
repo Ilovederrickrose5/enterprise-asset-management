@@ -35,6 +35,7 @@ public class ReportServiceImpl implements ReportService {
      * 业务逻辑：按部门分组资产→统计资产数量、总价值、平均价值→统计各状态资产数量
      */
     @Override
+    // 部门资产统计业务逻辑
     public List<DepartmentAssetStatsDTO> getDepartmentAssetStats() {
         List<Asset> assets = assetRepository.findAll();
         List<User> users = userRepository.findAll();
@@ -65,13 +66,14 @@ public class ReportServiceImpl implements ReportService {
         // 处理每个部门的数据
         for (Map.Entry<Long, List<Asset>> entry : assetsByDepartment.entrySet()) {
             Long departmentId = entry.getKey();
-            
+
             List<Asset> departmentAssets = entry.getValue();
 
             DepartmentAssetStatsDTO stats = new DepartmentAssetStatsDTO();
             stats.setDepartmentId(departmentId);
             // 使用实际的部门名称
-            stats.setDepartmentName(deptIdToNameMap.getOrDefault(departmentId, departmentId != 0L ? "部门" + departmentId : "公共资产"));
+            stats.setDepartmentName(
+                    deptIdToNameMap.getOrDefault(departmentId, departmentId != 0L ? "部门" + departmentId : "公共资产"));
             stats.setAssetCount(departmentAssets.size());
 
             // 计算总价值
@@ -102,6 +104,7 @@ public class ReportServiceImpl implements ReportService {
     }
 
     @Override
+    // 资产状态分布业务逻辑
     public List<AssetStatusDistributionDTO> getAssetStatusDistribution() {
         List<Asset> assets = assetRepository.findAll();
         long totalCount = assets.size();

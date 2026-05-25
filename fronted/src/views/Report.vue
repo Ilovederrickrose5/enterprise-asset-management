@@ -141,7 +141,7 @@ export default {
       if (price === null || price === undefined) return '-'
       return '¥' + parseFloat(price).toFixed(2)
     }
-
+    
     const fetchDepartmentStats = async () => {
       try {
         const userStr = localStorage.getItem('user')
@@ -150,7 +150,7 @@ export default {
         
         let response
         if ((userRole === 'manager' || userRole === 'leader') && user.departmentId) {
-          // 部门资产管理员和领导只能查看本部门数据
+          // 获取部门资产统计
           response = await axios.get(`/reports/department-stats/${user.departmentId}`)
         } else {
           // 系统管理员可以查看所有部门数据
@@ -232,9 +232,10 @@ export default {
       // 默认返回user角色
       return 'user';
     }
-
+    // 获取资产状态分布
     const fetchStatusDistribution = async () => {
       try {
+        // 获取资产状态分布
         const response = await axios.get('/reports/status-distribution')
         if (response.data.code === 200) {
           statusDistribution.value = response.data.data
