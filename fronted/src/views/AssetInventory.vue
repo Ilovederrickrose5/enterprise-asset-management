@@ -721,21 +721,79 @@ const submitPlanForm = async () => {
 
   try {
     const user = JSON.parse(localStorage.getItem('user'))
-    const response = await axios.post('/asset-inventory', {
-      ...planForm.value,
-      creatorId: user.id,
+    
+    // 处理日期格式转换
+    // inventoryDate: 转换为 yyyy-MM-dd 格式（后端 LocalDate 类型）
+    const inventoryDateStr = planForm.value.inventoryDate 
+      ? new Date(planForm.value.inventoryDate).toISOString().split('T')[0] 
+      : ''
+    // expectedCompletionTime: 转换为 yyyy-MM-dd'T'HH:mm:ss 格式（后端 LocalDateTime 类型，必须带T）
+    const expectedCompletionTimeStr = planForm.value.expectedCompletionTime 
+      ? new Date(planForm.value.expectedCompletionTime).toISOString().slice(0, 19)  // 保持T分隔符
+      : ''
+    
+    // 构建请求数据
+    const requestData = {
+      inventoryName: planForm.value.inventoryName,
+      inventoryDate: inventoryDateStr,
+      inventoryArea: planForm.value.inventoryArea,
+      inventoryScope: planForm.value.inventoryScope,
+      expectedCompletionTime: expectedCompletionTimeStr,
+      remark: planForm.value.remark || '',
+      creatorId: Number(user.id),  // 确保是数字类型
       creatorName: user.realName || user.username
-    })
+    }
+    
+    // ========== 详细调试日志 ==========
+    console.log('========== 创建盘点计划调试 ==========')
+    console.log('当前用户信息:', user)
+    console.log('表单原始数据:', { ...planForm.value })
+    console.log('构建的请求数据:', requestData)
+    console.log('各字段类型检查:')
+    console.log('  - inventoryName:', typeof requestData.inventoryName, requestData.inventoryName)
+    console.log('  - inventoryDate:', typeof requestData.inventoryDate, requestData.inventoryDate)
+    console.log('  - inventoryScope:', typeof requestData.inventoryScope, requestData.inventoryScope)
+    console.log('  - creatorId:', typeof requestData.creatorId, requestData.creatorId)
+    console.log('  - expectedCompletionTime:', typeof requestData.expectedCompletionTime, requestData.expectedCompletionTime)
+    console.log('localStorage中的token:', localStorage.getItem('token') ? '存在' : '不存在')
+    console.log('======================================')
+    
+    // 创建请求配置
+    const requestConfig = {
+      baseURL: '',  // 避免重复添加/api前缀
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + localStorage.getItem('token')
+      }
+    }
+    
+    console.log('请求配置:', requestConfig)
+    
+    const response = await axios.post('/api/asset-inventory', requestData, requestConfig)
 
+    console.log('响应数据:', response)
+    
     if (response.data.code === 200) {
       ElMessage.success('创建盘点计划成功')
       createDialogVisible.value = false
       fetchInventoryPlans()
     } else {
-      ElMessage.error('创建盘点计划失败')
+      console.error('业务错误:', response.data)
+      ElMessage.error('创建盘点计划失败: ' + (response.data.message || response.data.msg || '未知错误'))
     }
   } catch (error) {
-    ElMessage.error('创建盘点计划失败')
+    console.error('========== 请求异常 ==========')
+    console.error('错误对象:', error)
+    console.error('错误消息:', error.message)
+    if (error.response) {
+      console.error('响应状态码:', error.response.status)
+      console.error('响应头:', error.response.headers)
+      console.error('响应数据:', error.response.data)
+    } else if (error.request) {
+      console.error('请求对象:', error.request)
+    }
+    console.error('==============================')
+    ElMessage.error('创建盘点计划失败: ' + (error.response?.data?.message || error.response?.data?.msg || error.message))
   }
 }
 

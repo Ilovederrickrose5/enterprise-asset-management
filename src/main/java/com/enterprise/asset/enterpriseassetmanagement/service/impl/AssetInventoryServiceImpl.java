@@ -144,21 +144,23 @@ public class AssetInventoryServiceImpl implements AssetInventoryService {
     }
 
     /**
-     * 生成盘点编号
+     * 生成盘点编号，格式：INV + 年份(4位) + 月份(2位) + 序号(5位)，共14位
      */
     private String generateInventoryNo() {
         LocalDateTime now = LocalDateTime.now();
         String year = String.format("%04d", now.getYear());
         String month = String.format("%02d", now.getMonthValue());
+        String prefix = "INV" + year + month;
 
         // 查询本月最大编号
         List<AssetInventory> thisMonthPlans = assetInventoryRepository
-                .findByInventoryNoStartingWith("INV" + year + month);
+                .findByInventoryNoStartingWith(prefix);
         int maxSeq = 0;
         for (AssetInventory plan : thisMonthPlans) {
             String no = plan.getInventoryNo();
-            if (no != null && no.length() >= 10) {
-                String seqStr = no.substring(8);
+            if (no != null && no.length() >= 13 && no.startsWith(prefix)) {
+                // 处理13位或更长的编号，截取最后5位作为序号
+                String seqStr = no.substring(no.length() - 5);
                 try {
                     int seq = Integer.parseInt(seqStr);
                     if (seq > maxSeq) {
@@ -171,7 +173,7 @@ public class AssetInventoryServiceImpl implements AssetInventoryService {
         }
 
         int nextSeq = maxSeq + 1;
-        return "INV" + year + month + String.format("%04d", nextSeq);
+        return prefix + String.format("%05d", nextSeq);
     }
 
     @Override
