@@ -31,9 +31,10 @@ public class DashboardService {
      * 获取管理员仪表盘统计数据
      * 统计内容：资产总数、待审批数量、部门数、用户数
      */
+    // 如果Controller中判断为系统管理员，调用该方法
     public DashboardStatsDTO getStatsForAdmin() {
         DashboardStatsDTO stats = new DashboardStatsDTO();
-
+        // 查询资产总数
         long assetCount = assetRepository.countAllAssets();
         stats.setAssetCount(assetCount);
 
@@ -56,6 +57,8 @@ public class DashboardService {
      * 获取部门仪表盘统计数据
      * 统计内容：部门资产数、部门用户数
      */
+    // 部门数据查询
+    // 如果Controller中判断为部门领导或部门资产管理员，调用该方法
     public DashboardStatsDTO getStatsForDepartment(Long deptId) {
         DashboardStatsDTO stats = new DashboardStatsDTO();
 
@@ -81,9 +84,11 @@ public class DashboardService {
      * 获取个人仪表盘统计数据
      * 统计内容：个人资产数
      */
+    // 个人数据查询
+    // 如果Controller中判断为普通用户，调用该方法
     public DashboardStatsDTO getStatsForUser(Long userId) {
         DashboardStatsDTO stats = new DashboardStatsDTO();
-
+        // 查询个人资产数
         long assetCount = assetRepository.countAllAssetsByUser(userId);
         stats.setAssetCount(assetCount);
 

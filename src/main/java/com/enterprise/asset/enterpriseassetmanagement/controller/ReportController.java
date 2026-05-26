@@ -31,6 +31,7 @@ public class ReportController {
     /**
      * GET /api/reports/department-stats - 获取部门资产统计
      * 权限：admin查看全部，leader/manager查看本部门，普通用户无权限
+     * 
      * @return 部门资产统计列表
      */
     @GetMapping("/department-stats")
@@ -44,11 +45,11 @@ public class ReportController {
                     boolean isAdmin = "admin".equals(user.getRole());
                     boolean isLeader = "leader".equals(user.getRole());
                     boolean isManager = "manager".equals(user.getRole());
-
+                    // 普通用户无权限访问部门资产统计
                     if (!isAdmin && !isLeader && !isManager) {
                         return ResponseEntity.ok(Result.error(403, "无权限访问部门资产统计"));
                     }
-
+                    // 如果是系统管理员，可以查看全部部门资产统计
                     if ((isManager || isLeader) && user.getDeptId() != null) {
                         List<DepartmentAssetStatsDTO> stats = reportService
                                 .getDepartmentAssetStatsByDepartment(user.getDeptId());
@@ -68,6 +69,7 @@ public class ReportController {
     /**
      * GET /api/reports/department-stats/{departmentId} - 获取指定部门资产统计
      * 权限：admin可查看任意部门，leader/manager只能查看本部门
+     * 
      * @param departmentId 部门ID
      * @return 部门资产统计列表
      */
@@ -99,6 +101,7 @@ public class ReportController {
     /**
      * GET /api/reports/status-distribution - 获取资产状态分布
      * 权限：admin查看全部，leader/manager查看本部门，普通用户无权限
+     * 
      * @return 资产状态分布列表
      */
     @GetMapping("/status-distribution")

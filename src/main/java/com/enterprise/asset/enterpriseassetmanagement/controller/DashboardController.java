@@ -43,10 +43,13 @@ public class DashboardController {
     /**
      * GET /api/dashboard/stats - 获取仪表盘统计数据
      * 权限：admin查看全部统计，manager/leader查看部门统计，普通用户查看个人资产统计
+     * 
      * @return 统计数据
      */
+    // 获取系统概览统计数据
     @GetMapping("/stats")
     public ResponseEntity<Result<DashboardStatsDTO>> getStats() {
+        // 获取当前用户信息
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         String username = authentication.getName();
 
@@ -57,16 +60,19 @@ public class DashboardController {
 
         User user = userOpt.get();
         DashboardStatsDTO stats;
-
+        // 根据角色判断调用哪个Service方法
         boolean isAdmin = "admin".equals(user.getRole());
         boolean isManager = "manager".equals(user.getRole());
         boolean isLeader = "leader".equals(user.getRole());
 
         if (isAdmin) {
+            // 全公司数据
             stats = dashboardService.getStatsForAdmin();
         } else if (isManager || isLeader) {
+            // 部门数据
             stats = dashboardService.getStatsForDepartment(user.getDeptId());
         } else {
+            // 个人数据
             stats = dashboardService.getStatsForUser(user.getId());
         }
 
@@ -75,6 +81,7 @@ public class DashboardController {
 
     /**
      * GET /api/dashboard/test-asset-count - 测试接口：查询资产总数
+     * 
      * @return 资产统计结果
      */
     @GetMapping("/test-asset-count")
@@ -96,6 +103,7 @@ public class DashboardController {
 
     /**
      * GET /api/dashboard/recent-operations - 获取最近操作记录（旧版本，保持兼容性）
+     * 
      * @param limit 返回数量限制，默认10
      * @return 最近操作记录列表
      */
@@ -124,6 +132,7 @@ public class DashboardController {
     /**
      * GET /api/dashboard/operations - 获取仪表盘操作数据（新版）
      * 包含待处理任务和最近动态
+     * 
      * @param limit 返回数量限制，默认10
      * @return 仪表盘操作数据
      */
