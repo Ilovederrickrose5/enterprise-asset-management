@@ -156,6 +156,7 @@ public class AssetApplicationServiceImpl implements AssetApplicationService {
         // 根据申请类型更新资产状态
         Asset asset = assetRepository.findById(application.getAssetId()).orElse(null);
         if (asset != null) {
+            // 根据applicationType 区分业务逻辑
             if ("RECEIVE".equals(application.getApplicationType())) {
                 // 领用: 资产分配给申请人
                 asset.setStatus("using");
