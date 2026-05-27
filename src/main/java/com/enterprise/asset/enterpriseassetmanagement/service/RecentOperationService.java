@@ -401,7 +401,12 @@ public class RecentOperationService {
             if (params != null && params.contains("分配给")) {
                 // 格式：将盘点计划'xxx'分配给: xxx
                 String result = params.replace("将盘点计划'", "").replace("'分配给: ", " → ");
-                return "分配盘点任务「" + result.split(" → ")[0] + "」给 " + result.split(" → ")[1];
+                String[] parts = result.split(" → ");
+                if (parts.length >= 2) {
+                    return "分配盘点任务「" + parts[0] + "」给 " + parts[1];
+                } else {
+                    return "分配了盘点任务";
+                }
             }
             return "分配了盘点任务";
         } else if ("收到盘点任务".equals(operation)) {
@@ -414,19 +419,19 @@ public class RecentOperationService {
             }
             return "收到盘点任务";
         } else if ("开始盘点".equals(operation)) {
-            if (params != null && params.startsWith("开始执行盘点任务: ")) {
+            if (params != null && params.startsWith("开始执行盘点任务: ") && params.length() > 12) {
                 String planName = params.substring(12);
                 return "开始执行盘点「" + planName + "」";
             }
             return "开始执行盘点任务";
         } else if ("完成盘点".equals(operation)) {
-            if (params != null && params.startsWith("完成盘点任务: ")) {
+            if (params != null && params.startsWith("完成盘点任务: ") && params.length() > 10) {
                 String planInfo = params.substring(10);
                 return "完成盘点「" + planInfo + "」";
             }
             return "完成盘点任务";
         } else if ("删除盘点计划".equals(operation)) {
-            if (params != null && params.startsWith("删除了盘点计划: ")) {
+            if (params != null && params.startsWith("删除了盘点计划: ") && params.length() > 10) {
                 String planName = params.substring(10);
                 return "删除了盘点计划「" + planName + "」";
             }

@@ -134,18 +134,27 @@ public class DashboardController {
             Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
             String username = authentication.getName();
 
+            System.out.println("=== [operations接口] 调试日志: 获取操作数据, 用户: " + username + ", limit: " + limit);
+
             Optional<User> userOpt = userRepository.findByUsername(username);
             if (userOpt.isEmpty()) {
+                System.out.println("=== [operations接口] 用户未找到, username: " + username);
                 return ResponseEntity.ok(Result.error(401, "用户未登录"));
             }
 
             User user = userOpt.get();
+            System.out.println("=== [operations接口] 用户信息, id: " + user.getId() + ", role: " + user.getRole() + ", deptId: " + user.getDeptId());
+            
             DashboardOperationsDTO operations = recentOperationService.getDashboardOperations(limit, user);
+            System.out.println("=== [operations接口] 操作数据获取成功, pendingTasks: " + (operations.getPendingTasks() != null ? operations.getPendingTasks().size() : 0) + ", recentActivities: " + (operations.getRecentActivities() != null ? operations.getRecentActivities().size() : 0));
+            
             return ResponseEntity.ok(Result.success(operations));
         } catch (Exception e) {
-            System.err.println("获取仪表盘操作数据失败: " + e.getMessage());
+            System.err.println("=== [operations接口] 获取仪表盘操作数据失败 ===");
+            System.err.println("异常类型: " + e.getClass().getName());
+            System.err.println("异常消息: " + e.getMessage());
             e.printStackTrace();
-            return ResponseEntity.ok(Result.error(500, "获取仪表盘操作数据失败"));
+            return ResponseEntity.ok(Result.error(500, "获取仪表盘操作数据失败: " + e.getMessage()));
         }
     }
 }

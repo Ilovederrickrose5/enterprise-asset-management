@@ -812,11 +812,14 @@ export default {
     
     const loadRecentOperations = async () => {
       try {
+        console.log('=== [前端调试] 开始调用 /dashboard/operations 接口 ===');
         const response = await axios.get('/dashboard/operations', {
           params: {
             limit: 10
           }
-        })
+        });
+        
+        console.log('=== [前端调试] 响应数据:', response.data);
         
         if (response.data.code === 200) {
           pendingTasks.value = response.data.data.pendingTasks || []
@@ -825,9 +828,19 @@ export default {
           console.error('获取操作数据失败:', response.data.message)
         }
       } catch (error) {
-        console.error('获取操作数据错误:', error)
+        console.error('=== [前端调试] 获取操作数据异常 ===');
+        if (error.response) {
+          console.error('HTTP状态码:', error.response.status);
+          console.error('响应数据:', error.response.data);
+        } else if (error.request) {
+          console.error('请求已发送但无响应');
+        } else {
+          console.error('请求配置错误:', error.message);
+        }
+        
         // 如果新版API失败，降级到旧版API
         try {
+          console.log('=== [前端调试] 尝试降级到旧版API ===');
           const oldResponse = await axios.get('/dashboard/recent-operations', {
             params: {
               limit: 10
