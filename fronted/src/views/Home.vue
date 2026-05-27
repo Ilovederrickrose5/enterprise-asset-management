@@ -131,7 +131,7 @@
           </div>
         </div>
 
-        <!-- 资产概览 -->
+        <!--根据用户角色展示不同的资产概览卡片-->
         <el-card shadow="hover" style="margin-bottom: 20px;">
           <template #header>
             <div class="card-header">
@@ -359,7 +359,7 @@ export default {
     
     const username = localStorage.getItem('username')
     const userDepartment = localStorage.getItem('department') || '公司'
-    
+    // 从本地存储获取用户角色
     const getUserRoleFromLocalStorage = () => {
       const userStr = localStorage.getItem('user')
       if (userStr) {
