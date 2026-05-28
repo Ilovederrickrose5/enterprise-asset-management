@@ -13,7 +13,7 @@ echo ========== 启动后端 ==========
 start "后端服务" cmd /k "cd /d ""D:\Users\30776\IdeaProjects\enterprise-asset-management"" && mvn spring-boot:run"
 
 echo ========== 启动前端 ==========
-start "前端服务" cmd /k "cd /d ""D:\Users\30776\IdeaProjects\enterprise-asset-management\fronted"" && npm run dev"
+start "前端服务" cmd /k "cd /d ""D:\Users\30776\IdeaProjects\enterprise-asset-management\frontend"" && npm run dev"
 
 echo.
 echo 前后端启动中，请等待窗口弹出...

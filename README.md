@@ -544,7 +544,7 @@ src/main/java/com/enterprise/asset/enterpriseassetmanagement/
 ### 7.2 前端项目结构
 
 ```
-fronted/src/
+frontend/src/
 ├── views/                # 页面组件
 │   ├── Home.vue
 │   ├── Login.vue
@@ -625,7 +625,7 @@ mvn spring-boot:run
 
 ```bash
 # 进入前端目录
-cd fronted
+cd frontend
 
 # 安装依赖
 npm install
