@@ -34,9 +34,12 @@ build/
 
 ### Node.js ###
 node_modules/
-fronted/dist/
-fronted/build/
-fronted/.vite/
+frontend/dist/
+frontend/build/
+frontend/.vite/
+
+### CodeGraph ###
+.codegraph/
 
 ### Logs ###
 *.log
