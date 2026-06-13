@@ -9,6 +9,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Data
 public class UserDetailsImpl implements UserDetails {
@@ -43,10 +44,15 @@ public class UserDetailsImpl implements UserDetails {
     private Collection<? extends GrantedAuthority> authorities;
 
     public static UserDetailsImpl build(User user) {
-        List<GrantedAuthority> authorities = new java.util.ArrayList<>();
-        // 如果角色为空，默认设置为普通用户角色
-        String role = user.getRole() != null ? user.getRole().toLowerCase() : "user";
-        authorities.add(new SimpleGrantedAuthority("ROLE_" + role));
+        // 从userRoles关联表获取所有角色
+        List<GrantedAuthority> authorities = user.getRoleCodes().stream()
+                .map(roleCode -> new SimpleGrantedAuthority("ROLE_" + roleCode))
+                .collect(Collectors.toList());
+
+        // 如果没有角色，默认设置为普通用户角色
+        if (authorities.isEmpty()) {
+            authorities.add(new SimpleGrantedAuthority("ROLE_USER"));
+        }
 
         return new UserDetailsImpl(
                 user.getId(),
