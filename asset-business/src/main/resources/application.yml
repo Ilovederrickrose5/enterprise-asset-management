@@ -1,0 +1,59 @@
+spring:
+  application:
+    name: asset-business  # 服务名称，用于Nacos注册
+  
+  # MySQL数据库配置（共享库）
+  datasource:
+    url: jdbc:mysql://localhost:3306/asset_management?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+    username: root
+    password: 123456
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  
+  # JPA配置
+  jpa:
+    hibernate:
+      ddl-auto: none  # 生产环境建议none或validate
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: false
+        dialect: org.hibernate.dialect.MySQLDialect
+  
+  # Jackson配置
+  jackson:
+    serialization:
+      fail-on-empty-beans: false
+    date-format: yyyy-MM-dd HH:mm:ss
+    time-zone: Asia/Shanghai
+
+  # Nacos服务注册配置
+  cloud:
+    nacos:
+      discovery:
+        server-addr: localhost:8848  # Nacos服务器地址
+        namespace: public  # 命名空间（默认public）
+        group: DEFAULT_GROUP  # 分组
+        service: ${spring.application.name}  # 服务名
+        enabled: true  # 启用服务发现
+
+  # OpenFeign配置
+  openfeign:
+    enabled: true
+    client:
+      config:
+        default:
+          connectTimeout: 5000  # 连接超时5秒
+          readTimeout: 5000  # 读取超时5秒
+        asset-auth:  # 针对auth服务的特殊配置
+          connectTimeout: 3000
+          readTimeout: 3000
+
+# 服务器端口配置
+server:
+  port: 8082  # 业务服务端口
+
+# 日志配置
+logging:
+  level:
+    com.enterprise.asset.business: DEBUG
+    com.enterprise.asset.business.client: DEBUG  # Feign客户端日志
