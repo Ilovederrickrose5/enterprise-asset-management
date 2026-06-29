@@ -7,7 +7,6 @@ import com.enterprise.asset.enterpriseassetmanagement.entity.AssetApplication;
 import com.enterprise.asset.enterpriseassetmanagement.entity.User;
 import com.enterprise.asset.enterpriseassetmanagement.service.AssetApplicationService;
 import com.enterprise.asset.enterpriseassetmanagement.service.UserService;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
@@ -20,11 +19,13 @@ import java.util.stream.Collectors;
 @RequestMapping("/api/disposal-records")
 public class DisposalRecordsController {
 
-    @Autowired
-    private AssetApplicationService applicationService;
+    private final AssetApplicationService applicationService;
+    private final UserService userService;
 
-    @Autowired
-    private UserService userService;
+    public DisposalRecordsController(AssetApplicationService applicationService, UserService userService) {
+        this.applicationService = applicationService;
+        this.userService = userService;
+    }
 
     /**
      * GET /api/disposal-records - 获取报废记录列表（支持分页和部门筛选）

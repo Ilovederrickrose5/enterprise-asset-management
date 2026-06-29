@@ -3,7 +3,6 @@ package com.enterprise.asset.enterpriseassetmanagement.controller;
 import com.enterprise.asset.enterpriseassetmanagement.common.Result;
 import com.enterprise.asset.enterpriseassetmanagement.entity.DepreciationRecord;
 import com.enterprise.asset.enterpriseassetmanagement.service.DepreciationService;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -19,8 +18,11 @@ import java.util.List;
 @RequestMapping("/api/depreciation")
 public class DepreciationController {
 
-    @Autowired
-    private DepreciationService depreciationService;
+    private final DepreciationService depreciationService;
+
+    public DepreciationController(DepreciationService depreciationService) {
+        this.depreciationService = depreciationService;
+    }
 
     /**
      * POST /api/depreciation/calculate/{assetId} - 计算单个资产折旧

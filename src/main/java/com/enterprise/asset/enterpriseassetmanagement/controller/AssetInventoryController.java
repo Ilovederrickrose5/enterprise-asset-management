@@ -4,7 +4,6 @@ import com.enterprise.asset.enterpriseassetmanagement.common.Result;
 import com.enterprise.asset.enterpriseassetmanagement.entity.AssetInventory;
 import com.enterprise.asset.enterpriseassetmanagement.entity.AssetInventoryDetail;
 import com.enterprise.asset.enterpriseassetmanagement.service.AssetInventoryService;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -15,11 +14,15 @@ import java.util.List;
 @RequestMapping("/api/asset-inventory")
 public class AssetInventoryController {
 
-    @Autowired
-    private AssetInventoryService assetInventoryService;
+    private final AssetInventoryService assetInventoryService;
+
+    public AssetInventoryController(AssetInventoryService assetInventoryService) {
+        this.assetInventoryService = assetInventoryService;
+    }
 
     /**
      * GET /api/asset-inventory - 获取所有盘点计划
+     * 
      * @return 盘点计划列表
      */
     @GetMapping
@@ -30,6 +33,7 @@ public class AssetInventoryController {
 
     /**
      * GET /api/asset-inventory/{id} - 根据ID获取盘点计划
+     * 
      * @param id 计划ID
      * @return 盘点计划详情
      */
@@ -44,6 +48,7 @@ public class AssetInventoryController {
 
     /**
      * GET /api/asset-inventory/user/{userId} - 获取用户相关的盘点计划（创建或分配的）
+     * 
      * @param userId 用户ID
      * @return 盘点计划列表
      */
@@ -55,6 +60,7 @@ public class AssetInventoryController {
 
     /**
      * GET /api/asset-inventory/status/{status} - 按状态获取盘点计划
+     * 
      * @param status 状态
      * @return 盘点计划列表
      */
@@ -66,6 +72,7 @@ public class AssetInventoryController {
 
     /**
      * GET /api/asset-inventory/creator/{creatorId} - 获取创建人的盘点计划
+     * 
      * @param creatorId 创建人ID
      * @return 盘点计划列表
      */
@@ -77,6 +84,7 @@ public class AssetInventoryController {
 
     /**
      * POST /api/asset-inventory - 创建盘点计划
+     * 
      * @param plan 盘点计划实体
      * @return 创建后的计划
      */
@@ -88,7 +96,8 @@ public class AssetInventoryController {
 
     /**
      * PUT /api/asset-inventory/{id} - 更新盘点计划
-     * @param id 计划ID
+     * 
+     * @param id   计划ID
      * @param plan 更新数据
      * @return 更新后的计划
      */
@@ -103,7 +112,8 @@ public class AssetInventoryController {
 
     /**
      * PUT /api/asset-inventory/{id}/status - 更新盘点计划状态
-     * @param id 计划ID
+     * 
+     * @param id     计划ID
      * @param status 新状态
      * @return 更新后的计划
      */
@@ -118,6 +128,7 @@ public class AssetInventoryController {
 
     /**
      * DELETE /api/asset-inventory/{id} - 删除盘点计划
+     * 
      * @param id 计划ID
      * @return 删除结果
      */
@@ -132,7 +143,8 @@ public class AssetInventoryController {
 
     /**
      * POST /api/asset-inventory/{id}/assign - 分配盘点任务
-     * @param id 计划ID
+     * 
+     * @param id      计划ID
      * @param request 分配信息（assigneeId, assigneeName, inventoryArea）
      * @return 更新后的计划
      */
@@ -149,6 +161,7 @@ public class AssetInventoryController {
 
     /**
      * POST /api/asset-inventory/{id}/start - 开始盘点任务
+     * 
      * @param id 计划ID
      * @return 更新后的计划
      */
@@ -163,6 +176,7 @@ public class AssetInventoryController {
 
     /**
      * POST /api/asset-inventory/{id}/complete - 完成盘点任务
+     * 
      * @param id 计划ID
      * @return 更新后的计划
      */
@@ -177,6 +191,7 @@ public class AssetInventoryController {
 
     /**
      * GET /api/asset-inventory/{id}/details - 获取盘点明细列表
+     * 
      * @param id 计划ID
      * @return 盘点明细列表
      */
@@ -188,7 +203,8 @@ public class AssetInventoryController {
 
     /**
      * POST /api/asset-inventory/{id}/details - 添加盘点明细
-     * @param id 计划ID
+     * 
+     * @param id     计划ID
      * @param detail 盘点明细
      * @return 添加后的明细
      */
@@ -201,8 +217,9 @@ public class AssetInventoryController {
 
     /**
      * PUT /api/asset-inventory/details/{detailId} - 更新盘点明细
+     * 
      * @param detailId 明细ID
-     * @param detail 更新数据
+     * @param detail   更新数据
      * @return 更新后的明细
      */
     @PutMapping("/details/{detailId}")
@@ -217,6 +234,7 @@ public class AssetInventoryController {
 
     /**
      * DELETE /api/asset-inventory/details/{detailId} - 删除盘点明细
+     * 
      * @param detailId 明细ID
      * @return 删除结果
      */
@@ -235,11 +253,28 @@ public class AssetInventoryController {
         private String assigneeName;
         private String inventoryArea;
 
-        public Long getAssigneeId() { return assigneeId; }
-        public void setAssigneeId(Long assigneeId) { this.assigneeId = assigneeId; }
-        public String getAssigneeName() { return assigneeName; }
-        public void setAssigneeName(String assigneeName) { this.assigneeName = assigneeName; }
-        public String getInventoryArea() { return inventoryArea; }
-        public void setInventoryArea(String inventoryArea) { this.inventoryArea = inventoryArea; }
+        public Long getAssigneeId() {
+            return assigneeId;
+        }
+
+        public void setAssigneeId(Long assigneeId) {
+            this.assigneeId = assigneeId;
+        }
+
+        public String getAssigneeName() {
+            return assigneeName;
+        }
+
+        public void setAssigneeName(String assigneeName) {
+            this.assigneeName = assigneeName;
+        }
+
+        public String getInventoryArea() {
+            return inventoryArea;
+        }
+
+        public void setInventoryArea(String inventoryArea) {
+            this.inventoryArea = inventoryArea;
+        }
     }
 }

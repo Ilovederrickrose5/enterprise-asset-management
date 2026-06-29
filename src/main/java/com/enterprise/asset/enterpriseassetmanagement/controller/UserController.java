@@ -3,7 +3,6 @@ package com.enterprise.asset.enterpriseassetmanagement.controller;
 import com.enterprise.asset.enterpriseassetmanagement.common.Result;
 import com.enterprise.asset.enterpriseassetmanagement.entity.User;
 import com.enterprise.asset.enterpriseassetmanagement.service.UserService;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -14,11 +13,15 @@ import java.util.List;
 @RequestMapping("/api/users")
 public class UserController {
 
-    @Autowired
-    private UserService userService;
+    private final UserService userService;
+
+    public UserController(UserService userService) {
+        this.userService = userService;
+    }
 
     /**
      * GET /api/users - 获取所有用户列表
+     * 
      * @return 用户列表
      */
     @GetMapping
@@ -29,6 +32,7 @@ public class UserController {
 
     /**
      * GET /api/users/active - 获取活跃用户列表
+     * 
      * @return 活跃用户列表
      */
     @GetMapping("/active")
@@ -39,6 +43,7 @@ public class UserController {
 
     /**
      * GET /api/users/{id} - 根据ID获取用户详情
+     * 
      * @param id 用户ID
      * @return 用户详情
      */
@@ -53,6 +58,7 @@ public class UserController {
 
     /**
      * GET /api/users/username/{username} - 根据用户名获取用户
+     * 
      * @param username 用户名
      * @return 用户详情
      */
@@ -67,6 +73,7 @@ public class UserController {
 
     /**
      * GET /api/users/department/{departmentId} - 获取部门用户列表
+     * 
      * @param departmentId 部门ID
      * @return 用户列表
      */
@@ -78,6 +85,7 @@ public class UserController {
 
     /**
      * POST /api/users - 创建新用户
+     * 
      * @param user 用户实体（用户名、密码、姓名、部门等）
      * @return 创建后的用户
      */
@@ -89,7 +97,8 @@ public class UserController {
 
     /**
      * PUT /api/users/{id} - 更新用户信息
-     * @param id 用户ID
+     * 
+     * @param id   用户ID
      * @param user 更新的用户数据
      * @return 更新后的用户
      */
@@ -106,6 +115,7 @@ public class UserController {
 
     /**
      * DELETE /api/users/{id} - 删除用户
+     * 
      * @param id 用户ID
      * @return 删除结果
      */
@@ -120,7 +130,8 @@ public class UserController {
 
     /**
      * PUT /api/users/{userId}/roles - 更新用户角色
-     * @param userId 用户ID
+     * 
+     * @param userId    用户ID
      * @param roleCodes 角色编码列表（取第一个）
      * @return 更新后的用户
      */
@@ -138,6 +149,7 @@ public class UserController {
 
     /**
      * GET /api/users/count - 获取活跃用户数量
+     * 
      * @return 用户数量
      */
     @GetMapping("/count")
@@ -148,6 +160,7 @@ public class UserController {
 
     /**
      * GET /api/users/count/department/{departmentId} - 获取部门用户数量
+     * 
      * @param departmentId 部门ID
      * @return 用户数量
      */

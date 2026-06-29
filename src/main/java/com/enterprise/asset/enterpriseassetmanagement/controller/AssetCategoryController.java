@@ -3,7 +3,6 @@ package com.enterprise.asset.enterpriseassetmanagement.controller;
 import com.enterprise.asset.enterpriseassetmanagement.common.Result;
 import com.enterprise.asset.enterpriseassetmanagement.entity.AssetCategory;
 import com.enterprise.asset.enterpriseassetmanagement.service.AssetCategoryService;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -13,12 +12,16 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/asset-categories")
 public class AssetCategoryController {
-    
-    @Autowired
-    private AssetCategoryService assetCategoryService;
-    
+
+    private final AssetCategoryService assetCategoryService;
+
+    public AssetCategoryController(AssetCategoryService assetCategoryService) {
+        this.assetCategoryService = assetCategoryService;
+    }
+
     /**
      * GET /api/asset-categories - 获取所有分类列表
+     * 
      * @return 分类列表
      */
     @GetMapping
@@ -26,9 +29,10 @@ public class AssetCategoryController {
         List<AssetCategory> categories = assetCategoryService.getAllCategories();
         return ResponseEntity.ok(Result.success(categories));
     }
-    
+
     /**
      * GET /api/asset-categories/active - 获取活跃分类列表
+     * 
      * @return 活跃分类列表
      */
     @GetMapping("/active")
@@ -36,9 +40,10 @@ public class AssetCategoryController {
         List<AssetCategory> categories = assetCategoryService.getActiveCategories();
         return ResponseEntity.ok(Result.success(categories));
     }
-    
+
     /**
      * GET /api/asset-categories/{id} - 根据ID获取分类
+     * 
      * @param id 分类ID
      * @return 分类详情
      */
@@ -50,9 +55,10 @@ public class AssetCategoryController {
         }
         return ResponseEntity.ok(Result.success(category));
     }
-    
+
     /**
      * GET /api/asset-categories/code/{categoryCode} - 根据编码获取分类
+     * 
      * @param categoryCode 分类编码
      * @return 分类详情
      */
@@ -64,9 +70,10 @@ public class AssetCategoryController {
         }
         return ResponseEntity.ok(Result.success(category));
     }
-    
+
     /**
      * POST /api/asset-categories - 创建新分类
+     * 
      * @param category 分类实体
      * @return 创建后的分类
      */
@@ -75,10 +82,11 @@ public class AssetCategoryController {
         AssetCategory createdCategory = assetCategoryService.createCategory(category);
         return ResponseEntity.ok(Result.success(createdCategory));
     }
-    
+
     /**
      * PUT /api/asset-categories/{id} - 更新分类信息
-     * @param id 分类ID
+     * 
+     * @param id       分类ID
      * @param category 更新数据
      * @return 更新后的分类
      */
@@ -92,9 +100,10 @@ public class AssetCategoryController {
         }
         return ResponseEntity.ok(Result.success(updatedCategory));
     }
-    
+
     /**
      * DELETE /api/asset-categories/{id} - 删除分类
+     * 
      * @param id 分类ID
      * @return 删除结果
      */
@@ -106,9 +115,10 @@ public class AssetCategoryController {
         }
         return ResponseEntity.ok(Result.success("删除成功"));
     }
-    
+
     /**
      * GET /api/asset-categories/count - 获取活跃分类数量
+     * 
      * @return 分类数量
      */
     @GetMapping("/count")
@@ -116,9 +126,10 @@ public class AssetCategoryController {
         long count = assetCategoryService.getActiveCategoryCount();
         return ResponseEntity.ok(Result.success(count));
     }
-    
+
     /**
      * GET /api/asset-categories/generate-code - 生成分类编码
+     * 
      * @param parentId 父分类ID（可选）
      * @return 分类编码
      */

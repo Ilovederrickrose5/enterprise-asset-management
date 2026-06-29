@@ -4,7 +4,6 @@ import com.enterprise.asset.enterpriseassetmanagement.common.PurchaseRequestStat
 import com.enterprise.asset.enterpriseassetmanagement.common.Result;
 import com.enterprise.asset.enterpriseassetmanagement.entity.PurchaseRequest;
 import com.enterprise.asset.enterpriseassetmanagement.service.PurchaseRequestService;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -16,8 +15,11 @@ import java.util.List;
 @RequestMapping("/api/purchase-requests")
 public class PurchaseRequestController {
 
-    @Autowired
-    private PurchaseRequestService purchaseRequestService;
+    private final PurchaseRequestService purchaseRequestService;
+
+    public PurchaseRequestController(PurchaseRequestService purchaseRequestService) {
+        this.purchaseRequestService = purchaseRequestService;
+    }
 
     /**
      * GET /api/purchase-requests - 分页获取采购申请列表

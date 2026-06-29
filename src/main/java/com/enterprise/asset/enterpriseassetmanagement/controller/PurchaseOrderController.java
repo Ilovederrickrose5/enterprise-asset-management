@@ -3,7 +3,6 @@ package com.enterprise.asset.enterpriseassetmanagement.controller;
 import com.enterprise.asset.enterpriseassetmanagement.common.Result;
 import com.enterprise.asset.enterpriseassetmanagement.entity.PurchaseOrder;
 import com.enterprise.asset.enterpriseassetmanagement.service.PurchaseOrderService;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -17,13 +16,17 @@ import java.util.Map;
 @RequestMapping("/api/purchase-orders")
 public class PurchaseOrderController {
 
-    @Autowired
-    private PurchaseOrderService purchaseOrderService;
+    private final PurchaseOrderService purchaseOrderService;
+
+    public PurchaseOrderController(PurchaseOrderService purchaseOrderService) {
+        this.purchaseOrderService = purchaseOrderService;
+    }
 
     /**
      * GET /api/purchase-orders - 分页获取采购订单列表
-     * @param page 页码（从1开始）
-     * @param size 每页数量
+     * 
+     * @param page   页码（从1开始）
+     * @param size   每页数量
      * @param status 状态筛选（可选）
      * @return 订单列表及总数
      */
@@ -41,6 +44,7 @@ public class PurchaseOrderController {
 
     /**
      * GET /api/purchase-orders/{id} - 根据ID获取采购订单
+     * 
      * @param id 订单ID
      * @return 订单详情
      */
@@ -55,6 +59,7 @@ public class PurchaseOrderController {
 
     /**
      * GET /api/purchase-orders/creator/{creatorId} - 获取创建人的订单列表
+     * 
      * @param creatorId 创建人ID
      * @return 订单列表
      */
@@ -66,6 +71,7 @@ public class PurchaseOrderController {
 
     /**
      * GET /api/purchase-orders/department/{departmentId} - 获取部门订单列表
+     * 
      * @param departmentId 部门ID
      * @return 订单列表
      */
@@ -77,6 +83,7 @@ public class PurchaseOrderController {
 
     /**
      * GET /api/purchase-orders/status/{status} - 按状态获取订单列表
+     * 
      * @param status 订单状态
      * @return 订单列表
      */
@@ -88,17 +95,20 @@ public class PurchaseOrderController {
 
     /**
      * GET /api/purchase-orders/request/{purchaseRequestId} - 获取关联采购需求的订单
+     * 
      * @param purchaseRequestId 采购需求ID
      * @return 订单列表
      */
     @GetMapping("/request/{purchaseRequestId}")
-    public ResponseEntity<Result<List<PurchaseOrder>>> getOrdersByPurchaseRequestId(@PathVariable Long purchaseRequestId) {
+    public ResponseEntity<Result<List<PurchaseOrder>>> getOrdersByPurchaseRequestId(
+            @PathVariable Long purchaseRequestId) {
         List<PurchaseOrder> orders = purchaseOrderService.getOrdersByPurchaseRequestId(purchaseRequestId);
         return ResponseEntity.ok(Result.success(orders));
     }
 
     /**
      * POST /api/purchase-orders - 创建采购订单
+     * 
      * @param order 采购订单实体
      * @return 创建后的订单
      */
@@ -118,7 +128,8 @@ public class PurchaseOrderController {
 
     /**
      * PUT /api/purchase-orders/{id} - 更新采购订单
-     * @param id 订单ID
+     * 
+     * @param id    订单ID
      * @param order 更新数据
      * @return 更新后的订单
      */
@@ -141,6 +152,7 @@ public class PurchaseOrderController {
 
     /**
      * DELETE /api/purchase-orders/{id} - 删除采购订单
+     * 
      * @param id 订单ID
      * @return 删除结果
      */
@@ -161,7 +173,8 @@ public class PurchaseOrderController {
 
     /**
      * PUT /api/purchase-orders/{id}/status - 更新订单状态
-     * @param id 订单ID
+     * 
+     * @param id           订单ID
      * @param statusUpdate 状态更新请求体
      * @return 更新后的订单
      */
@@ -184,6 +197,7 @@ public class PurchaseOrderController {
 
     /**
      * PUT /api/purchase-orders/{id}/complete - 完成订单（到货入库）
+     * 
      * @param id 订单ID
      * @return 完成后的订单
      */
@@ -206,7 +220,12 @@ public class PurchaseOrderController {
     static class StatusUpdateRequest {
         private String status;
 
-        public String getStatus() { return status; }
-        public void setStatus(String status) { this.status = status; }
+        public String getStatus() {
+            return status;
+        }
+
+        public void setStatus(String status) {
+            this.status = status;
+        }
     }
 }

@@ -3,7 +3,6 @@ package com.enterprise.asset.enterpriseassetmanagement.controller;
 import com.enterprise.asset.enterpriseassetmanagement.entity.Supplier;
 import com.enterprise.asset.enterpriseassetmanagement.service.SupplierService;
 import com.enterprise.asset.enterpriseassetmanagement.common.Result;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -14,11 +13,15 @@ import java.util.List;
 @RequestMapping("/api/suppliers")
 public class SupplierController {
 
-    @Autowired
-    private SupplierService supplierService;
+    private final SupplierService supplierService;
+
+    public SupplierController(SupplierService supplierService) {
+        this.supplierService = supplierService;
+    }
 
     /**
      * GET /api/suppliers - 获取所有供应商列表
+     * 
      * @return 供应商列表
      */
     @GetMapping
@@ -29,6 +32,7 @@ public class SupplierController {
 
     /**
      * GET /api/suppliers/{id} - 根据ID获取供应商
+     * 
      * @param id 供应商ID
      * @return 供应商详情
      */
@@ -41,6 +45,7 @@ public class SupplierController {
 
     /**
      * POST /api/suppliers - 创建新供应商
+     * 
      * @param supplier 供应商实体
      * @return 创建后的供应商
      */
@@ -52,7 +57,8 @@ public class SupplierController {
 
     /**
      * PUT /api/suppliers/{id} - 更新供应商信息
-     * @param id 供应商ID
+     * 
+     * @param id       供应商ID
      * @param supplier 更新数据
      * @return 更新后的供应商
      */
@@ -65,6 +71,7 @@ public class SupplierController {
 
     /**
      * DELETE /api/suppliers/{id} - 删除供应商
+     * 
      * @param id 供应商ID
      * @return 删除结果
      */

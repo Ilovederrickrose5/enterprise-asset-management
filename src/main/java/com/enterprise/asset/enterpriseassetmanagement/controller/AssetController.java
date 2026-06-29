@@ -3,7 +3,6 @@ package com.enterprise.asset.enterpriseassetmanagement.controller;
 import com.enterprise.asset.enterpriseassetmanagement.common.Result;
 import com.enterprise.asset.enterpriseassetmanagement.entity.Asset;
 import com.enterprise.asset.enterpriseassetmanagement.service.AssetService;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -14,11 +13,15 @@ import java.util.List;
 @RequestMapping("/api/assets")
 public class AssetController {
 
-    @Autowired
-    private AssetService assetService;
+    private final AssetService assetService;
+
+    public AssetController(AssetService assetService) {
+        this.assetService = assetService;
+    }
 
     /**
      * GET /api/assets - 获取所有资产列表
+     * 
      * @return 资产列表
      */
     @GetMapping
@@ -29,6 +32,7 @@ public class AssetController {
 
     /**
      * GET /api/assets/{id} - 根据ID获取资产详情
+     * 
      * @param id 资产ID
      * @return 资产详情
      */
@@ -43,6 +47,7 @@ public class AssetController {
 
     /**
      * POST /api/assets - 创建新资产
+     * 
      * @param asset 资产实体（包含名称、编号、类别、购置价格等）
      * @return 创建后的资产
      */
@@ -54,7 +59,8 @@ public class AssetController {
 
     /**
      * PUT /api/assets/{id} - 更新资产信息
-     * @param id 资产ID
+     * 
+     * @param id    资产ID
      * @param asset 更新的资产数据
      * @return 更新后的资产
      */
@@ -71,6 +77,7 @@ public class AssetController {
 
     /**
      * DELETE /api/assets/{id} - 删除资产
+     * 
      * @param id 资产ID
      * @return 删除结果
      */
@@ -85,7 +92,8 @@ public class AssetController {
 
     /**
      * PUT /api/assets/{id}/status - 更新资产状态
-     * @param id 资产ID
+     * 
+     * @param id           资产ID
      * @param statusUpdate 状态更新请求体 {"status": "..."}
      * @return 更新后的资产
      */
@@ -110,13 +118,19 @@ public class AssetController {
     static class StatusUpdateRequest {
         private String status;
 
-        public String getStatus() { return status; }
-        public void setStatus(String status) { this.status = status; }
+        public String getStatus() {
+            return status;
+        }
+
+        public void setStatus(String status) {
+            this.status = status;
+        }
     }
 
     /**
      * PUT /api/assets/{id}/use-status - 更新资产使用状态
-     * @param id 资产ID
+     * 
+     * @param id              资产ID
      * @param useStatusUpdate 使用状态更新请求体 {"useStatus": "..."}
      * @return 更新后的资产
      */
@@ -135,12 +149,18 @@ public class AssetController {
     static class UseStatusUpdateRequest {
         private String useStatus;
 
-        public String getUseStatus() { return useStatus; }
-        public void setUseStatus(String useStatus) { this.useStatus = useStatus; }
+        public String getUseStatus() {
+            return useStatus;
+        }
+
+        public void setUseStatus(String useStatus) {
+            this.useStatus = useStatus;
+        }
     }
 
     /**
      * GET /api/assets/department/{departmentId} - 获取指定部门资产
+     * 
      * @param departmentId 部门ID
      * @return 资产列表
      */
@@ -152,6 +172,7 @@ public class AssetController {
 
     /**
      * GET /api/assets/user/{userId} - 获取用户名下资产
+     * 
      * @param userId 用户ID
      * @return 用户资产列表
      */
@@ -163,6 +184,7 @@ public class AssetController {
 
     /**
      * GET /api/assets/status/{status} - 按状态筛选资产
+     * 
      * @param status 资产状态 (using/maintenance/scrapped等)
      * @return 资产列表
      */
@@ -174,6 +196,7 @@ public class AssetController {
 
     /**
      * GET /api/assets/use-status/{useStatus} - 按使用状态筛选资产
+     * 
      * @param useStatus 使用状态
      * @return 资产列表
      */
@@ -185,6 +208,7 @@ public class AssetController {
 
     /**
      * GET /api/assets/count - 获取资产总数
+     * 
      * @return 资产数量
      */
     @GetMapping("/count")
@@ -195,6 +219,7 @@ public class AssetController {
 
     /**
      * GET /api/assets/count/department/{departmentId} - 获取部门资产数量
+     * 
      * @param departmentId 部门ID
      * @return 资产数量
      */
@@ -206,6 +231,7 @@ public class AssetController {
 
     /**
      * GET /api/assets/count/user/{userId} - 获取用户资产数量
+     * 
      * @param userId 用户ID
      * @return 资产数量
      */
@@ -217,6 +243,7 @@ public class AssetController {
 
     /**
      * GET /api/assets/locations - 获取所有资产地点列表
+     * 
      * @return 地点列表
      */
     @GetMapping("/locations")
@@ -227,6 +254,7 @@ public class AssetController {
 
     /**
      * GET /api/assets/available - 获取可领用资产（未分配状态）
+     * 
      * @return 可领用资产列表
      */
     @GetMapping("/available")

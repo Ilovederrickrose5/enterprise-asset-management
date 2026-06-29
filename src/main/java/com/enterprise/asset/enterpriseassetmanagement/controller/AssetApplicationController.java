@@ -7,7 +7,6 @@ import com.enterprise.asset.enterpriseassetmanagement.common.UserRole;
 import com.enterprise.asset.enterpriseassetmanagement.entity.AssetApplication;
 import com.enterprise.asset.enterpriseassetmanagement.security.UserDetailsImpl;
 import com.enterprise.asset.enterpriseassetmanagement.service.AssetApplicationService;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -22,8 +21,11 @@ import java.util.List;
 @RequestMapping("/api/asset-applications")
 public class AssetApplicationController {
 
-    @Autowired
-    private AssetApplicationService assetApplicationService;
+    private final AssetApplicationService assetApplicationService;
+
+    public AssetApplicationController(AssetApplicationService assetApplicationService) {
+        this.assetApplicationService = assetApplicationService;
+    }
 
     // === 查询接口 ===
     @GetMapping

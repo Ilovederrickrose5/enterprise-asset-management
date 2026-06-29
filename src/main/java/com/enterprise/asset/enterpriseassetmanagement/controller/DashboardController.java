@@ -9,7 +9,6 @@ import com.enterprise.asset.enterpriseassetmanagement.repository.AssetRepository
 import com.enterprise.asset.enterpriseassetmanagement.repository.UserRepository;
 import com.enterprise.asset.enterpriseassetmanagement.service.DashboardService;
 import com.enterprise.asset.enterpriseassetmanagement.service.RecentOperationService;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -28,17 +27,18 @@ import java.util.Optional;
 @RequestMapping("/api/dashboard")
 public class DashboardController {
 
-    @Autowired
-    private DashboardService dashboardService;
+    private final DashboardService dashboardService;
+    private final UserRepository userRepository;
+    private final AssetRepository assetRepository;
+    private final RecentOperationService recentOperationService;
 
-    @Autowired
-    private UserRepository userRepository;
-
-    @Autowired
-    private AssetRepository assetRepository;
-
-    @Autowired
-    private RecentOperationService recentOperationService;
+    public DashboardController(DashboardService dashboardService, UserRepository userRepository,
+            AssetRepository assetRepository, RecentOperationService recentOperationService) {
+        this.dashboardService = dashboardService;
+        this.userRepository = userRepository;
+        this.assetRepository = assetRepository;
+        this.recentOperationService = recentOperationService;
+    }
 
     /**
      * GET /api/dashboard/stats - 获取仪表盘统计数据
@@ -152,11 +152,15 @@ public class DashboardController {
             }
 
             User user = userOpt.get();
-            System.out.println("=== [operations接口] 用户信息, id: " + user.getId() + ", role: " + user.getRole() + ", deptId: " + user.getDeptId());
-            
+            System.out.println("=== [operations接口] 用户信息, id: " + user.getId() + ", role: " + user.getRole()
+                    + ", deptId: " + user.getDeptId());
+
             DashboardOperationsDTO operations = recentOperationService.getDashboardOperations(limit, user);
-            System.out.println("=== [operations接口] 操作数据获取成功, pendingTasks: " + (operations.getPendingTasks() != null ? operations.getPendingTasks().size() : 0) + ", recentActivities: " + (operations.getRecentActivities() != null ? operations.getRecentActivities().size() : 0));
-            
+            System.out.println("=== [operations接口] 操作数据获取成功, pendingTasks: "
+                    + (operations.getPendingTasks() != null ? operations.getPendingTasks().size() : 0)
+                    + ", recentActivities: "
+                    + (operations.getRecentActivities() != null ? operations.getRecentActivities().size() : 0));
+
             return ResponseEntity.ok(Result.success(operations));
         } catch (Exception e) {
             System.err.println("=== [operations接口] 获取仪表盘操作数据失败 ===");

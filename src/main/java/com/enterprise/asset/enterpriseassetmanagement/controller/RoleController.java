@@ -3,7 +3,6 @@ package com.enterprise.asset.enterpriseassetmanagement.controller;
 import com.enterprise.asset.enterpriseassetmanagement.common.Result;
 import com.enterprise.asset.enterpriseassetmanagement.entity.Role;
 import com.enterprise.asset.enterpriseassetmanagement.service.RoleService;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -14,11 +13,15 @@ import java.util.List;
 @RequestMapping("/api/roles")
 public class RoleController {
 
-    @Autowired
-    private RoleService roleService;
+    private final RoleService roleService;
+
+    public RoleController(RoleService roleService) {
+        this.roleService = roleService;
+    }
 
     /**
      * GET /api/roles - 获取所有角色列表
+     * 
      * @return 角色列表
      */
     @GetMapping
@@ -29,6 +32,7 @@ public class RoleController {
 
     /**
      * GET /api/roles/{id} - 根据ID获取角色
+     * 
      * @param id 角色ID
      * @return 角色详情
      */
@@ -43,6 +47,7 @@ public class RoleController {
 
     /**
      * POST /api/roles - 创建新角色
+     * 
      * @param role 角色实体
      * @return 创建后的角色
      */
@@ -54,7 +59,8 @@ public class RoleController {
 
     /**
      * PUT /api/roles/{id} - 更新角色信息
-     * @param id 角色ID
+     * 
+     * @param id   角色ID
      * @param role 更新数据
      * @return 更新后的角色
      */
@@ -71,6 +77,7 @@ public class RoleController {
 
     /**
      * DELETE /api/roles/{id} - 删除角色
+     * 
      * @param id 角色ID
      * @return 删除结果
      */
