@@ -24,7 +24,7 @@ echo.
 :: 第一步：启动Nacos服务发现
 echo [启动] Nacos服务发现中心(端口8848)
 echo [注意] 请根据您的Nacos安装路径修改下方命令！
-start "Nacos服务【关闭窗口即停止】" cmd /k "cd /d ""C:\nacos\bin"" && startup.cmd -m standalone"
+start "Nacos服务【关闭窗口即停止】" cmd /k "cd /d ""D:\Users\307776\Downloads\nacos-server-3.2.2\nacos\bin"" && startup.cmd -m standalone"
 timeout /t 10 /nobreak >nul
 
 :: 第二步：启动asset-auth认证服务
