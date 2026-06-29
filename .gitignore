@@ -49,3 +49,8 @@ logs/
 .env
 .env.local
 application-local.properties
+
+# CodeGraph 插件临时进程文件
+.codegraph/daemon.pid
+.codegraph/daemon.log
+.codegraph/daemon.err
