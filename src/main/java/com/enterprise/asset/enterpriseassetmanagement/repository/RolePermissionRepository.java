@@ -2,7 +2,6 @@ package com.enterprise.asset.enterpriseassetmanagement.repository;
 
 import com.enterprise.asset.enterpriseassetmanagement.entity.RolePermission;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.stereotype.Repository;
 
 import java.util.List;
 
@@ -11,7 +10,6 @@ import java.util.List;
  * 关联表: role_permission(角色权限关联表)
  * 主要操作: 角色权限关系的增删改查
  */
-@Repository
 public interface RolePermissionRepository extends JpaRepository<RolePermission, Long> {
 
     /** 根据角色ID查询权限列表 */

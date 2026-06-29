@@ -2,7 +2,6 @@ package com.enterprise.asset.enterpriseassetmanagement.repository;
 
 import com.enterprise.asset.enterpriseassetmanagement.entity.AssetCategory;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.Optional;
@@ -12,7 +11,6 @@ import java.util.Optional;
  * 关联表: asset_category(资产分类表)
  * 主要操作: 分类的增删改查、树形结构查询
  */
-@Repository
 public interface AssetCategoryRepository extends JpaRepository<AssetCategory, Long> {
 
     /** 根据状态查询分类列表 */

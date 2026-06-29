@@ -9,7 +9,6 @@ import com.enterprise.asset.enterpriseassetmanagement.repository.DepartmentRepos
 import com.enterprise.asset.enterpriseassetmanagement.repository.UserRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.Optional;
@@ -20,17 +19,18 @@ public class DashboardService {
 
     private static final Logger logger = LoggerFactory.getLogger(DashboardService.class);
 
-    @Autowired
-    private AssetRepository assetRepository;
+    private final AssetRepository assetRepository;
+    private final DepartmentRepository departmentRepository;
+    private final UserRepository userRepository;
+    private final AssetApplicationRepository assetApplicationRepository;
 
-    @Autowired
-    private DepartmentRepository departmentRepository;
-
-    @Autowired
-    private UserRepository userRepository;
-
-    @Autowired
-    private AssetApplicationRepository assetApplicationRepository;
+    public DashboardService(AssetRepository assetRepository, DepartmentRepository departmentRepository,
+            UserRepository userRepository, AssetApplicationRepository assetApplicationRepository) {
+        this.assetRepository = assetRepository;
+        this.departmentRepository = departmentRepository;
+        this.userRepository = userRepository;
+        this.assetApplicationRepository = assetApplicationRepository;
+    }
 
     /**
      * 获取管理员仪表盘统计数据

@@ -3,7 +3,6 @@ package com.enterprise.asset.enterpriseassetmanagement.repository;
 import com.enterprise.asset.enterpriseassetmanagement.entity.Asset;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
-import org.springframework.stereotype.Repository;
 
 import java.util.List;
 
@@ -12,7 +11,6 @@ import java.util.List;
  * 关联表: asset(资产表)
  * 主要操作: 资产的增删改查、统计查询
  */
-@Repository
 public interface AssetRepository extends JpaRepository<Asset, Long> {
 
     /** 查询所有资产总数(包含所有状态) */

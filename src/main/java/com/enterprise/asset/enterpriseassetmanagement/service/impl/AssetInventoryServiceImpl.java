@@ -16,7 +16,6 @@ import com.enterprise.asset.enterpriseassetmanagement.repository.DepartmentRepos
 import com.enterprise.asset.enterpriseassetmanagement.repository.SysLogRepository;
 import com.enterprise.asset.enterpriseassetmanagement.repository.UserRepository;
 import com.enterprise.asset.enterpriseassetmanagement.service.AssetInventoryService;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -32,23 +31,24 @@ import java.util.Optional;
 @Service
 public class AssetInventoryServiceImpl implements AssetInventoryService {
 
-    @Autowired
-    private AssetInventoryRepository assetInventoryRepository;
+    private final AssetInventoryRepository assetInventoryRepository;
+    private final AssetInventoryDetailRepository assetInventoryDetailRepository;
+    private final AssetRepository assetRepository;
+    private final DepartmentRepository departmentRepository;
+    private final UserRepository userRepository;
+    private final SysLogRepository sysLogRepository;
 
-    @Autowired
-    private AssetInventoryDetailRepository assetInventoryDetailRepository;
-
-    @Autowired
-    private AssetRepository assetRepository;
-
-    @Autowired
-    private DepartmentRepository departmentRepository;
-
-    @Autowired
-    private UserRepository userRepository;
-
-    @Autowired
-    private SysLogRepository sysLogRepository;
+    public AssetInventoryServiceImpl(AssetInventoryRepository assetInventoryRepository,
+            AssetInventoryDetailRepository assetInventoryDetailRepository, AssetRepository assetRepository,
+            DepartmentRepository departmentRepository, UserRepository userRepository,
+            SysLogRepository sysLogRepository) {
+        this.assetInventoryRepository = assetInventoryRepository;
+        this.assetInventoryDetailRepository = assetInventoryDetailRepository;
+        this.assetRepository = assetRepository;
+        this.departmentRepository = departmentRepository;
+        this.userRepository = userRepository;
+        this.sysLogRepository = sysLogRepository;
+    }
 
     @Override
     @Transactional

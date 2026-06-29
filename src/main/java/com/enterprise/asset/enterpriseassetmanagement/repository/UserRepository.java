@@ -3,7 +3,6 @@ package com.enterprise.asset.enterpriseassetmanagement.repository;
 import com.enterprise.asset.enterpriseassetmanagement.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
-import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
 
@@ -12,7 +11,6 @@ import java.util.Optional;
  * 关联表: user(用户表)
  * 主要操作: 用户的增删改查、登录认证查询
  */
-@Repository
 public interface UserRepository extends JpaRepository<User, Long> {
     
     /** 根据用户名查询用户(登录认证用) */

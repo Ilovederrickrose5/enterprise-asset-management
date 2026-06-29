@@ -4,7 +4,6 @@ import com.enterprise.asset.enterpriseassetmanagement.entity.DepreciationRecord;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
-import org.springframework.stereotype.Repository;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -14,7 +13,6 @@ import java.util.Optional;
  * 关联表: depreciation_record(折旧记录表)
  * 主要操作: 折旧记录的增删改查、按资产/部门/分类查询、统计计算
  */
-@Repository
 public interface DepreciationRecordRepository extends JpaRepository<DepreciationRecord, Long> {
 
         /** 根据资产ID查询折旧记录 */

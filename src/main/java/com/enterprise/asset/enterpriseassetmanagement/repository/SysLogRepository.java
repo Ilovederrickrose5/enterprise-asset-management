@@ -3,7 +3,6 @@ package com.enterprise.asset.enterpriseassetmanagement.repository;
 import com.enterprise.asset.enterpriseassetmanagement.entity.SysLog;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
-import org.springframework.stereotype.Repository;
 
 import java.util.List;
 
@@ -12,7 +11,6 @@ import java.util.List;
  * 关联表: sys_log(系统日志表)
  * 主要操作: 日志的增删改查、最近日志查询
  */
-@Repository
 public interface SysLogRepository extends JpaRepository<SysLog, Long> {
     
     /** 查询最近的日志记录 */

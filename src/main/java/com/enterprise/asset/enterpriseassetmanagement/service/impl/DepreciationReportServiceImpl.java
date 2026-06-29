@@ -24,7 +24,6 @@ import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 // import com.itextpdf.layout.property.TextAlignment;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.io.ByteArrayOutputStream;
@@ -46,17 +45,19 @@ public class DepreciationReportServiceImpl implements DepreciationReportService 
     private static final RoundingMode ROUNDING_MODE = RoundingMode.HALF_UP;
     private static final int DECIMAL_PLACES = 2;
 
-    @Autowired
-    private DepreciationRecordRepository depreciationRecordRepository;
+    private final DepreciationRecordRepository depreciationRecordRepository;
+    private final AssetRepository assetRepository;
+    private final AssetCategoryRepository assetCategoryRepository;
+    private final DepartmentRepository departmentRepository;
 
-    @Autowired
-    private AssetRepository assetRepository;
-
-    @Autowired
-    private AssetCategoryRepository assetCategoryRepository;
-
-    @Autowired
-    private DepartmentRepository departmentRepository;
+    public DepreciationReportServiceImpl(DepreciationRecordRepository depreciationRecordRepository,
+            AssetRepository assetRepository, AssetCategoryRepository assetCategoryRepository,
+            DepartmentRepository departmentRepository) {
+        this.depreciationRecordRepository = depreciationRecordRepository;
+        this.assetRepository = assetRepository;
+        this.assetCategoryRepository = assetCategoryRepository;
+        this.departmentRepository = departmentRepository;
+    }
 
     @Override
     public List<DepreciationReportDTO> generateDepreciationDetailReport(LocalDate startDate, LocalDate endDate) {

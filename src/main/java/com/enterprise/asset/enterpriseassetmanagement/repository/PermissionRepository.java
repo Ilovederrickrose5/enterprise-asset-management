@@ -2,7 +2,6 @@ package com.enterprise.asset.enterpriseassetmanagement.repository;
 
 import com.enterprise.asset.enterpriseassetmanagement.entity.Permission;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.Optional;
@@ -12,7 +11,6 @@ import java.util.Optional;
  * 关联表: permission(权限表)
  * 主要操作: 权限的增删改查、权限编码查询
  */
-@Repository
 public interface PermissionRepository extends JpaRepository<Permission, Long> {
 
     /** 根据权限编码查询权限 */

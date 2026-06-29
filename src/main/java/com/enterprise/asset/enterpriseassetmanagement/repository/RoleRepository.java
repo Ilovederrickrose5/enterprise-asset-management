@@ -2,7 +2,6 @@ package com.enterprise.asset.enterpriseassetmanagement.repository;
 
 import com.enterprise.asset.enterpriseassetmanagement.entity.Role;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
 
@@ -11,7 +10,6 @@ import java.util.Optional;
  * 关联表: role(角色表)
  * 主要操作: 角色的增删改查、角色编码查询
  */
-@Repository
 public interface RoleRepository extends JpaRepository<Role, Long> {
     
     /** 根据角色编码查询角色 */

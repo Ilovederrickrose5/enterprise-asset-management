@@ -6,7 +6,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
-import org.springframework.stereotype.Repository;
 
 import java.util.List;
 
@@ -15,7 +14,6 @@ import java.util.List;
  * 关联表: asset_application(资产业务申请表)
  * 主要操作: 申请的增删改查、状态统计、分页查询、类型筛选
  */
-@Repository
 // 继承JpaRepository，提供CRUD操作
 public interface AssetApplicationRepository extends JpaRepository<AssetApplication, Long> {
 

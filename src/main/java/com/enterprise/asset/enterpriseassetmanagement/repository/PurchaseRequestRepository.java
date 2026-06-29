@@ -6,7 +6,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
-import org.springframework.stereotype.Repository;
 
 import java.util.List;
 
@@ -15,7 +14,6 @@ import java.util.List;
  * 关联表: purchase_request(采购申请表)
  * 主要操作: 采购申请的增删改查、审批查询、分页查询
  */
-@Repository
 public interface PurchaseRequestRepository extends JpaRepository<PurchaseRequest, Long> {
 
     /** 根据申请人ID查询申请列表 */

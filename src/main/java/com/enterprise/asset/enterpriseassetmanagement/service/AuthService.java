@@ -6,7 +6,6 @@ import com.enterprise.asset.enterpriseassetmanagement.entity.Department;
 import com.enterprise.asset.enterpriseassetmanagement.repository.DepartmentRepository;
 import com.enterprise.asset.enterpriseassetmanagement.security.JwtUtil;
 import com.enterprise.asset.enterpriseassetmanagement.security.UserDetailsImpl;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -20,14 +19,16 @@ import java.util.stream.Collectors;
 @Service
 public class AuthService {
 
-        @Autowired
-        private AuthenticationManager authenticationManager;
+        private final AuthenticationManager authenticationManager;
+        private final JwtUtil jwtUtil;
+        private final DepartmentRepository departmentRepository;
 
-        @Autowired
-        private JwtUtil jwtUtil;
-
-        @Autowired
-        private DepartmentRepository departmentRepository;
+        public AuthService(AuthenticationManager authenticationManager, JwtUtil jwtUtil,
+                DepartmentRepository departmentRepository) {
+            this.authenticationManager = authenticationManager;
+            this.jwtUtil = jwtUtil;
+            this.departmentRepository = departmentRepository;
+        }
 
         /**
          * 用户登录认证

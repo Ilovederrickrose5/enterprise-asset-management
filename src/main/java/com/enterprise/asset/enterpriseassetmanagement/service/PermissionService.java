@@ -4,7 +4,6 @@ import com.enterprise.asset.enterpriseassetmanagement.entity.Permission;
 import com.enterprise.asset.enterpriseassetmanagement.entity.RolePermission;
 import com.enterprise.asset.enterpriseassetmanagement.repository.PermissionRepository;
 import com.enterprise.asset.enterpriseassetmanagement.repository.RolePermissionRepository;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,11 +17,14 @@ import java.util.stream.Collectors;
 @Service
 public class PermissionService {
 
-    @Autowired
-    private PermissionRepository permissionRepository;
+    private final PermissionRepository permissionRepository;
+    private final RolePermissionRepository rolePermissionRepository;
 
-    @Autowired
-    private RolePermissionRepository rolePermissionRepository;
+    public PermissionService(PermissionRepository permissionRepository,
+            RolePermissionRepository rolePermissionRepository) {
+        this.permissionRepository = permissionRepository;
+        this.rolePermissionRepository = rolePermissionRepository;
+    }
 
     /** 获取所有权限 */
     public List<Permission> getAllPermissions() {

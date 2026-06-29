@@ -2,7 +2,6 @@ package com.enterprise.asset.enterpriseassetmanagement.repository;
 
 import com.enterprise.asset.enterpriseassetmanagement.entity.Department;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.Optional;
@@ -12,7 +11,6 @@ import java.util.Optional;
  * 关联表: department(部门表)
  * 主要操作: 部门的增删改查、部门负责人查询
  */
-@Repository
 public interface DepartmentRepository extends JpaRepository<Department, Long> {
     
     /** 根据状态统计部门数量 */

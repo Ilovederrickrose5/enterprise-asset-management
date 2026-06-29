@@ -4,7 +4,6 @@ import com.enterprise.asset.enterpriseassetmanagement.entity.AssetInventory;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
-import org.springframework.stereotype.Repository;
 
 import java.util.List;
 
@@ -13,7 +12,6 @@ import java.util.List;
  * 关联表: asset_inventory(资产盘点表)
  * 主要操作: 盘点计划的增删改查、权限过滤查询、任务分配查询
  */
-@Repository
 public interface AssetInventoryRepository extends JpaRepository<AssetInventory, Long> {
 
     /** 根据状态查询盘点计划 */

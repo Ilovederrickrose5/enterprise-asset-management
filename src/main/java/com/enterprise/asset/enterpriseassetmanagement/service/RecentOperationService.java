@@ -18,7 +18,6 @@ import com.enterprise.asset.enterpriseassetmanagement.repository.AssetInventoryR
 import com.enterprise.asset.enterpriseassetmanagement.repository.PurchaseRequestRepository;
 import com.enterprise.asset.enterpriseassetmanagement.repository.SysLogRepository;
 import com.enterprise.asset.enterpriseassetmanagement.repository.UserRepository;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -32,20 +31,22 @@ import java.util.Optional;
 @Service
 public class RecentOperationService {
 
-    @Autowired
-    private SysLogRepository sysLogRepository;
+    private final SysLogRepository sysLogRepository;
+    private final UserRepository userRepository;
+    private final AssetApplicationRepository assetApplicationRepository;
+    private final PurchaseRequestRepository purchaseRequestRepository;
+    private final AssetInventoryRepository assetInventoryRepository;
 
-    @Autowired
-    private UserRepository userRepository;
-
-    @Autowired
-    private AssetApplicationRepository assetApplicationRepository;
-
-    @Autowired
-    private PurchaseRequestRepository purchaseRequestRepository;
-
-    @Autowired
-    private AssetInventoryRepository assetInventoryRepository;
+    public RecentOperationService(SysLogRepository sysLogRepository, UserRepository userRepository,
+            AssetApplicationRepository assetApplicationRepository,
+            PurchaseRequestRepository purchaseRequestRepository,
+            AssetInventoryRepository assetInventoryRepository) {
+        this.sysLogRepository = sysLogRepository;
+        this.userRepository = userRepository;
+        this.assetApplicationRepository = assetApplicationRepository;
+        this.purchaseRequestRepository = purchaseRequestRepository;
+        this.assetInventoryRepository = assetInventoryRepository;
+    }
 
     /**
      * 获取仪表盘操作数据（待办任务+最近动态）

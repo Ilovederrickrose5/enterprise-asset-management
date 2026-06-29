@@ -2,7 +2,6 @@ package com.enterprise.asset.enterpriseassetmanagement.repository;
 
 import com.enterprise.asset.enterpriseassetmanagement.entity.AssetInventoryDetail;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.stereotype.Repository;
 
 import java.util.List;
 
@@ -11,7 +10,6 @@ import java.util.List;
  * 关联表: asset_inventory_detail(资产盘点明细表)
  * 主要操作: 盘点明细的增删改查、按盘点计划查询
  */
-@Repository
 public interface AssetInventoryDetailRepository extends JpaRepository<AssetInventoryDetail, Long> {
 
     /** 根据盘点计划ID查询明细列表 */

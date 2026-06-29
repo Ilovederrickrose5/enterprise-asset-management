@@ -12,7 +12,6 @@ import com.enterprise.asset.enterpriseassetmanagement.service.DepreciationServic
 import jakarta.transaction.Transactional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -41,14 +40,17 @@ public class DepreciationServiceImpl implements DepreciationService {
 
     private static final Logger logger = LoggerFactory.getLogger(DepreciationServiceImpl.class);
 
-    @Autowired
-    private AssetRepository assetRepository; // ↓ 资产数据访问
+    private final AssetRepository assetRepository;
+    private final DepreciationRecordRepository depreciationRecordRepository;
+    private final DepreciationCalculatorFactory calculatorFactory;
 
-    @Autowired
-    private DepreciationRecordRepository depreciationRecordRepository; // ↓ 折旧记录数据访问
-
-    @Autowired
-    private DepreciationCalculatorFactory calculatorFactory; // ↓ 计算器工厂
+    public DepreciationServiceImpl(AssetRepository assetRepository,
+            DepreciationRecordRepository depreciationRecordRepository,
+            DepreciationCalculatorFactory calculatorFactory) {
+        this.assetRepository = assetRepository;
+        this.depreciationRecordRepository = depreciationRecordRepository;
+        this.calculatorFactory = calculatorFactory;
+    }
 
     @Override
     @Transactional

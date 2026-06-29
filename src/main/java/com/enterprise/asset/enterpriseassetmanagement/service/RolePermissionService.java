@@ -2,7 +2,6 @@ package com.enterprise.asset.enterpriseassetmanagement.service;
 
 import com.enterprise.asset.enterpriseassetmanagement.entity.RolePermission;
 import com.enterprise.asset.enterpriseassetmanagement.repository.RolePermissionRepository;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -15,8 +14,11 @@ import java.util.List;
 @Service
 public class RolePermissionService {
 
-    @Autowired
-    private RolePermissionRepository rolePermissionRepository;
+    private final RolePermissionRepository rolePermissionRepository;
+
+    public RolePermissionService(RolePermissionRepository rolePermissionRepository) {
+        this.rolePermissionRepository = rolePermissionRepository;
+    }
 
     /** 为角色分配权限 */
     @Transactional

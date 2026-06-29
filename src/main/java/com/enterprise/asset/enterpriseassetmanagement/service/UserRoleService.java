@@ -2,7 +2,6 @@ package com.enterprise.asset.enterpriseassetmanagement.service;
 
 import com.enterprise.asset.enterpriseassetmanagement.entity.UserRole;
 import com.enterprise.asset.enterpriseassetmanagement.repository.UserRoleRepository;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -15,8 +14,11 @@ import java.util.List;
 @Service
 public class UserRoleService {
 
-    @Autowired
-    private UserRoleRepository userRoleRepository;
+    private final UserRoleRepository userRoleRepository;
+
+    public UserRoleService(UserRoleRepository userRoleRepository) {
+        this.userRoleRepository = userRoleRepository;
+    }
 
     /** 为用户分配角色 */
     @Transactional

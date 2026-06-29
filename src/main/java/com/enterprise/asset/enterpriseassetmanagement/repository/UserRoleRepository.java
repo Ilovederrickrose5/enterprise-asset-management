@@ -2,7 +2,6 @@ package com.enterprise.asset.enterpriseassetmanagement.repository;
 
 import com.enterprise.asset.enterpriseassetmanagement.entity.UserRole;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.stereotype.Repository;
 
 import java.util.List;
 
@@ -11,7 +10,6 @@ import java.util.List;
  * 关联表: user_role(用户角色关联表)
  * 主要操作: 用户角色关系的增删改查
  */
-@Repository
 public interface UserRoleRepository extends JpaRepository<UserRole, Long> {
 
     /** 根据用户ID查询角色列表 */
