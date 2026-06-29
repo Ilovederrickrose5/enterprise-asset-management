@@ -4,6 +4,8 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.GrantedAuthority;
@@ -22,6 +24,8 @@ import java.util.Map;
 
 @Component
 public class JwtRequestFilter extends OncePerRequestFilter {
+
+    private static final Logger logger = LoggerFactory.getLogger(JwtRequestFilter.class);
 
     @Autowired
     private UserDetailsService userDetailsService;
@@ -42,35 +46,25 @@ public class JwtRequestFilter extends OncePerRequestFilter {
 
         final String authorizationHeader = request.getHeader("Authorization");
 
-        System.out.println("=== JWT Filter Debug ===");
-        System.out.println("Request URI: " + request.getRequestURI());
-        System.out.println("Authorization Header: " + authorizationHeader);
-
         String username = null;
         String jwt = null;
 
         if (authorizationHeader != null && authorizationHeader.startsWith("Bearer ")) {
             jwt = authorizationHeader.substring(7);
-            System.out.println("JWT Token: " + jwt.substring(0, Math.min(50, jwt.length())) + "...");
             try {
                 username = jwtUtil.extractUsername(jwt);
-                System.out.println("Extracted Username: " + username);
+                logger.debug("JWT Token extracted for username: {}", username);
             } catch (Exception e) {
-                System.err.println("JWT Token extraction failed: " + e.getMessage());
-                e.printStackTrace();
+                logger.error("JWT Token extraction failed: {}", e.getMessage());
             }
-        } else {
-            System.out.println("No valid Authorization header found");
         }
 
         if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
             try {
                 UserDetails userDetails = this.userDetailsService.loadUserByUsername(username);
-                System.out.println("UserDetails loaded: " + userDetails.getUsername());
-                System.out.println("UserDetails authorities: " + userDetails.getAuthorities());
 
                 if (jwtUtil.validateToken(jwt, userDetails)) {
-                    System.out.println("Token validated successfully");
+                    logger.debug("Token validated successfully for user: {}", username);
 
                     // 从Token中提取角色信息
                     List<GrantedAuthority> authorities = new ArrayList<>();
@@ -86,36 +80,28 @@ public class JwtRequestFilter extends OncePerRequestFilter {
                             }
                         }
                     } catch (Exception e) {
-                        System.err.println("Failed to extract roles from JWT: " + e.getMessage());
-                        e.printStackTrace();
+                        logger.error("Failed to extract roles from JWT: {}", e.getMessage());
                     }
 
                     // 如果没有从Token中提取到角色，使用UserDetails中的角色
                     if (authorities.isEmpty()) {
-                        System.out.println("Using authorities from UserDetails");
+                        logger.debug("Using authorities from UserDetails");
                         authorities = new ArrayList<>(userDetails.getAuthorities());
                     }
-
-                    System.out.println("Final authorities: " + authorities);
 
                     UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
                             userDetails, null, authorities);
                     authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                     SecurityContextHolder.getContext().setAuthentication(authToken);
-                    System.out.println("Authentication set in SecurityContext");
+                    logger.debug("Authentication set in SecurityContext for user: {}", username);
                 } else {
-                    System.out.println("Token validation failed");
+                    logger.warn("Token validation failed for user: {}", username);
                 }
             } catch (Exception e) {
-                System.err.println("Error in JWT filter: " + e.getMessage());
-                e.printStackTrace();
+                logger.error("Error in JWT filter for user {}: {}", username, e.getMessage());
             }
-        } else {
-            System.out.println("Username is null or authentication already exists");
-            System.out.println("Current Authentication: " + SecurityContextHolder.getContext().getAuthentication());
         }
 
-        System.out.println("=== End JWT Filter Debug ===");
         chain.doFilter(request, response);
     }
 }

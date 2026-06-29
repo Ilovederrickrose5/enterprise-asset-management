@@ -1,6 +1,9 @@
 package com.enterprise.asset.enterpriseassetmanagement.controller;
 
+import com.enterprise.asset.enterpriseassetmanagement.common.ApplicationStatus;
+import com.enterprise.asset.enterpriseassetmanagement.common.ApplicationType;
 import com.enterprise.asset.enterpriseassetmanagement.common.Result;
+import com.enterprise.asset.enterpriseassetmanagement.common.UserRole;
 import com.enterprise.asset.enterpriseassetmanagement.entity.AssetApplication;
 import com.enterprise.asset.enterpriseassetmanagement.security.UserDetailsImpl;
 import com.enterprise.asset.enterpriseassetmanagement.service.AssetApplicationService;
@@ -80,7 +83,8 @@ public class AssetApplicationController {
 
     @GetMapping("/status/pending_leader")
     public ResponseEntity<Result<List<AssetApplication>>> getApplicationsPendingLeader() {
-        List<AssetApplication> applications = assetApplicationService.getApplicationsByStatus("pending_leader");
+        List<AssetApplication> applications = assetApplicationService
+                .getApplicationsByStatus(ApplicationStatus.PENDING_LEADER.getCode());
         return ResponseEntity.ok(Result.success(applications));
     }
 
@@ -88,7 +92,7 @@ public class AssetApplicationController {
     public ResponseEntity<Result<List<AssetApplication>>> getApplicationsPendingLeaderByDepartment(
             @PathVariable Long departmentId) {
         List<AssetApplication> applications = assetApplicationService
-                .getApplicationsByStatusAndDepartment("pending_leader", departmentId);
+                .getApplicationsByStatusAndDepartment(ApplicationStatus.PENDING_LEADER.getCode(), departmentId);
         return ResponseEntity.ok(Result.success(applications));
     }
 
@@ -153,15 +157,16 @@ public class AssetApplicationController {
         }
 
         // 领导审批（一级）
-        if ("DISPOSAL".equals(existingApplication.getApplicationType())) {
-            if ("ROLE_admin".equals(userRole) || "ROLE_leader".equals(userRole)) {
-                if ("pending_leader".equals(existingApplication.getStatus())) {
+        if (ApplicationType.DISPOSAL.getCode().equals(existingApplication.getApplicationType())) {
+            if (UserRole.fromCode(userRole) != null
+                    && (UserRole.fromCode(userRole).isAdmin() || UserRole.fromCode(userRole).isLeader())) {
+                if (ApplicationStatus.PENDING_LEADER.getCode().equals(existingApplication.getStatus())) {
                     AssetApplication application = assetApplicationService.approveApplication(
                             id, approvalRequest.getApproverId(), approvalRequest.getApproverName(),
                             approvalRequest.getApprovalRemark());
                     if (existingApplication.getOriginalApplicationId() != null) {
                         assetApplicationService.updateStatus(existingApplication.getOriginalApplicationId(),
-                                "leader_approved");
+                                ApplicationStatus.LEADER_APPROVED.getCode());
                     }
                     return ResponseEntity.ok(Result.success(application));
                 } else {
@@ -172,7 +177,7 @@ public class AssetApplicationController {
                 }
             } else {
                 // 资产管理员审批（二级）
-                if ("leader_approved".equalsIgnoreCase(existingApplication.getStatus())) {
+                if (ApplicationStatus.LEADER_APPROVED.getCode().equalsIgnoreCase(existingApplication.getStatus())) {
                     AssetApplication application = assetApplicationService.approveApplication(
                             id, approvalRequest.getApproverId(), approvalRequest.getApproverName(),
                             approvalRequest.getApprovalRemark());
@@ -207,7 +212,7 @@ public class AssetApplicationController {
     public ResponseEntity<Result<AssetApplication>> createFinalApproval(
             @RequestBody AssetApplication finalApprovalRequest) {
         Long originalApplicationId = finalApprovalRequest.getOriginalApplicationId();
-        finalApprovalRequest.setStatus("pending_leader");
+        finalApprovalRequest.setStatus(ApplicationStatus.PENDING_LEADER.getCode());
         finalApprovalRequest.setApplicationDate(LocalDateTime.now());
         AssetApplication finalApproval = assetApplicationService.createApplication(finalApprovalRequest);
         if (originalApplicationId != null) {

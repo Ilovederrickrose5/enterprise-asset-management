@@ -1,11 +1,14 @@
 package com.enterprise.asset.enterpriseassetmanagement.controller;
 
+import com.enterprise.asset.enterpriseassetmanagement.common.Result;
+import com.enterprise.asset.enterpriseassetmanagement.common.RoleUtils;
 import com.enterprise.asset.enterpriseassetmanagement.dto.AssetStatusDistributionDTO;
 import com.enterprise.asset.enterpriseassetmanagement.dto.DepartmentAssetStatsDTO;
 import com.enterprise.asset.enterpriseassetmanagement.entity.User;
-import com.enterprise.asset.enterpriseassetmanagement.common.Result;
 import com.enterprise.asset.enterpriseassetmanagement.service.ReportService;
 import com.enterprise.asset.enterpriseassetmanagement.service.UserService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -21,6 +24,8 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/reports")
 public class ReportController {
+
+    private static final Logger logger = LoggerFactory.getLogger(ReportController.class);
 
     @Autowired
     private ReportService reportService;
@@ -42,15 +47,12 @@ public class ReportController {
                 String username = authentication.getName();
                 User user = userService.getUserByUsername(username);
                 if (user != null) {
-                    boolean isAdmin = "admin".equals(user.getRole());
-                    boolean isLeader = "leader".equals(user.getRole());
-                    boolean isManager = "manager".equals(user.getRole());
                     // 普通用户无权限访问部门资产统计
-                    if (!isAdmin && !isLeader && !isManager) {
+                    if (!RoleUtils.isAdmin(user) && !RoleUtils.isLeader(user) && !RoleUtils.isManager(user)) {
                         return ResponseEntity.ok(Result.error(403, "无权限访问部门资产统计"));
                     }
                     // 如果是系统管理员，可以查看全部部门资产统计
-                    if ((isManager || isLeader) && user.getDeptId() != null) {
+                    if ((RoleUtils.isManager(user) || RoleUtils.isLeader(user)) && user.getDeptId() != null) {
                         List<DepartmentAssetStatsDTO> stats = reportService
                                 .getDepartmentAssetStatsByDepartment(user.getDeptId());
                         return ResponseEntity.ok(Result.success(stats));
@@ -61,7 +63,7 @@ public class ReportController {
             List<DepartmentAssetStatsDTO> stats = reportService.getDepartmentAssetStats();
             return ResponseEntity.ok(Result.success(stats));
         } catch (Exception e) {
-            e.printStackTrace();
+            logger.error("获取部门资产统计失败: {}", e.getMessage(), e);
             return ResponseEntity.ok(Result.error(500, "获取部门资产统计失败"));
         }
     }
@@ -82,9 +84,8 @@ public class ReportController {
                 String username = authentication.getName();
                 User user = userService.getUserByUsername(username);
                 if (user != null) {
-                    boolean isAdmin = "admin".equals(user.getRole());
-
-                    if (!isAdmin && (user.getDeptId() == null || !user.getDeptId().equals(departmentId))) {
+                    if (!RoleUtils.isAdmin(user)
+                            && (user.getDeptId() == null || !user.getDeptId().equals(departmentId))) {
                         return ResponseEntity.ok(Result.error(403, "无权限访问该部门资产统计"));
                     }
                 }
@@ -93,7 +94,7 @@ public class ReportController {
             List<DepartmentAssetStatsDTO> stats = reportService.getDepartmentAssetStatsByDepartment(departmentId);
             return ResponseEntity.ok(Result.success(stats));
         } catch (Exception e) {
-            e.printStackTrace();
+            logger.error("获取部门资产统计失败: {}", e.getMessage(), e);
             return ResponseEntity.ok(Result.error(500, "获取部门资产统计失败"));
         }
     }
@@ -112,15 +113,11 @@ public class ReportController {
                 String username = authentication.getName();
                 User user = userService.getUserByUsername(username);
                 if (user != null) {
-                    boolean isAdmin = "admin".equals(user.getRole());
-                    boolean isLeader = "leader".equals(user.getRole());
-                    boolean isManager = "manager".equals(user.getRole());
-
-                    if (!isAdmin && !isLeader && !isManager) {
+                    if (!RoleUtils.isAdmin(user) && !RoleUtils.isLeader(user) && !RoleUtils.isManager(user)) {
                         return ResponseEntity.ok(Result.error(403, "无权限访问资产状态分布"));
                     }
 
-                    if ((isManager || isLeader) && user.getDeptId() != null) {
+                    if ((RoleUtils.isManager(user) || RoleUtils.isLeader(user)) && user.getDeptId() != null) {
                         List<AssetStatusDistributionDTO> distribution = reportService
                                 .getAssetStatusDistributionByDepartment(user.getDeptId());
                         return ResponseEntity.ok(Result.success(distribution));
@@ -131,7 +128,7 @@ public class ReportController {
             List<AssetStatusDistributionDTO> distribution = reportService.getAssetStatusDistribution();
             return ResponseEntity.ok(Result.success(distribution));
         } catch (Exception e) {
-            e.printStackTrace();
+            logger.error("获取资产状态分布失败: {}", e.getMessage(), e);
             return ResponseEntity.ok(Result.error(500, "获取资产状态分布失败"));
         }
     }

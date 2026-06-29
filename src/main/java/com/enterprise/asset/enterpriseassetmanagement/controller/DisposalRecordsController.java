@@ -1,10 +1,12 @@
 package com.enterprise.asset.enterpriseassetmanagement.controller;
 
+import com.enterprise.asset.enterpriseassetmanagement.common.ApplicationType;
+import com.enterprise.asset.enterpriseassetmanagement.common.Result;
+import com.enterprise.asset.enterpriseassetmanagement.common.RoleUtils;
 import com.enterprise.asset.enterpriseassetmanagement.entity.AssetApplication;
 import com.enterprise.asset.enterpriseassetmanagement.entity.User;
-import com.enterprise.asset.enterpriseassetmanagement.repository.UserRepository;
 import com.enterprise.asset.enterpriseassetmanagement.service.AssetApplicationService;
-import com.enterprise.asset.enterpriseassetmanagement.common.Result;
+import com.enterprise.asset.enterpriseassetmanagement.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -22,14 +24,15 @@ public class DisposalRecordsController {
     private AssetApplicationService applicationService;
 
     @Autowired
-    private UserRepository userRepository;
+    private UserService userService;
 
     /**
      * GET /api/disposal-records - 获取报废记录列表（支持分页和部门筛选）
      * 权限：admin查看全部，leader/manager查看本部门，普通用户查看自己的记录
+     * 
      * @param departmentId 部门ID（可选）
-     * @param page 页码，默认1
-     * @param pageSize 每页大小，默认10
+     * @param page         页码，默认1
+     * @param pageSize     每页大小，默认10
      * @return 分页的报废记录列表
      */
     @GetMapping
@@ -44,23 +47,23 @@ public class DisposalRecordsController {
         }
 
         String username = authentication.getName();
-        User user = userRepository.findByUsername(username).orElse(null);
+        User user = userService.getUserByUsername(username);
         if (user == null) {
             return Result.error(404, "用户不存在");
         }
 
         List<AssetApplication> allApplications = applicationService.getAllApplications();
         List<AssetApplication> disposalApplications = allApplications.stream()
-                .filter(app -> "DISPOSAL".equals(app.getApplicationType()))
+                .filter(app -> ApplicationType.DISPOSAL.getCode().equals(app.getApplicationType()))
                 .collect(Collectors.toList());
 
         List<AssetApplication> filteredApplications = disposalApplications.stream()
                 .filter(application -> {
-                    if ("admin".equals(user.getRole())) {
+                    if (RoleUtils.isAdmin(user)) {
                         return true;
                     }
 
-                    if (("leader".equals(user.getRole()) || "manager".equals(user.getRole()))
+                    if ((RoleUtils.isLeader(user) || RoleUtils.isManager(user))
                             && user.getDeptId() != null) {
                         return application.getDepartmentId() != null
                                 && application.getDepartmentId().equals(user.getDeptId());

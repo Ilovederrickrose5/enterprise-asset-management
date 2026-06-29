@@ -1,5 +1,9 @@
 package com.enterprise.asset.enterpriseassetmanagement.service.impl;
 
+import com.enterprise.asset.enterpriseassetmanagement.common.AssetStatus;
+import com.enterprise.asset.enterpriseassetmanagement.common.PurchaseOrderStatus;
+import com.enterprise.asset.enterpriseassetmanagement.common.PurchaseRequestStatus;
+import com.enterprise.asset.enterpriseassetmanagement.common.UserRole;
 import com.enterprise.asset.enterpriseassetmanagement.entity.Asset;
 import com.enterprise.asset.enterpriseassetmanagement.entity.AssetCategory;
 import com.enterprise.asset.enterpriseassetmanagement.entity.PurchaseOrder;
@@ -77,7 +81,8 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
         Long departmentId = user.getDeptId();
 
         // 管理员可以看到所有订单
-        boolean isAdmin = "admin".equals(user.getRole()) || "ROLE_ADMIN".equals(user.getRole());
+        UserRole userRole = UserRole.fromCode(user.getRole());
+        boolean isAdmin = userRole != null && userRole.isAdmin();
 
         if (isAdmin) {
             // 管理员：查看所有订单
@@ -150,8 +155,9 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
 
         // 2. 权限检查
         logger.info("[步骤2/6] 检查创建权限");
-        boolean isManager = "manager".equals(user.getRole());
-        boolean isAdmin = "admin".equals(user.getRole());
+        UserRole userRole = UserRole.fromCode(user.getRole());
+        boolean isManager = userRole != null && userRole.isManager();
+        boolean isAdmin = userRole != null && userRole.isAdmin();
         logger.info("用户角色检查: isManager={}, isAdmin={}", isManager, isAdmin);
 
         if (!isManager && !isAdmin) {
@@ -171,7 +177,7 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
             logger.info("采购需求申请信息: id={}, itemName={}, status={}",
                     request.getId(), request.getItemName(), request.getStatus());
 
-            if (!"approved".equals(request.getStatus())) {
+            if (!PurchaseRequestStatus.APPROVED.getCode().equals(request.getStatus())) {
                 logger.error("采购需求申请状态未批准: currentStatus={}", request.getStatus());
                 throw new SecurityException("只能基于已批准的采购需求创建订单");
             }
@@ -186,7 +192,7 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
                     request.getItemName(), request.getQuantity(), request.getDepartmentId());
 
             // 创建订单后更新采购需求状态为"已下单"
-            request.setStatus("ordered");
+            request.setStatus(PurchaseRequestStatus.ORDERED.getCode());
             purchaseRequestRepository.save(request);
             logger.info("采购需求申请状态已更新为: ordered");
         } else {
@@ -244,13 +250,13 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
         String orderNumber = generateOrderNumber();
         order.setOrderNumber(orderNumber);
         order.setOrderDate(LocalDateTime.now());
-        order.setStatus("pending");
+        order.setStatus(PurchaseOrderStatus.PENDING.getCode());
         order.setPaymentStatus("unpaid");
         order.setCreatorId(user.getId());
         order.setCreatorName(user.getRealName());
 
         logger.info("订单基本信息: orderNumber={}, status={}, creatorId={}, departmentId={}",
-                orderNumber, "pending", user.getId(), order.getDepartmentId());
+                orderNumber, PurchaseOrderStatus.PENDING.getCode(), user.getId(), order.getDepartmentId());
 
         PurchaseOrder savedOrder = purchaseOrderRepository.save(order);
         logger.info("采购订单创建成功: id={}, orderNumber={}", savedOrder.getId(), savedOrder.getOrderNumber());
@@ -277,13 +283,14 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
             throw new SecurityException("用户不存在");
         }
 
-        boolean isAdmin = "admin".equals(user.getRole());
+        UserRole userRole = UserRole.fromCode(user.getRole());
+        boolean isAdmin = userRole != null && userRole.isAdmin();
 
         if (!isAdmin && !existingOrder.getCreatorId().equals(user.getId())) {
             throw new SecurityException("无权修改此采购订单");
         }
 
-        if ("completed".equals(existingOrder.getStatus())) {
+        if (PurchaseOrderStatus.COMPLETED.getCode().equals(existingOrder.getStatus())) {
             throw new SecurityException("已完成的订单不能修改");
         }
 
@@ -333,13 +340,14 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
             throw new SecurityException("用户不存在");
         }
 
-        boolean isAdmin = "admin".equals(user.getRole());
+        UserRole userRole = UserRole.fromCode(user.getRole());
+        boolean isAdmin = userRole != null && userRole.isAdmin();
 
         if (!isAdmin && !order.getCreatorId().equals(user.getId())) {
             throw new SecurityException("无权删除此采购订单");
         }
 
-        if (!"pending".equals(order.getStatus())) {
+        if (!PurchaseOrderStatus.PENDING.getCode().equals(order.getStatus())) {
             throw new SecurityException("只能删除待处理的采购订单");
         }
 
@@ -365,9 +373,9 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
             throw new SecurityException("用户不存在");
         }
 
-        boolean isManager = "manager".equals(user.getRole());
-
-        boolean isAdmin = "admin".equals(user.getRole());
+        UserRole userRole = UserRole.fromCode(user.getRole());
+        boolean isManager = userRole != null && userRole.isManager();
+        boolean isAdmin = userRole != null && userRole.isAdmin();
 
         if (!isManager && !isAdmin) {
             throw new SecurityException("只有部门资产管理员或管理员才能更新订单状态");
@@ -411,8 +419,9 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
 
         // 3. 权限检查
         logger.info("[步骤3/5] 检查完成权限");
-        boolean isManager = "manager".equals(user.getRole());
-        boolean isAdmin = "admin".equals(user.getRole());
+        UserRole userRole = UserRole.fromCode(user.getRole());
+        boolean isManager = userRole != null && userRole.isManager();
+        boolean isAdmin = userRole != null && userRole.isAdmin();
         logger.info("用户角色: isManager={}, isAdmin={}", isManager, isAdmin);
 
         if (!isManager && !isAdmin) {
@@ -435,14 +444,14 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
 
         // 4. 订单状态检查
         logger.info("[步骤4/5] 检查订单状态");
-        if ("completed".equals(order.getStatus())) {
+        if (PurchaseOrderStatus.COMPLETED.getCode().equals(order.getStatus())) {
             logger.error("订单已完成，无法重复完成: orderId={}", id);
             throw new SecurityException("订单已完成");
         }
 
         // 5. 更新订单状态并创建资产
         logger.info("[步骤5/5] 更新订单状态并创建资产");
-        order.setStatus("completed");
+        order.setStatus(PurchaseOrderStatus.COMPLETED.getCode());
         order.setActualDeliveryDate(LocalDateTime.now());
         order.setPaymentStatus("paid");
 
@@ -535,9 +544,9 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
             logger.info("  部门ID: {}", order.getDepartmentId());
 
             // 设置状态为"在库"
-            asset.setStatus("in_stock");
-            asset.setUseStatus("idle");
-            logger.info("  状态: in_stock, 使用状态: idle");
+            asset.setStatus(AssetStatus.IN_STOCK.getCode());
+            asset.setUseStatus(AssetStatus.IDLE.getCode());
+            logger.info("  状态: {}, 使用状态: {}", AssetStatus.IN_STOCK.getCode(), AssetStatus.IDLE.getCode());
 
             // 设置创建人信息
             if (currentUser != null) {

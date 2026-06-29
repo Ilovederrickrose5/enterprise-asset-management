@@ -1,5 +1,8 @@
 package com.enterprise.asset.enterpriseassetmanagement.service.impl;
 
+import com.enterprise.asset.enterpriseassetmanagement.common.ApplicationStatus;
+import com.enterprise.asset.enterpriseassetmanagement.common.ApplicationType;
+import com.enterprise.asset.enterpriseassetmanagement.common.AssetStatus;
 import com.enterprise.asset.enterpriseassetmanagement.entity.Asset;
 import com.enterprise.asset.enterpriseassetmanagement.entity.AssetApplication;
 import com.enterprise.asset.enterpriseassetmanagement.entity.SysLog;
@@ -75,8 +78,7 @@ public class AssetApplicationServiceImpl implements AssetApplicationService {
         // 接收Controller传来的申请对象
         application.setApplicationDate(LocalDateTime.now());
         if (application.getStatus() == null || application.getStatus().isEmpty()) {
-            // 提交申请后资产状态为“待审批”
-            application.setStatus("pending");
+            application.setStatus(ApplicationStatus.PENDING.getCode());
         }
 
         // 查询资产表，填充资产名称和编号
@@ -146,7 +148,7 @@ public class AssetApplicationServiceImpl implements AssetApplicationService {
         }
 
         // 更新申请状态为已批准
-        application.setStatus("approved");
+        application.setStatus(ApplicationStatus.APPROVED.getCode());
         application.setApprovalDate(LocalDateTime.now());
         application.setApproverId(approverId);
         application.setApproverName(approverName);
@@ -156,31 +158,32 @@ public class AssetApplicationServiceImpl implements AssetApplicationService {
         // 根据申请类型更新资产状态
         Asset asset = assetRepository.findById(application.getAssetId()).orElse(null);
         if (asset != null) {
+            ApplicationType type = ApplicationType.fromCode(application.getApplicationType());
             // 根据applicationType 区分业务逻辑
-            if ("RECEIVE".equals(application.getApplicationType())) {
+            if (type == ApplicationType.RECEIVE) {
                 // 领用: 资产分配给申请人
-                asset.setStatus("using");
-                asset.setUseStatus("using");
+                asset.setStatus(AssetStatus.USING.getCode());
+                asset.setUseStatus(AssetStatus.USING.getCode());
                 asset.setUserId(application.getApplicantId());
                 asset.setDeptId(application.getDepartmentId());
-            } else if ("TRANSFER".equals(application.getApplicationType())) {
+            } else if (type == ApplicationType.TRANSFER) {
                 // 转移: 资产分配给接收方
-                asset.setStatus("using");
-                asset.setUseStatus("using");
+                asset.setStatus(AssetStatus.USING.getCode());
+                asset.setUseStatus(AssetStatus.USING.getCode());
                 asset.setUserId(application.getTransfereeId());
                 asset.setDeptId(application.getTransfereeDeptId());
-            } else if ("DISPOSAL".equals(application.getApplicationType())) {
+            } else if (type == ApplicationType.DISPOSAL) {
                 // 报废: 资产状态改为报废
-                asset.setStatus("scrapped");
-                asset.setUseStatus("scrapped");
+                asset.setStatus(AssetStatus.SCRAPPED.getCode());
+                asset.setUseStatus(AssetStatus.SCRAPPED.getCode());
                 if (application.getEstimatedValue() != null) {
                     asset.setPurchasePrice(application.getEstimatedValue());
                 }
-            } else if ("MAINTENANCE".equals(application.getApplicationType())) {
+            } else if (type == ApplicationType.MAINTENANCE) {
                 // 维修: 批准后资产状态不变，等待点击开始维修
             }
             // 保存资产状态变更(维修除外)
-            if (!("MAINTENANCE".equals(application.getApplicationType()))) {
+            if (type != ApplicationType.MAINTENANCE) {
                 assetRepository.save(asset);
             }
 
@@ -194,7 +197,7 @@ public class AssetApplicationServiceImpl implements AssetApplicationService {
             sysLogRepository.save(log);
 
             // 转移申请额外添加双方日志
-            if ("TRANSFER".equals(application.getApplicationType())) {
+            if (type == ApplicationType.TRANSFER) {
                 addTransferLogs(application, asset);
             }
         }
@@ -211,7 +214,7 @@ public class AssetApplicationServiceImpl implements AssetApplicationService {
             return null;
         }
         // 状态改为等待领导审批(二级审批流程)
-        application.setStatus("pending_leader");
+        application.setStatus(ApplicationStatus.PENDING_LEADER.getCode());
         application.setApprovalDate(LocalDateTime.now());
         application.setApproverId(approverId);
         application.setApproverName(approverName);
@@ -232,7 +235,7 @@ public class AssetApplicationServiceImpl implements AssetApplicationService {
             return null;
         }
 
-        application.setStatus("rejected");
+        application.setStatus(ApplicationStatus.REJECTED.getCode());
         application.setApprovalDate(LocalDateTime.now());
         application.setApproverId(approverId);
         application.setApproverName(approverName);
@@ -273,17 +276,17 @@ public class AssetApplicationServiceImpl implements AssetApplicationService {
     @Transactional
     public AssetApplication startMaintenance(Long id, Long userId, String userName) {
         AssetApplication application = assetApplicationRepository.findById(id).orElse(null);
-        if (application == null || !"approved".equals(application.getStatus())) {
+        if (application == null || !ApplicationStatus.APPROVED.getCode().equals(application.getStatus())) {
             return null;
         }
 
-        application.setStatus("in_progress");
+        application.setStatus(ApplicationStatus.IN_PROGRESS.getCode());
         AssetApplication savedApplication = assetApplicationRepository.save(application);
 
         Asset asset = assetRepository.findById(application.getAssetId()).orElse(null);
         if (asset != null) {
-            asset.setStatus("maintenance");
-            asset.setUseStatus("maintenance");
+            asset.setStatus(AssetStatus.MAINTENANCE.getCode());
+            asset.setUseStatus(AssetStatus.MAINTENANCE.getCode());
             assetRepository.save(asset);
 
             SysLog log = new SysLog();
@@ -307,17 +310,17 @@ public class AssetApplicationServiceImpl implements AssetApplicationService {
     @Transactional
     public AssetApplication completeMaintenance(Long id, Long userId, String userName) {
         AssetApplication application = assetApplicationRepository.findById(id).orElse(null);
-        if (application == null || !"in_progress".equals(application.getStatus())) {
+        if (application == null || !ApplicationStatus.IN_PROGRESS.getCode().equals(application.getStatus())) {
             return null;
         }
 
-        application.setStatus("completed");
+        application.setStatus(ApplicationStatus.COMPLETED.getCode());
         AssetApplication savedApplication = assetApplicationRepository.save(application);
 
         Asset asset = assetRepository.findById(application.getAssetId()).orElse(null);
         if (asset != null) {
-            asset.setStatus("using");
-            asset.setUseStatus("using");
+            asset.setStatus(AssetStatus.USING.getCode());
+            asset.setUseStatus(AssetStatus.USING.getCode());
             assetRepository.save(asset);
 
             SysLog log = new SysLog();
@@ -376,14 +379,10 @@ public class AssetApplicationServiceImpl implements AssetApplicationService {
 
     /** 申请类型英文转中文 */
     private String getTypeNameCN(String applicationType) {
-        if ("RECEIVE".equals(applicationType))
-            return "资产领用";
-        if ("TRANSFER".equals(applicationType))
-            return "资产转移";
-        if ("MAINTENANCE".equals(applicationType) || "REPAIR".equals(applicationType))
-            return "资产维修";
-        if ("DISPOSAL".equals(applicationType))
-            return "资产报废";
+        ApplicationType type = ApplicationType.fromCode(applicationType);
+        if (type != null) {
+            return "资产" + type.getName();
+        }
         return applicationType;
     }
 

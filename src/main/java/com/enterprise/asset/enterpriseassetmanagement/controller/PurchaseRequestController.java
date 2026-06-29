@@ -1,5 +1,6 @@
 package com.enterprise.asset.enterpriseassetmanagement.controller;
 
+import com.enterprise.asset.enterpriseassetmanagement.common.PurchaseRequestStatus;
 import com.enterprise.asset.enterpriseassetmanagement.common.Result;
 import com.enterprise.asset.enterpriseassetmanagement.entity.PurchaseRequest;
 import com.enterprise.asset.enterpriseassetmanagement.service.PurchaseRequestService;
@@ -20,8 +21,9 @@ public class PurchaseRequestController {
 
     /**
      * GET /api/purchase-requests - 分页获取采购申请列表
-     * @param page 页码
-     * @param size 每页数量
+     * 
+     * @param page   页码
+     * @param size   每页数量
      * @param status 状态筛选（可选）
      * @return 采购申请分页数据
      */
@@ -36,6 +38,7 @@ public class PurchaseRequestController {
 
     /**
      * GET /api/purchase-requests/{id} - 根据ID获取采购申请
+     * 
      * @param id 申请ID
      * @return 采购申请详情
      */
@@ -50,10 +53,11 @@ public class PurchaseRequestController {
 
     /**
      * GET /api/purchase-requests/applicant/{applicantId} - 获取申请人的申请列表
+     * 
      * @param applicantId 申请人ID
-     * @param page 页码
-     * @param size 每页数量
-     * @param status 状态筛选（可选）
+     * @param page        页码
+     * @param size        每页数量
+     * @param status      状态筛选（可选）
      * @return 采购申请分页数据
      */
     @GetMapping("/applicant/{applicantId}")
@@ -62,16 +66,18 @@ public class PurchaseRequestController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(required = false) String status) {
-        Page<PurchaseRequest> requests = purchaseRequestService.getRequestsByApplicantId(applicantId, page, size, status);
+        Page<PurchaseRequest> requests = purchaseRequestService.getRequestsByApplicantId(applicantId, page, size,
+                status);
         return ResponseEntity.ok(Result.success(requests));
     }
 
     /**
      * GET /api/purchase-requests/department/{departmentId} - 获取部门申请列表
+     * 
      * @param departmentId 部门ID
-     * @param page 页码
-     * @param size 每页数量
-     * @param status 状态筛选（可选）
+     * @param page         页码
+     * @param size         每页数量
+     * @param status       状态筛选（可选）
      * @return 采购申请分页数据
      */
     @GetMapping("/department/{departmentId}")
@@ -80,12 +86,14 @@ public class PurchaseRequestController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(required = false) String status) {
-        Page<PurchaseRequest> requests = purchaseRequestService.getRequestsByDepartmentId(departmentId, page, size, status);
+        Page<PurchaseRequest> requests = purchaseRequestService.getRequestsByDepartmentId(departmentId, page, size,
+                status);
         return ResponseEntity.ok(Result.success(requests));
     }
 
     /**
      * GET /api/purchase-requests/status/{status} - 按状态获取申请列表
+     * 
      * @param status 状态
      * @return 采购申请列表
      */
@@ -96,14 +104,16 @@ public class PurchaseRequestController {
     }
 
     /**
-     * GET /api/purchase-requests/applicant/{applicantId}/status/{status} - 获取申请人指定状态的申请
+     * GET /api/purchase-requests/applicant/{applicantId}/status/{status} -
+     * 获取申请人指定状态的申请
+     * 
      * @param applicantId 申请人ID
-     * @param status 状态
+     * @param status      状态
      * @return 采购申请列表
      */
     @GetMapping("/applicant/{applicantId}/status/{status}")
     public ResponseEntity<Result<List<PurchaseRequest>>> getRequestsByApplicantIdAndStatus(
-            @PathVariable Long applicantId, 
+            @PathVariable Long applicantId,
             @PathVariable String status) {
         List<PurchaseRequest> requests = purchaseRequestService.getRequestsByApplicantIdAndStatus(applicantId, status);
         return ResponseEntity.ok(Result.success(requests));
@@ -111,16 +121,19 @@ public class PurchaseRequestController {
 
     /**
      * GET /api/purchase-requests/pending - 获取待审批申请
+     * 
      * @return 待审批申请列表
      */
     @GetMapping("/pending")
     public ResponseEntity<Result<List<PurchaseRequest>>> getPendingRequests() {
-        List<PurchaseRequest> requests = purchaseRequestService.getRequestsByStatus("pending");
+        List<PurchaseRequest> requests = purchaseRequestService
+                .getRequestsByStatus(PurchaseRequestStatus.PENDING.getCode());
         return ResponseEntity.ok(Result.success(requests));
     }
 
     /**
      * GET /api/purchase-requests/pending/approver/{approverId} - 获取审批人待处理的申请
+     * 
      * @param approverId 审批人ID
      * @return 待处理申请列表
      */
@@ -132,6 +145,7 @@ public class PurchaseRequestController {
 
     /**
      * GET /api/purchase-requests/approved/approver/{approverId} - 获取审批人已批准的申请
+     * 
      * @param approverId 审批人ID
      * @return 已批准申请列表
      */
@@ -143,6 +157,7 @@ public class PurchaseRequestController {
 
     /**
      * POST /api/purchase-requests - 创建采购申请
+     * 
      * @param request 采购申请实体
      * @return 创建后的申请
      */
@@ -160,7 +175,8 @@ public class PurchaseRequestController {
 
     /**
      * PUT /api/purchase-requests/{id} - 更新采购申请
-     * @param id 申请ID
+     * 
+     * @param id      申请ID
      * @param request 更新数据
      * @return 更新后的申请
      */
@@ -183,6 +199,7 @@ public class PurchaseRequestController {
 
     /**
      * DELETE /api/purchase-requests/{id} - 删除采购申请
+     * 
      * @param id 申请ID
      * @return 删除结果
      */
@@ -203,7 +220,8 @@ public class PurchaseRequestController {
 
     /**
      * POST /api/purchase-requests/{id}/approve - 批准采购申请
-     * @param id 申请ID
+     * 
+     * @param id              申请ID
      * @param approvalRequest 审批信息
      * @return 审批后的申请
      */
@@ -216,8 +234,7 @@ public class PurchaseRequestController {
                     id,
                     approvalRequest.getApproverId(),
                     approvalRequest.getApproverName(),
-                    approvalRequest.getApprovalRemark()
-            );
+                    approvalRequest.getApprovalRemark());
             if (request == null) {
                 return ResponseEntity.ok(Result.error(404, "采购需求申请不存在"));
             }
@@ -231,7 +248,8 @@ public class PurchaseRequestController {
 
     /**
      * POST /api/purchase-requests/{id}/reject - 驳回采购申请
-     * @param id 申请ID
+     * 
+     * @param id              申请ID
      * @param approvalRequest 审批信息
      * @return 驳回后的申请
      */
@@ -244,8 +262,7 @@ public class PurchaseRequestController {
                     id,
                     approvalRequest.getApproverId(),
                     approvalRequest.getApproverName(),
-                    approvalRequest.getApprovalRemark()
-            );
+                    approvalRequest.getApprovalRemark());
             if (request == null) {
                 return ResponseEntity.ok(Result.error(404, "采购需求申请不存在"));
             }
@@ -263,11 +280,28 @@ public class PurchaseRequestController {
         private String approverName;
         private String approvalRemark;
 
-        public Long getApproverId() { return approverId; }
-        public void setApproverId(Long approverId) { this.approverId = approverId; }
-        public String getApproverName() { return approverName; }
-        public void setApproverName(String approverName) { this.approverName = approverName; }
-        public String getApprovalRemark() { return approvalRemark; }
-        public void setApprovalRemark(String approvalRemark) { this.approvalRemark = approvalRemark; }
+        public Long getApproverId() {
+            return approverId;
+        }
+
+        public void setApproverId(Long approverId) {
+            this.approverId = approverId;
+        }
+
+        public String getApproverName() {
+            return approverName;
+        }
+
+        public void setApproverName(String approverName) {
+            this.approverName = approverName;
+        }
+
+        public String getApprovalRemark() {
+            return approvalRemark;
+        }
+
+        public void setApprovalRemark(String approvalRemark) {
+            this.approvalRemark = approvalRemark;
+        }
     }
 }

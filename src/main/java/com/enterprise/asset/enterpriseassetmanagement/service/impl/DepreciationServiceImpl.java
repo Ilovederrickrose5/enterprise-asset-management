@@ -1,5 +1,7 @@
 package com.enterprise.asset.enterpriseassetmanagement.service.impl;
 
+import com.enterprise.asset.enterpriseassetmanagement.common.AssetStatus;
+import com.enterprise.asset.enterpriseassetmanagement.common.DepreciationMethod;
 import com.enterprise.asset.enterpriseassetmanagement.entity.Asset;
 import com.enterprise.asset.enterpriseassetmanagement.entity.DepreciationRecord;
 import com.enterprise.asset.enterpriseassetmanagement.repository.AssetRepository;
@@ -65,8 +67,9 @@ public class DepreciationServiceImpl implements DepreciationService {
 
         Asset asset = assetOpt.get();
 
-        if (!"in_stock".equals(asset.getStatus()) && !"using".equals(asset.getStatus())
-                && !"maintenance".equals(asset.getStatus())) {
+        AssetStatus assetStatus = AssetStatus.fromCode(asset.getStatus());
+        if (assetStatus != AssetStatus.IN_STOCK && assetStatus != AssetStatus.USING
+                && assetStatus != AssetStatus.MAINTENANCE) {
             throw new RuntimeException("资产状态不允许计提折旧: " + asset.getStatus());
         }
 
@@ -89,11 +92,11 @@ public class DepreciationServiceImpl implements DepreciationService {
             return null;
         }
 
-        String method = asset.getDepreciationMethod() != null ? asset.getDepreciationMethod() : "STRAIGHT_LINE";
-        DepreciationCalculator calculator = calculatorFactory.getCalculator(method);
+        DepreciationMethod method = DepreciationMethod.fromCode(asset.getDepreciationMethod());
+        DepreciationCalculator calculator = calculatorFactory.getCalculator(method.getCode());
 
         DepreciationRecord record;
-        if ("WORK_UNIT".equals(method)) {
+        if (method == DepreciationMethod.WORK_UNIT) {
             // 对于工作量法，传入实际工作量
             record = calculator.calculateDepreciation(asset, startDate, endDate, accumulatedDepreciation, usedMonths,
                     actualWorkUnits);
@@ -134,8 +137,9 @@ public class DepreciationServiceImpl implements DepreciationService {
         Asset asset = assetOpt.get();
 
         // 校验状态和字段
-        if (!"in_stock".equals(asset.getStatus()) && !"using".equals(asset.getStatus())
-                && !"maintenance".equals(asset.getStatus())) {
+        AssetStatus assetStatus = AssetStatus.fromCode(asset.getStatus());
+        if (assetStatus != AssetStatus.IN_STOCK && assetStatus != AssetStatus.USING
+                && assetStatus != AssetStatus.MAINTENANCE) {
             throw new RuntimeException("资产状态不允许计提折旧: " + asset.getStatus());
         }
         if (asset.getOriginalValue() == null || asset.getOriginalValue().compareTo(BigDecimal.ZERO) <= 0) {
@@ -159,9 +163,9 @@ public class DepreciationServiceImpl implements DepreciationService {
         }
 
         // 确定折旧方法（优先级：传入 > 资产预设 > 默认直线法）
-        String method = (depreciationMethod != null && !depreciationMethod.isEmpty())
-                ? depreciationMethod
-                : (asset.getDepreciationMethod() != null ? asset.getDepreciationMethod() : "STRAIGHT_LINE");
+        DepreciationMethod method = (depreciationMethod != null && !depreciationMethod.isEmpty())
+                ? DepreciationMethod.fromCode(depreciationMethod)
+                : DepreciationMethod.fromCode(asset.getDepreciationMethod());
 
         // 检查当月是否已有记录
         String depreciationMonth = startDate.getYear() + "-" + String.format("%02d", startDate.getMonthValue());
@@ -171,13 +175,13 @@ public class DepreciationServiceImpl implements DepreciationService {
                 .toList();
 
         // 调计算器计算
-        DepreciationCalculator calculator = calculatorFactory.getCalculator(method);
-        DepreciationRecord record = "WORK_UNIT".equals(method)
+        DepreciationCalculator calculator = calculatorFactory.getCalculator(method.getCode());
+        DepreciationRecord record = method == DepreciationMethod.WORK_UNIT
                 ? calculator.calculateDepreciation(asset, startDate, endDate, accumulatedDepreciation, usedMonths,
                         BigDecimal.valueOf(actualWorkUnits != null ? actualWorkUnits : 1))
                 : calculator.calculateDepreciation(asset, startDate, endDate, accumulatedDepreciation, usedMonths);
 
-        record.setDepreciationMethod(method);
+        record.setDepreciationMethod(method.getCode());
         if (!validateDepreciationCalculation(asset, record)) {
             throw new RuntimeException("折旧计算结果验证失败");
         }

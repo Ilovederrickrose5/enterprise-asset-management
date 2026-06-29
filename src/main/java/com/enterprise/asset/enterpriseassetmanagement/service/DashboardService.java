@@ -1,11 +1,14 @@
 package com.enterprise.asset.enterpriseassetmanagement.service;
 
+import com.enterprise.asset.enterpriseassetmanagement.common.ApplicationStatus;
 import com.enterprise.asset.enterpriseassetmanagement.dto.DashboardStatsDTO;
 import com.enterprise.asset.enterpriseassetmanagement.entity.Department;
 import com.enterprise.asset.enterpriseassetmanagement.repository.AssetApplicationRepository;
 import com.enterprise.asset.enterpriseassetmanagement.repository.AssetRepository;
 import com.enterprise.asset.enterpriseassetmanagement.repository.DepartmentRepository;
 import com.enterprise.asset.enterpriseassetmanagement.repository.UserRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -14,6 +17,8 @@ import java.util.Optional;
 /** 仪表盘服务 - 处理首页统计数据查询（根据角色返回不同数据） */
 @Service
 public class DashboardService {
+
+    private static final Logger logger = LoggerFactory.getLogger(DashboardService.class);
 
     @Autowired
     private AssetRepository assetRepository;
@@ -38,17 +43,14 @@ public class DashboardService {
         long assetCount = assetRepository.countAllAssets();
         stats.setAssetCount(assetCount);
 
-        long totalPending = assetApplicationRepository.countByStatus("pending");
+        long totalPending = assetApplicationRepository.countByStatus(ApplicationStatus.PENDING.getCode());
         stats.setPendingCount(totalPending);
         stats.setDepartmentCount(departmentRepository.countByStatus(1));
         stats.setUserCount(userRepository.count());
         stats.setDepartmentName("公司");
 
-        System.out.println("=== 系统管理员统计数据 ===");
-        System.out.println("资产总数: " + assetCount);
-        System.out.println("待审批总数: " + totalPending);
-        System.out.println("部门数: " + stats.getDepartmentCount());
-        System.out.println("用户数: " + stats.getUserCount());
+        logger.info("系统管理员统计数据 - 资产总数: {}, 待审批总数: {}, 部门数: {}, 用户数: {}",
+                assetCount, totalPending, stats.getDepartmentCount(), stats.getUserCount());
 
         return stats;
     }
@@ -72,10 +74,8 @@ public class DashboardService {
         Optional<Department> dept = departmentRepository.findById(deptId);
         stats.setDepartmentName(dept.map(Department::getDeptName).orElse("部门"));
 
-        System.out.println("=== 部门统计数据 ===");
-        System.out.println("部门ID: " + deptId);
-        System.out.println("资产数: " + assetCount);
-        System.out.println("用户数: " + stats.getUserCount());
+        logger.info("部门统计数据 - 部门ID: {}, 资产数: {}, 用户数: {}",
+                deptId, assetCount, stats.getUserCount());
 
         return stats;
     }
@@ -97,9 +97,7 @@ public class DashboardService {
         stats.setUserCount(1L);
         stats.setDepartmentName("个人");
 
-        System.out.println("=== 个人统计数据 ===");
-        System.out.println("用户ID: " + userId);
-        System.out.println("资产数: " + assetCount);
+        logger.info("个人统计数据 - 用户ID: {}, 资产数: {}", userId, assetCount);
 
         return stats;
     }

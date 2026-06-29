@@ -1,5 +1,8 @@
 package com.enterprise.asset.enterpriseassetmanagement.service.impl;
 
+import com.enterprise.asset.enterpriseassetmanagement.common.InventoryStatus;
+import com.enterprise.asset.enterpriseassetmanagement.common.LogType;
+import com.enterprise.asset.enterpriseassetmanagement.common.UserRole;
 import com.enterprise.asset.enterpriseassetmanagement.entity.Asset;
 import com.enterprise.asset.enterpriseassetmanagement.entity.AssetInventory;
 import com.enterprise.asset.enterpriseassetmanagement.entity.AssetInventoryDetail;
@@ -92,7 +95,7 @@ public class AssetInventoryServiceImpl implements AssetInventoryService {
             }
         }
 
-        plan.setStatus("pending");
+        plan.setStatus(InventoryStatus.PENDING.getCode());
         AssetInventory savedPlan = assetInventoryRepository.save(plan);
 
         // 自动生成盘点明细
@@ -101,7 +104,7 @@ public class AssetInventoryServiceImpl implements AssetInventoryService {
         // 记录操作日志（使用保存后的计划名称，确保准确性）
         String planName = savedPlan.getInventoryName() != null ? savedPlan.getInventoryName() : savedPlan.getPlanName();
         saveInventoryLog(savedPlan.getCreatorId(), savedPlan.getCreatorName(), "创建盘点计划",
-                "创建了盘点计划: " + planName, "INVENTORY");
+                "创建了盘点计划: " + planName, LogType.INVENTORY.getCode());
 
         return savedPlan;
     }
@@ -133,7 +136,7 @@ public class AssetInventoryServiceImpl implements AssetInventoryService {
             detail.setSystemQuantity(1); // 默认系统数量为1
             detail.setActualQuantity(0); // 初始实际数量为0
             detail.setDifferenceQuantity(0);
-            detail.setStatus("pending"); // 待盘点
+            detail.setStatus(InventoryStatus.PENDING.getCode());
             detail.setCreateTime(LocalDateTime.now());
             if (plan.getCreatorId() != null) {
                 detail.setInventoryPersonId(plan.getCreatorId());
@@ -195,9 +198,9 @@ public class AssetInventoryServiceImpl implements AssetInventoryService {
             Department dept = departmentRepository.findById(user.getDeptId()).orElse(null);
             if (dept != null && dept.getDeptName() != null) {
                 // 获取用户角色
-                String role = getUserRoleFromUser(user);
+                UserRole role = UserRole.fromCode(user.getRole());
                 // 只有管理员、部门领导、资产管理员可以查看本部门的任务
-                if ("admin".equals(role) || "leader".equals(role) || "manager".equals(role)) {
+                if (role != null && (role.isAdmin() || role.isLeader() || role.isManager())) {
                     // 查询我创建的、分配给我的、或本部门用户创建且盘点范围是本部门的任务
                     // 这样确保只能看到本部门用户创建的、盘点范围也是本部门的任务
                     return assetInventoryRepository.findMyTasksOrDeptTasks(userId, dept.getDeptName(), dept.getId());
@@ -244,7 +247,7 @@ public class AssetInventoryServiceImpl implements AssetInventoryService {
             return null;
         }
         existingPlan.setStatus(status);
-        if ("completed".equals(status)) {
+        if (InventoryStatus.COMPLETED.getCode().equals(status)) {
             existingPlan.setActualCompletionTime(LocalDateTime.now());
         }
         return assetInventoryRepository.save(existingPlan);
@@ -264,7 +267,7 @@ public class AssetInventoryServiceImpl implements AssetInventoryService {
             // 记录操作日志
             String planName = plan.getInventoryName() != null ? plan.getInventoryName() : plan.getPlanName();
             saveInventoryLog(userId, username, "删除盘点计划",
-                    "删除了盘点计划: " + planName, "INVENTORY");
+                    "删除了盘点计划: " + planName, LogType.INVENTORY.getCode());
 
             assetInventoryDetailRepository.deleteByInventoryId(id);
             assetInventoryRepository.deleteById(id);
@@ -289,7 +292,7 @@ public class AssetInventoryServiceImpl implements AssetInventoryService {
         plan.setAssigneeId(assigneeId);
         plan.setAssigneeName(assigneeName);
         plan.setInventoryArea(inventoryArea);
-        plan.setStatus("in_progress");
+        plan.setStatus(InventoryStatus.IN_PROGRESS.getCode());
         AssetInventory savedPlan = assetInventoryRepository.save(plan);
 
         // 获取当前操作人信息
@@ -301,11 +304,11 @@ public class AssetInventoryServiceImpl implements AssetInventoryService {
 
         // 记录分配人的日志
         saveInventoryLog(currentUserId, currentUsername, "分配盘点任务",
-                "将盘点计划'" + planName + "'分配给: " + assigneeName, "INVENTORY");
+                "将盘点计划'" + planName + "'分配给: " + assigneeName, LogType.INVENTORY.getCode());
 
         // 记录被分配人的日志（让被分配人能看到"谁分配了任务给我"）
         saveInventoryLog(assigneeId, assigneeName, "收到盘点任务",
-                currentUsername + " 分配给您盘点任务: " + planName, "INVENTORY");
+                currentUsername + " 分配给您盘点任务: " + planName, LogType.INVENTORY.getCode());
 
         return savedPlan;
     }
@@ -371,21 +374,21 @@ public class AssetInventoryServiceImpl implements AssetInventoryService {
         }
 
         // 获取当前用户角色（从数据库查询）
-        String currentUserRole = getUserRoleFromUser(currentUser);
+        UserRole currentUserRole = UserRole.fromCode(currentUser.getRole());
 
         // 获取创建者信息
         User creator = userRepository.findById(plan.getCreatorId()).orElse(null);
-        String creatorRole = creator != null ? getUserRoleFromUser(creator) : "user";
+        UserRole creatorRole = creator != null ? UserRole.fromCode(creator.getRole()) : UserRole.USER;
         Long creatorDeptId = creator != null ? creator.getDeptId() : null;
 
         // 获取被分配人信息
         User assignee = userRepository.findById(assigneeId).orElse(null);
-        String assigneeRole = assignee != null ? getUserRoleFromUser(assignee) : "user";
+        UserRole assigneeRole = assignee != null ? UserRole.fromCode(assignee.getRole()) : UserRole.USER;
         Long assigneeDeptId = assignee != null ? assignee.getDeptId() : null;
 
         // 权限验证逻辑
         // 1. 系统管理员可以分配所有任务（不受限制）
-        if ("admin".equals(currentUserRole)) {
+        if (currentUserRole != null && currentUserRole.isAdmin()) {
             // 但被分配人必须在盘点范围内
             return isAssigneeInScope(plan, assigneeDeptId, assigneeRole);
         }
@@ -397,7 +400,7 @@ public class AssetInventoryServiceImpl implements AssetInventoryService {
         }
 
         // 3. 部门领导可以分配本部门的任务（包括他人创建的）
-        if ("leader".equals(currentUserRole)) {
+        if (currentUserRole != null && currentUserRole.isLeader()) {
             Long userDeptId = getUserDeptId(username);
             if (userDeptId != null) {
                 // 获取盘点计划所属部门ID（优先使用dept_id，否则从inventory_scope获取）
@@ -412,7 +415,7 @@ public class AssetInventoryServiceImpl implements AssetInventoryService {
                 if (userDeptId.equals(planDeptId)) {
                     // 部门领导分配时，被分配人必须在本部门内
                     return assigneeDeptId != null && assigneeDeptId.equals(userDeptId) &&
-                            ("manager".equals(assigneeRole) || "user".equals(assigneeRole));
+                            assigneeRole != null && (assigneeRole.isManager() || assigneeRole.isUser());
                 }
             }
         }
@@ -423,7 +426,7 @@ public class AssetInventoryServiceImpl implements AssetInventoryService {
     /**
      * 检查被分配人是否在盘点范围内
      */
-    private boolean isAssigneeInScope(AssetInventory plan, Long assigneeDeptId, String assigneeRole) {
+    private boolean isAssigneeInScope(AssetInventory plan, Long assigneeDeptId, UserRole assigneeRole) {
         if (assigneeDeptId == null) {
             return false;
         }
@@ -442,15 +445,15 @@ public class AssetInventoryServiceImpl implements AssetInventoryService {
         }
 
         // 可以分配给资产管理员、部门领导和普通用户
-        return "manager".equals(assigneeRole) || "leader".equals(assigneeRole) || "user".equals(assigneeRole);
+        return assigneeRole != null && (assigneeRole.isManager() || assigneeRole.isLeader() || assigneeRole.isUser());
     }
 
     /**
      * 根据创建者角色检查被分配人权限
      */
-    private boolean checkAssigneePermission(String creatorRole, Long creatorDeptId,
-            String assigneeRole, Long assigneeDeptId) {
-        if (assigneeDeptId == null || creatorDeptId == null) {
+    private boolean checkAssigneePermission(UserRole creatorRole, Long creatorDeptId,
+            UserRole assigneeRole, Long assigneeDeptId) {
+        if (assigneeDeptId == null || creatorDeptId == null || assigneeRole == null || creatorRole == null) {
             return false;
         }
 
@@ -460,18 +463,14 @@ public class AssetInventoryServiceImpl implements AssetInventoryService {
         }
 
         // 根据创建者角色判断
-        switch (creatorRole) {
-            case "admin":
-                // 系统管理员创建的：可以分配给盘点范围部门的资产管理员、部门领导和普通用户
-                return "manager".equals(assigneeRole) || "leader".equals(assigneeRole) || "user".equals(assigneeRole);
-            case "leader":
-                // 部门领导创建的：只能分配给本部门的资产管理员和普通用户
-                return "manager".equals(assigneeRole) || "user".equals(assigneeRole);
-            case "manager":
-                // 部门资产管理员创建的：只能分配给本部门的普通用户
-                return "user".equals(assigneeRole);
-            default:
-                return false;
+        if (creatorRole.isAdmin()) {
+            return assigneeRole.isManager() || assigneeRole.isLeader() || assigneeRole.isUser();
+        } else if (creatorRole.isLeader()) {
+            return assigneeRole.isManager() || assigneeRole.isUser();
+        } else if (creatorRole.isManager()) {
+            return assigneeRole.isUser();
+        } else {
+            return false;
         }
     }
 
@@ -489,13 +488,13 @@ public class AssetInventoryServiceImpl implements AssetInventoryService {
         }
 
         plan.setStartTime(LocalDateTime.now());
-        plan.setStatus("in_progress");
+        plan.setStatus(InventoryStatus.IN_PROGRESS.getCode());
         AssetInventory savedPlan = assetInventoryRepository.save(plan);
 
         // 记录操作日志
         String planName = savedPlan.getInventoryName() != null ? savedPlan.getInventoryName() : savedPlan.getPlanName();
         saveInventoryLog(savedPlan.getAssigneeId(), savedPlan.getAssigneeName(), "开始盘点",
-                "开始执行盘点任务: " + planName, "INVENTORY");
+                "开始执行盘点任务: " + planName, LogType.INVENTORY.getCode());
 
         return savedPlan;
     }
@@ -514,7 +513,7 @@ public class AssetInventoryServiceImpl implements AssetInventoryService {
         }
 
         plan.setCompleteTime(LocalDateTime.now());
-        plan.setStatus("completed");
+        plan.setStatus(InventoryStatus.COMPLETED.getCode());
         plan.setActualCompletionTime(LocalDateTime.now());
 
         // 自动统计盘点结果
@@ -527,7 +526,7 @@ public class AssetInventoryServiceImpl implements AssetInventoryService {
         saveInventoryLog(savedPlan.getAssigneeId(), savedPlan.getAssigneeName(), "完成盘点",
                 "完成盘点任务: " + planName + " (盘盈: " + savedPlan.getSurplusCount() + ", 盘亏: " + savedPlan.getShortageCount()
                         + ")",
-                "INVENTORY");
+                LogType.INVENTORY.getCode());
 
         return savedPlan;
     }
@@ -550,18 +549,18 @@ public class AssetInventoryServiceImpl implements AssetInventoryService {
 
             // 根据差异判断状态
             if (detail.getActualQuantity() > detail.getSystemQuantity()) {
-                detail.setStatus("surplus"); // 盘盈
+                detail.setStatus(InventoryStatus.SURPLUS.getCode());
                 surplusCount++;
                 actualCount += detail.getActualQuantity();
             } else if (detail.getActualQuantity() < detail.getSystemQuantity()) {
-                detail.setStatus("shortage"); // 盘亏
+                detail.setStatus(InventoryStatus.SHORTAGE.getCode());
                 shortageCount++;
                 actualCount += detail.getActualQuantity();
             } else if (detail.getActualQuantity() > 0) {
-                detail.setStatus("normal"); // 正常
+                detail.setStatus(InventoryStatus.NORMAL.getCode());
                 actualCount += detail.getActualQuantity();
             } else {
-                detail.setStatus("pending"); // 未盘点
+                detail.setStatus(InventoryStatus.PENDING.getCode());
             }
 
             assetInventoryDetailRepository.save(detail);
@@ -639,7 +638,8 @@ public class AssetInventoryServiceImpl implements AssetInventoryService {
         }
 
         // 管理员有所有权限（直接使用数据库role字段）
-        if ("admin".equals(user.getRole())) {
+        UserRole role = UserRole.fromCode(user.getRole());
+        if (role != null && role.isAdmin()) {
             return true;
         }
 
@@ -681,10 +681,10 @@ public class AssetInventoryServiceImpl implements AssetInventoryService {
 
         UserDetails userDetails = (UserDetails) principal;
         String username = userDetails.getUsername();
-        String role = getUserRole(username);
+        UserRole role = UserRole.fromCode(getUserRole(username));
 
         // admin、leader、manager 可以创建盘点计划
-        return "admin".equals(role) || "leader".equals(role) || "manager".equals(role);
+        return role != null && (role.isAdmin() || role.isLeader() || role.isManager());
     }
 
     /**
@@ -711,16 +711,6 @@ public class AssetInventoryServiceImpl implements AssetInventoryService {
         }
 
         return false;
-    }
-
-    /**
-     * 从User对象获取角色（直接使用数据库role字段）
-     */
-    private String getUserRoleFromUser(User user) {
-        if (user == null || user.getRole() == null) {
-            return "user";
-        }
-        return user.getRole();
     }
 
     /**

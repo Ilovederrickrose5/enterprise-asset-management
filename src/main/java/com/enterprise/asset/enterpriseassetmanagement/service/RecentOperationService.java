@@ -1,5 +1,11 @@
 package com.enterprise.asset.enterpriseassetmanagement.service;
 
+import com.enterprise.asset.enterpriseassetmanagement.common.ApplicationStatus;
+import com.enterprise.asset.enterpriseassetmanagement.common.ApplicationType;
+import com.enterprise.asset.enterpriseassetmanagement.common.InventoryStatus;
+import com.enterprise.asset.enterpriseassetmanagement.common.LogType;
+import com.enterprise.asset.enterpriseassetmanagement.common.PurchaseRequestStatus;
+import com.enterprise.asset.enterpriseassetmanagement.common.UserRole;
 import com.enterprise.asset.enterpriseassetmanagement.dto.DashboardOperationsDTO;
 import com.enterprise.asset.enterpriseassetmanagement.dto.RecentOperationDTO;
 import com.enterprise.asset.enterpriseassetmanagement.entity.AssetApplication;
@@ -48,9 +54,10 @@ public class RecentOperationService {
     public DashboardOperationsDTO getDashboardOperations(int limit, User user) {
         List<RecentOperationDTO> pendingTasks = new ArrayList<>();
 
-        boolean isAdmin = "admin".equals(user.getRole());
-        boolean isLeader = "leader".equals(user.getRole());
-        boolean isManager = "manager".equals(user.getRole());
+        UserRole userRole = UserRole.fromCode(user.getRole());
+        boolean isAdmin = userRole != null && userRole.isAdmin();
+        boolean isLeader = userRole != null && userRole.isLeader();
+        boolean isManager = userRole != null && userRole.isManager();
         boolean isUser = !isAdmin && !isLeader && !isManager;
         Long userDeptId = user.getDeptId();
 
@@ -58,8 +65,9 @@ public class RecentOperationService {
         if (isAdmin || isLeader) {
             // 待审批的采购需求
             List<PurchaseRequest> pendingPurchases = isAdmin
-                    ? purchaseRequestRepository.findByStatus("pending")
-                    : purchaseRequestRepository.findByDepartmentIdAndStatus(userDeptId, "pending");
+                    ? purchaseRequestRepository.findByStatus(PurchaseRequestStatus.PENDING.getCode())
+                    : purchaseRequestRepository.findByDepartmentIdAndStatus(userDeptId,
+                            PurchaseRequestStatus.PENDING.getCode());
             for (PurchaseRequest req : pendingPurchases) {
                 RecentOperationDTO dto = new RecentOperationDTO();
                 dto.setTime(req.getApplicationDate());
@@ -74,8 +82,9 @@ public class RecentOperationService {
 
             // 待审批的资产申请
             List<AssetApplication> pendingApplications = isAdmin
-                    ? assetApplicationRepository.findByStatus("pending")
-                    : assetApplicationRepository.findByStatusAndDepartmentId("pending", userDeptId);
+                    ? assetApplicationRepository.findByStatus(ApplicationStatus.PENDING.getCode())
+                    : assetApplicationRepository.findByStatusAndDepartmentId(ApplicationStatus.PENDING.getCode(),
+                            userDeptId);
             for (AssetApplication app : pendingApplications) {
                 RecentOperationDTO dto = new RecentOperationDTO();
                 dto.setTime(app.getApplicationDate());
@@ -93,7 +102,8 @@ public class RecentOperationService {
             }
 
             // 待处理的盘点任务（只有分配给当前用户的任务才显示）
-            List<AssetInventory> pendingInventories = assetInventoryRepository.findByStatus("pending");
+            List<AssetInventory> pendingInventories = assetInventoryRepository
+                    .findByStatus(InventoryStatus.PENDING.getCode());
             for (AssetInventory inv : pendingInventories) {
                 // 只有分配给当前用户的任务才显示为待处理
                 // assigneeId不为空且等于当前用户ID
@@ -144,7 +154,7 @@ public class RecentOperationService {
             List<AssetApplication> userApps = assetApplicationRepository
                     .findByApplicantIdOrderByUpdateTimeDesc(user.getId());
             for (AssetApplication app : userApps) {
-                if (!"pending".equals(app.getStatus())) {
+                if (!ApplicationStatus.PENDING.getCode().equals(app.getStatus())) {
                     RecentOperationDTO dto = new RecentOperationDTO();
                     dto.setTime(app.getUpdateTime() != null ? app.getUpdateTime() : app.getApplicationDate());
                     dto.setTimeText(
@@ -152,7 +162,8 @@ public class RecentOperationService {
                     String appType = getApplicationTypeText(app.getApplicationType());
                     String assetName = app.getAssetName() != null ? app.getAssetName() : app.getItemName();
                     String statusText = getStatusText(app.getStatus());
-                    String statusIcon = "approved".equals(app.getStatus().toLowerCase()) ? "✓" : "✗";
+                    ApplicationStatus appStatus = ApplicationStatus.fromCode(app.getStatus());
+                    String statusIcon = appStatus == ApplicationStatus.APPROVED ? "✓" : "✗";
                     dto.setContent("[资产] " + statusIcon + " 您的" + appType + "已" + statusText + "："
                             + (assetName != null ? assetName : "未知物品"));
                     dto.setType("application");
@@ -166,13 +177,14 @@ public class RecentOperationService {
                 List<PurchaseRequest> userPurchases = purchaseRequestRepository
                         .findByApplicantIdOrderByUpdateTimeDesc(user.getId());
                 for (PurchaseRequest req : userPurchases) {
-                    if (!"pending".equals(req.getStatus())) {
+                    if (!PurchaseRequestStatus.PENDING.getCode().equals(req.getStatus())) {
                         RecentOperationDTO dto = new RecentOperationDTO();
                         dto.setTime(req.getUpdateTime() != null ? req.getUpdateTime() : req.getApplicationDate());
                         dto.setTimeText(formatTime(
                                 req.getUpdateTime() != null ? req.getUpdateTime() : req.getApplicationDate()));
                         String statusText = getPurchaseStatusText(req.getStatus());
-                        String statusIcon = "approved".equals(req.getStatus().toLowerCase()) ? "✓" : "✗";
+                        PurchaseRequestStatus reqStatus = PurchaseRequestStatus.fromCode(req.getStatus());
+                        String statusIcon = reqStatus == PurchaseRequestStatus.APPROVED ? "✓" : "✗";
                         dto.setContent("[采购] " + statusIcon + " 您的采购需求申请已" + statusText + "：" + req.getItemName());
                         dto.setType("purchase");
                         dto.setOperator(user.getRealName());
@@ -191,8 +203,9 @@ public class RecentOperationService {
                 RecentOperationDTO dto = new RecentOperationDTO();
                 dto.setTime(req.getApprovalDate());
                 dto.setTimeText(formatTime(req.getApprovalDate()));
-                String statusIcon = "approved".equals(req.getStatus().toLowerCase()) ? "✓" : "✗";
-                String action = "approved".equals(req.getStatus().toLowerCase()) ? "批准" : "拒绝";
+                PurchaseRequestStatus reqStatus = PurchaseRequestStatus.fromCode(req.getStatus());
+                String statusIcon = reqStatus == PurchaseRequestStatus.APPROVED ? "✓" : "✗";
+                String action = reqStatus == PurchaseRequestStatus.APPROVED ? "批准" : "拒绝";
                 dto.setContent("[采购] " + statusIcon + " 您" + action + "了采购需求申请：" + req.getItemName());
                 dto.setType("purchase");
                 dto.setOperator(user.getRealName());
@@ -264,75 +277,41 @@ public class RecentOperationService {
     private String getApplicationTypeText(String type) {
         if (type == null)
             return "资产申请";
-        switch (type.toUpperCase()) {
-            case "RECEIVE":
-                return "申请领用资产";
-            case "TRANSFER":
-                return "申请转移资产";
-            case "REPAIR":
-                return "申请维修资产";
-            case "DISPOSAL":
-                return "申请报废资产";
-            default:
-                return "资产申请";
-        }
+        ApplicationType appType = ApplicationType.fromCode(type);
+        return switch (appType) {
+            case RECEIVE -> "申请领用资产";
+            case TRANSFER -> "申请转移资产";
+            case MAINTENANCE -> "申请维修资产";
+            case DISPOSAL -> "申请报废资产";
+            default -> "资产申请";
+        };
     }
 
     private String getApplicationTypeTextShort(String type) {
         if (type == null)
             return "资产";
-        switch (type.toUpperCase()) {
-            case "RECEIVE":
-                return "领用";
-            case "TRANSFER":
-                return "转移";
-            case "REPAIR":
-                return "维修";
-            case "DISPOSAL":
-                return "报废";
-            default:
-                return "资产";
-        }
+        ApplicationType appType = ApplicationType.fromCode(type);
+        return switch (appType) {
+            case RECEIVE -> "领用";
+            case TRANSFER -> "转移";
+            case MAINTENANCE -> "维修";
+            case DISPOSAL -> "报废";
+            default -> "资产";
+        };
     }
 
     private String getStatusText(String status) {
         if (status == null)
             return "未知状态";
-        switch (status.toLowerCase()) {
-            case "pending":
-                return "待审批";
-            case "approved":
-                return "批准";
-            case "rejected":
-                return "拒绝";
-            case "completed":
-                return "完成";
-            case "pending_leader":
-                return "待领导审批";
-            case "leader_approved":
-                return "领导批准";
-            default:
-                return status;
-        }
+        ApplicationStatus appStatus = ApplicationStatus.fromCode(status);
+        return appStatus.getName();
     }
 
     private String getPurchaseStatusText(String status) {
         if (status == null)
             return "未知状态";
-        switch (status.toLowerCase()) {
-            case "pending":
-                return "待审批";
-            case "approved":
-                return "批准";
-            case "rejected":
-                return "拒绝";
-            case "ordered":
-                return "已下单";
-            case "completed":
-                return "完成";
-            default:
-                return status;
-        }
+        PurchaseRequestStatus reqStatus = PurchaseRequestStatus.fromCode(status);
+        return reqStatus.getName();
     }
 
     /**
@@ -342,19 +321,8 @@ public class RecentOperationService {
         if (logType == null) {
             return "[系统]";
         }
-        switch (logType.toUpperCase()) {
-            case "ASSET":
-                return "[资产]";
-            case "INVENTORY":
-                return "[盘点]";
-            case "PURCHASE":
-                return "[采购]";
-            case "DEPRECIATION":
-                return "[折旧]";
-            case "SYSTEM":
-            default:
-                return "[系统]";
-        }
+        LogType type = LogType.fromCode(logType);
+        return "[" + type.getName() + "]";
     }
 
     /**
@@ -365,17 +333,16 @@ public class RecentOperationService {
             return params != null ? params : "操作记录";
         }
 
-        // 盘点相关操作
-        if ("INVENTORY".equalsIgnoreCase(logType)) {
+        LogType type = LogType.fromCode(logType);
+
+        if (type == LogType.INVENTORY) {
             return formatInventoryContent(operation, params);
         }
 
-        // 资产相关操作
-        if ("ASSET".equalsIgnoreCase(logType)) {
+        if (type == LogType.ASSET) {
             return formatAssetContent(operation, params);
         }
 
-        // 默认格式化
         if (operation.startsWith("批准")) {
             return "✓ " + operation + (params != null ? "：" + params : "");
         } else if (operation.startsWith("拒绝")) {

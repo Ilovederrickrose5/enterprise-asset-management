@@ -28,11 +28,11 @@ public class UserRole {
     private Long roleId;
 
     @CreationTimestamp
-    @Column(name = "create_time", updatable = false)
+    @Column(name = "created_at", updatable = false)
     private LocalDateTime createTime;
 
     @UpdateTimestamp
-    @Column(name = "update_time")
+    @Column(name = "updated_at")
     private LocalDateTime updateTime;
 
     /** 关联用户实体 */

@@ -1,5 +1,7 @@
 package com.enterprise.asset.enterpriseassetmanagement.service.impl;
 
+import com.enterprise.asset.enterpriseassetmanagement.common.PurchaseRequestStatus;
+import com.enterprise.asset.enterpriseassetmanagement.common.UserRole;
 import com.enterprise.asset.enterpriseassetmanagement.entity.Department;
 import com.enterprise.asset.enterpriseassetmanagement.entity.PurchaseRequest;
 import com.enterprise.asset.enterpriseassetmanagement.entity.SysLog;
@@ -79,22 +81,19 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
             return List.of();
         }
 
-        String role = user.getRole();
-        String roleLower = role != null ? role.toLowerCase() : "";
-        boolean isLeader = roleLower.equals("leader") || roleLower.equals("role_leader");
-        boolean isAdmin = roleLower.equals("admin") || roleLower.equals("role_admin");
-        boolean isManager = roleLower.equals("manager") || roleLower.equals("role_manager")
-                || roleLower.equals("asset_manager") || roleLower.equals("role_asset_manager");
+        UserRole userRole = UserRole.fromCode(user.getRole());
 
-        if (isAdmin) {
-            return purchaseRequestRepository.findPendingRequestsForAdmin(userId, "pending");
-        } else if (isLeader || isManager) {
+        if (userRole != null && userRole.isAdmin()) {
+            return purchaseRequestRepository.findPendingRequestsForAdmin(userId,
+                    PurchaseRequestStatus.PENDING.getCode());
+        } else if (userRole != null && (userRole.isLeader() || userRole.isManager())) {
             // 如果用户有部门ID，查询本部门的待审批申请
             if (user.getDeptId() != null) {
-                return purchaseRequestRepository.findByDepartmentIdAndStatus(user.getDeptId(), "pending");
+                return purchaseRequestRepository.findByDepartmentIdAndStatus(user.getDeptId(),
+                        PurchaseRequestStatus.PENDING.getCode());
             } else {
                 // 如果用户没有部门ID，返回所有待审批申请（兜底处理）
-                return purchaseRequestRepository.findByStatus("pending");
+                return purchaseRequestRepository.findByStatus(PurchaseRequestStatus.PENDING.getCode());
             }
         } else {
             return List.of();
@@ -137,11 +136,9 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
 
         // 2. 权限检查
         logger.info("[步骤2/3] 检查创建权限");
-        boolean isManager = "manager".equals(user.getRole()) || "ROLE_MANAGER".equals(user.getRole())
-                || "asset_manager".equals(user.getRole()) || "ROLE_ASSET_MANAGER".equals(user.getRole())
-                || "dept_manager".equals(user.getRole()) || "ROLE_DEPT_MANAGER".equals(user.getRole());
-
-        boolean isAdmin = "admin".equals(user.getRole()) || "ROLE_ADMIN".equals(user.getRole());
+        UserRole userRole = UserRole.fromCode(user.getRole());
+        boolean isManager = userRole != null && userRole.isManager();
+        boolean isAdmin = userRole != null && userRole.isAdmin();
 
         logger.info("角色检查: isManager={}, isAdmin={}", isManager, isAdmin);
 
@@ -163,7 +160,7 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
         request.setDepartmentId(user.getDeptId());
         request.setDepartmentName(getDepartmentName(user.getDeptId()));
         request.setApplicationDate(LocalDateTime.now());
-        request.setStatus("pending");
+        request.setStatus(PurchaseRequestStatus.PENDING.getCode());
 
         if (request.getEstimatedUnitPrice() != null && request.getQuantity() != null) {
             BigDecimal totalAmount = request.getEstimatedUnitPrice().multiply(new BigDecimal(request.getQuantity()));
@@ -209,13 +206,14 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
             throw new SecurityException("用户不存在");
         }
 
-        boolean isAdmin = "admin".equals(user.getRole());
+        UserRole userRole = UserRole.fromCode(user.getRole());
+        boolean isAdmin = userRole != null && userRole.isAdmin();
 
         if (!isAdmin && !existingRequest.getApplicantId().equals(user.getId())) {
             throw new SecurityException("无权修改此采购申请");
         }
 
-        if (!"pending".equals(existingRequest.getStatus())) {
+        if (!PurchaseRequestStatus.PENDING.getCode().equals(existingRequest.getStatus())) {
             throw new SecurityException("只能修改待审批的采购申请");
         }
 
@@ -252,13 +250,14 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
             throw new SecurityException("用户不存在");
         }
 
-        boolean isAdmin = "admin".equals(user.getRole());
+        UserRole userRole = UserRole.fromCode(user.getRole());
+        boolean isAdmin = userRole != null && userRole.isAdmin();
 
         if (!isAdmin && !request.getApplicantId().equals(user.getId())) {
             throw new SecurityException("无权删除此采购申请");
         }
 
-        if (!"pending".equals(request.getStatus())) {
+        if (!PurchaseRequestStatus.PENDING.getCode().equals(request.getStatus())) {
             throw new SecurityException("只能删除待审批的采购申请");
         }
 
@@ -301,8 +300,9 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
 
         // 3. 权限检查
         logger.info("[步骤3/4] 检查审批权限");
-        boolean isLeader = "leader".equals(user.getRole());
-        boolean isAdmin = "admin".equals(user.getRole());
+        UserRole userRole = UserRole.fromCode(user.getRole());
+        boolean isLeader = userRole != null && userRole.isLeader();
+        boolean isAdmin = userRole != null && userRole.isAdmin();
 
         logger.info("角色检查: isLeader={}, isAdmin={}", isLeader, isAdmin);
 
@@ -327,13 +327,13 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
         // 4. 状态检查和批准操作
         logger.info("[步骤4/4] 检查状态并执行批准");
         logger.info("当前申请状态: {}", request.getStatus());
-        if (!"pending".equals(request.getStatus())) {
+        if (!PurchaseRequestStatus.PENDING.getCode().equals(request.getStatus())) {
             logger.error("状态验证失败: 只能审批待审批的采购申请");
             throw new SecurityException("只能审批待审批的采购申请");
         }
 
         logger.info("执行批准操作, 审批备注: {}", approvalRemark);
-        request.setStatus("approved");
+        request.setStatus(PurchaseRequestStatus.APPROVED.getCode());
         request.setApproverId(user.getId());
         request.setApproverName(user.getRealName());
         request.setApprovalDate(LocalDateTime.now());
@@ -376,26 +376,26 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
             throw new SecurityException("用户不存在");
         }
 
-        boolean isLeader = "leader".equals(user.getRole());
-
-        boolean isAdmin = "admin".equals(user.getRole());
+        UserRole userRole = UserRole.fromCode(user.getRole());
+        boolean isLeader = userRole != null && userRole.isLeader();
+        boolean isAdmin = userRole != null && userRole.isAdmin();
 
         if (!isAdmin && !isLeader) {
             throw new SecurityException("只有部门领导或管理员才能审批采购申请");
         }
 
-        if (!"pending".equals(request.getStatus())) {
+        if (!PurchaseRequestStatus.PENDING.getCode().equals(request.getStatus())) {
             throw new SecurityException("只能审批待审批的采购申请");
         }
 
-        request.setStatus("rejected");
+        request.setStatus(PurchaseRequestStatus.REJECTED.getCode());
         request.setApproverId(user.getId());
         request.setApproverName(user.getRealName());
         request.setApprovalDate(LocalDateTime.now());
         request.setApprovalRemark(approvalRemark);
 
         PurchaseRequest savedRequest = purchaseRequestRepository.save(request);
-        
+
         // 记录操作日志
         try {
             SysLog log = new SysLog();
@@ -408,7 +408,7 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
         } catch (Exception e) {
             System.err.println("添加采购需求申请拒绝日志失败: " + e.getMessage());
         }
-        
+
         return savedRequest;
     }
 
