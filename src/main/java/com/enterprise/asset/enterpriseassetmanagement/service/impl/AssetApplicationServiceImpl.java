@@ -342,39 +342,39 @@ public class AssetApplicationServiceImpl implements AssetApplicationService {
 
     @Override
     public Page<AssetApplication> getAllApplications(int page, int size) {
-        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "applicationDate"));
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, AssetApplication.APPLICATION_DATE));
         return assetApplicationRepository.findAll(pageable);
     }
 
     @Override
     public Page<AssetApplication> getApplicationsByApplicantId(Long applicantId, int page, int size) {
-        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "applicationDate"));
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, AssetApplication.APPLICATION_DATE));
         return assetApplicationRepository.findByApplicantId(applicantId, pageable);
     }
 
     @Override
     public Page<AssetApplication> getApplicationsByDepartmentId(Long departmentId, int page, int size) {
-        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "applicationDate"));
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, AssetApplication.APPLICATION_DATE));
         return assetApplicationRepository.findByDepartmentId(departmentId, pageable);
     }
 
     @Override
     public Page<AssetApplication> getApplicationsByTypeAndStatus(String type, String status, int page, int size) {
-        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "applicationDate"));
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, AssetApplication.APPLICATION_DATE));
         return assetApplicationRepository.findByTypeAndStatus(type, status, pageable);
     }
 
     @Override
     public Page<AssetApplication> getApplicationsByApplicantIdAndTypeAndStatus(Long applicantId, String type,
             String status, int page, int size) {
-        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "applicationDate"));
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, AssetApplication.APPLICATION_DATE));
         return assetApplicationRepository.findByApplicantIdAndTypeAndStatus(applicantId, type, status, pageable);
     }
 
     @Override
     public Page<AssetApplication> getApplicationsByDepartmentIdAndTypeAndStatus(Long departmentId, String type,
             String status, int page, int size) {
-        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "applicationDate"));
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, AssetApplication.APPLICATION_DATE));
         return assetApplicationRepository.findByDepartmentIdAndTypeAndStatus(departmentId, type, status, pageable);
     }
 

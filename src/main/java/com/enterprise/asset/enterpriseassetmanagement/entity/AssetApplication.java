@@ -13,6 +13,8 @@ import java.time.LocalDateTime;
 @Data
 public class AssetApplication {
 
+    public static final String APPLICATION_DATE = "applicationDate";
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;

@@ -427,7 +427,7 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
     // 分页查询实现
     @Override
     public Page<PurchaseRequest> getAllRequests(int page, int size, String status) {
-        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "applicationDate"));
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, PurchaseRequest.APPLICATION_DATE));
         Page<PurchaseRequest> result = purchaseRequestRepository.findByStatus(status, pageable);
         updateDepartmentNames(result.getContent());
         return result;
@@ -435,7 +435,7 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
 
     @Override
     public Page<PurchaseRequest> getRequestsByApplicantId(Long applicantId, int page, int size, String status) {
-        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "applicationDate"));
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, PurchaseRequest.APPLICATION_DATE));
         Page<PurchaseRequest> result = purchaseRequestRepository.findByApplicantIdAndStatus(applicantId, status,
                 pageable);
         updateDepartmentNames(result.getContent());
@@ -444,7 +444,7 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
 
     @Override
     public Page<PurchaseRequest> getRequestsByDepartmentId(Long departmentId, int page, int size, String status) {
-        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "applicationDate"));
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, PurchaseRequest.APPLICATION_DATE));
         Page<PurchaseRequest> result = purchaseRequestRepository.findByDepartmentIdAndStatus(departmentId, status,
                 pageable);
         updateDepartmentNames(result.getContent());

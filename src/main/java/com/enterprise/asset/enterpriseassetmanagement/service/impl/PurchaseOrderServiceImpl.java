@@ -77,7 +77,7 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
             throw new SecurityException("用户不存在");
         }
 
-        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "orderDate"));
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, PurchaseOrder.ORDER_DATE));
         Long departmentId = user.getDeptId();
 
         // 管理员可以看到所有订单

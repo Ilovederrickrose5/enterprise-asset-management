@@ -13,7 +13,9 @@ import java.time.LocalDateTime;
 @Data
 public class PurchaseRequest {
 
-  @Id
+    public static final String APPLICATION_DATE = "applicationDate";
+
+    @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   private Long id;
 

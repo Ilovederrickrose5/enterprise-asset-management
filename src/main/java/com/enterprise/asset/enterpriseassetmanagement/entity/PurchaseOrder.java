@@ -13,6 +13,8 @@ import java.time.LocalDateTime;
 @Data
 public class PurchaseOrder {
 
+    public static final String ORDER_DATE = "orderDate";
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
