@@ -6,7 +6,6 @@ import com.enterprise.asset.enterpriseassetmanagement.entity.User;
 import com.enterprise.asset.enterpriseassetmanagement.repository.AssetRepository;
 import com.enterprise.asset.enterpriseassetmanagement.repository.SysLogRepository;
 import com.enterprise.asset.enterpriseassetmanagement.repository.UserRepository;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -18,14 +17,16 @@ import java.util.List;
 @Service
 public class AssetService {
 
-    @Autowired
-    private AssetRepository assetRepository;
+    private final AssetRepository assetRepository;
+    private final SysLogRepository sysLogRepository;
+    private final UserRepository userRepository;
 
-    @Autowired
-    private SysLogRepository sysLogRepository;
-
-    @Autowired
-    private UserRepository userRepository;
+    public AssetService(AssetRepository assetRepository, SysLogRepository sysLogRepository,
+            UserRepository userRepository) {
+        this.assetRepository = assetRepository;
+        this.sysLogRepository = sysLogRepository;
+        this.userRepository = userRepository;
+    }
 
     /**
      * 获取所有资产（根据用户角色返回不同数据）

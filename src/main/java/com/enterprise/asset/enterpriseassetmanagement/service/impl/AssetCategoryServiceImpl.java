@@ -3,7 +3,6 @@ package com.enterprise.asset.enterpriseassetmanagement.service.impl;
 import com.enterprise.asset.enterpriseassetmanagement.entity.AssetCategory;
 import com.enterprise.asset.enterpriseassetmanagement.repository.AssetCategoryRepository;
 import com.enterprise.asset.enterpriseassetmanagement.service.AssetCategoryService;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -13,8 +12,11 @@ import java.util.Optional;
 @Service
 public class AssetCategoryServiceImpl implements AssetCategoryService {
 
-    @Autowired
-    private AssetCategoryRepository assetCategoryRepository;
+    private final AssetCategoryRepository assetCategoryRepository;
+
+    public AssetCategoryServiceImpl(AssetCategoryRepository assetCategoryRepository) {
+        this.assetCategoryRepository = assetCategoryRepository;
+    }
 
     @Override
     public List<AssetCategory> getAllCategories() {

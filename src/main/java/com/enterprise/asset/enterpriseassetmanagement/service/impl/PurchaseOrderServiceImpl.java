@@ -19,7 +19,6 @@ import com.enterprise.asset.enterpriseassetmanagement.repository.UserRepository;
 import com.enterprise.asset.enterpriseassetmanagement.service.PurchaseOrderService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -40,23 +39,24 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
 
     private static final Logger logger = LoggerFactory.getLogger(PurchaseOrderServiceImpl.class);
 
-    @Autowired
-    private PurchaseOrderRepository purchaseOrderRepository;
+    private final PurchaseOrderRepository purchaseOrderRepository;
+    private final PurchaseRequestRepository purchaseRequestRepository;
+    private final SupplierRepository supplierRepository;
+    private final UserRepository userRepository;
+    private final AssetRepository assetRepository;
+    private final AssetCategoryRepository assetCategoryRepository;
 
-    @Autowired
-    private PurchaseRequestRepository purchaseRequestRepository;
-
-    @Autowired
-    private SupplierRepository supplierRepository;
-
-    @Autowired
-    private UserRepository userRepository;
-
-    @Autowired
-    private AssetRepository assetRepository;
-
-    @Autowired
-    private AssetCategoryRepository assetCategoryRepository;
+    public PurchaseOrderServiceImpl(PurchaseOrderRepository purchaseOrderRepository,
+            PurchaseRequestRepository purchaseRequestRepository, SupplierRepository supplierRepository,
+            UserRepository userRepository, AssetRepository assetRepository,
+            AssetCategoryRepository assetCategoryRepository) {
+        this.purchaseOrderRepository = purchaseOrderRepository;
+        this.purchaseRequestRepository = purchaseRequestRepository;
+        this.supplierRepository = supplierRepository;
+        this.userRepository = userRepository;
+        this.assetRepository = assetRepository;
+        this.assetCategoryRepository = assetCategoryRepository;
+    }
 
     @Override
     public List<PurchaseOrder> getAllOrders() {

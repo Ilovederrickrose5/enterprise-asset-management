@@ -10,7 +10,6 @@ import com.enterprise.asset.enterpriseassetmanagement.repository.AssetRepository
 import com.enterprise.asset.enterpriseassetmanagement.repository.DepartmentRepository;
 import com.enterprise.asset.enterpriseassetmanagement.repository.UserRepository;
 import com.enterprise.asset.enterpriseassetmanagement.service.ReportService;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -22,14 +21,16 @@ import java.util.stream.Collectors;
 @Service
 public class ReportServiceImpl implements ReportService {
 
-    @Autowired
-    private AssetRepository assetRepository;
+    private final AssetRepository assetRepository;
+    private final UserRepository userRepository;
+    private final DepartmentRepository departmentRepository;
 
-    @Autowired
-    private UserRepository userRepository;
-
-    @Autowired
-    private DepartmentRepository departmentRepository;
+    public ReportServiceImpl(AssetRepository assetRepository, UserRepository userRepository,
+            DepartmentRepository departmentRepository) {
+        this.assetRepository = assetRepository;
+        this.userRepository = userRepository;
+        this.departmentRepository = departmentRepository;
+    }
 
     /** 状态处理顺序 */
     private static final List<AssetStatus> STATUS_ORDER = List.of(

@@ -10,7 +10,6 @@ import com.enterprise.asset.enterpriseassetmanagement.repository.AssetApplicatio
 import com.enterprise.asset.enterpriseassetmanagement.repository.AssetRepository;
 import com.enterprise.asset.enterpriseassetmanagement.repository.SysLogRepository;
 import com.enterprise.asset.enterpriseassetmanagement.service.AssetApplicationService;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -25,12 +24,16 @@ import java.util.List;
 @Service
 public class AssetApplicationServiceImpl implements AssetApplicationService {
 
-    @Autowired
-    private AssetApplicationRepository assetApplicationRepository;
-    @Autowired
-    private AssetRepository assetRepository;
-    @Autowired
-    private SysLogRepository sysLogRepository;
+    private final AssetApplicationRepository assetApplicationRepository;
+    private final AssetRepository assetRepository;
+    private final SysLogRepository sysLogRepository;
+
+    public AssetApplicationServiceImpl(AssetApplicationRepository assetApplicationRepository,
+            AssetRepository assetRepository, SysLogRepository sysLogRepository) {
+        this.assetApplicationRepository = assetApplicationRepository;
+        this.assetRepository = assetRepository;
+        this.sysLogRepository = sysLogRepository;
+    }
 
     // === 查询方法 ===
 

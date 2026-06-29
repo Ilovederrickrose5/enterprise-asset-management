@@ -13,7 +13,6 @@ import com.enterprise.asset.enterpriseassetmanagement.service.DepartmentService;
 import com.enterprise.asset.enterpriseassetmanagement.service.PurchaseRequestService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -32,17 +31,19 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
 
     private static final Logger logger = LoggerFactory.getLogger(PurchaseRequestServiceImpl.class);
 
-    @Autowired
-    private PurchaseRequestRepository purchaseRequestRepository;
+    private final PurchaseRequestRepository purchaseRequestRepository;
+    private final UserRepository userRepository;
+    private final DepartmentService departmentService;
+    private final SysLogRepository sysLogRepository;
 
-    @Autowired
-    private UserRepository userRepository;
-
-    @Autowired
-    private DepartmentService departmentService;
-
-    @Autowired
-    private SysLogRepository sysLogRepository;
+    public PurchaseRequestServiceImpl(PurchaseRequestRepository purchaseRequestRepository,
+            UserRepository userRepository, DepartmentService departmentService,
+            SysLogRepository sysLogRepository) {
+        this.purchaseRequestRepository = purchaseRequestRepository;
+        this.userRepository = userRepository;
+        this.departmentService = departmentService;
+        this.sysLogRepository = sysLogRepository;
+    }
 
     @Override
     public List<PurchaseRequest> getAllRequests() {

@@ -2,7 +2,6 @@ package com.enterprise.asset.enterpriseassetmanagement.config;
 
 import com.enterprise.asset.enterpriseassetmanagement.entity.Role;
 import com.enterprise.asset.enterpriseassetmanagement.repository.RoleRepository;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -10,8 +9,11 @@ import org.springframework.transaction.annotation.Transactional;
 @Component
 public class DataInitializer implements CommandLineRunner {
 
-  @Autowired
-  private RoleRepository roleRepository;
+  private final RoleRepository roleRepository;
+
+  public DataInitializer(RoleRepository roleRepository) {
+    this.roleRepository = roleRepository;
+  }
 
   @Override
   @Transactional

@@ -3,7 +3,6 @@ package com.enterprise.asset.enterpriseassetmanagement.service.impl;
 import com.enterprise.asset.enterpriseassetmanagement.entity.Role;
 import com.enterprise.asset.enterpriseassetmanagement.repository.RoleRepository;
 import com.enterprise.asset.enterpriseassetmanagement.service.RoleService;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -13,8 +12,11 @@ import java.util.List;
 @Service
 public class RoleServiceImpl implements RoleService {
 
-    @Autowired
-    private RoleRepository roleRepository;
+    private final RoleRepository roleRepository;
+
+    public RoleServiceImpl(RoleRepository roleRepository) {
+        this.roleRepository = roleRepository;
+    }
 
     @Override
     public List<Role> getAllRoles() {

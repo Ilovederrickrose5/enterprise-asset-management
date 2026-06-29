@@ -3,7 +3,6 @@ package com.enterprise.asset.enterpriseassetmanagement.service.impl;
 import com.enterprise.asset.enterpriseassetmanagement.entity.Supplier;
 import com.enterprise.asset.enterpriseassetmanagement.repository.SupplierRepository;
 import com.enterprise.asset.enterpriseassetmanagement.service.SupplierService;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -13,8 +12,11 @@ import java.util.Optional;
 @Service
 public class SupplierServiceImpl implements SupplierService {
 
-    @Autowired
-    private SupplierRepository supplierRepository;
+    private final SupplierRepository supplierRepository;
+
+    public SupplierServiceImpl(SupplierRepository supplierRepository) {
+        this.supplierRepository = supplierRepository;
+    }
 
     @Override
     public List<Supplier> getAllSuppliers() {

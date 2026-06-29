@@ -2,7 +2,6 @@ package com.enterprise.asset.enterpriseassetmanagement.security;
 
 import com.enterprise.asset.enterpriseassetmanagement.entity.User;
 import com.enterprise.asset.enterpriseassetmanagement.repository.UserRepository;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -12,9 +11,12 @@ import org.springframework.transaction.annotation.Transactional;
 /** Spring Security用户详情服务实现 - 负责用户登录认证时的用户信息查询与权限加载 */
 @Service
 public class UserDetailsServiceImpl implements UserDetailsService {
-    
-    @Autowired
-    private UserRepository userRepository;
+
+    private final UserRepository userRepository;
+
+    public UserDetailsServiceImpl(UserRepository userRepository) {
+        this.userRepository = userRepository;
+    }
     
     @Override
     @Transactional
