@@ -1,6 +1,5 @@
 package com.enterprise.asset.auth.security;
 
-import com.enterprise.asset.common.security.JwtUtil;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
