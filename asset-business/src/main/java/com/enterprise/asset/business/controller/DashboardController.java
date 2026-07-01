@@ -64,9 +64,10 @@ public class DashboardController {
         UserDTO user = (UserDTO) authentication.getPrincipal();
         DashboardStatsDTO stats;
 
-        boolean isAdmin = user.getRoleCodes() != null && user.getRoleCodes().contains("admin");
-        boolean isManager = user.getRoleCodes() != null && user.getRoleCodes().contains("manager");
-        boolean isLeader = user.getRoleCodes() != null && user.getRoleCodes().contains("leader");
+        List<String> roleCodes = user.getRoleCodes();
+        boolean isAdmin = roleCodes != null && roleCodes.stream().anyMatch(r -> r.equalsIgnoreCase("ADMIN"));
+        boolean isManager = roleCodes != null && roleCodes.stream().anyMatch(r -> r.equalsIgnoreCase("MANAGER"));
+        boolean isLeader = roleCodes != null && roleCodes.stream().anyMatch(r -> r.equalsIgnoreCase("LEADER"));
 
         if (isAdmin) {
             stats = dashboardService.getStatsForAdmin();

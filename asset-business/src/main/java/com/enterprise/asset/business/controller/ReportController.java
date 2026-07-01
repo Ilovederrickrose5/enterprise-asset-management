@@ -50,9 +50,9 @@ public class ReportController {
                 UserDTO user = (UserDTO) authentication.getPrincipal();
                 List<String> roles = user.getRoleCodes();
 
-                boolean isAdmin = roles != null && roles.contains("admin");
-                boolean isLeader = roles != null && roles.contains("leader");
-                boolean isManager = roles != null && roles.contains("manager");
+                boolean isAdmin = roles != null && roles.stream().anyMatch(r -> r.equalsIgnoreCase("ADMIN"));
+                boolean isLeader = roles != null && roles.stream().anyMatch(r -> r.equalsIgnoreCase("LEADER"));
+                boolean isManager = roles != null && roles.stream().anyMatch(r -> r.equalsIgnoreCase("MANAGER"));
 
                 if (!isAdmin && !isLeader && !isManager) {
                     return ResponseEntity.ok(Result.error(403, "无权限访问部门资产统计"));
@@ -86,7 +86,7 @@ public class ReportController {
                     && authentication.getPrincipal() instanceof UserDTO) {
                 UserDTO user = (UserDTO) authentication.getPrincipal();
                 List<String> roles = user.getRoleCodes();
-                boolean isAdmin = roles != null && roles.contains("admin");
+                boolean isAdmin = roles != null && roles.stream().anyMatch(r -> r.equalsIgnoreCase("ADMIN"));
 
                 if (!isAdmin && (user.getDeptId() == null || !user.getDeptId().equals(departmentId))) {
                     return ResponseEntity.ok(Result.error(403, "无权限访问该部门资产统计"));
@@ -114,9 +114,9 @@ public class ReportController {
                 UserDTO user = (UserDTO) authentication.getPrincipal();
                 List<String> roles = user.getRoleCodes();
 
-                boolean isAdmin = roles != null && roles.contains("admin");
-                boolean isLeader = roles != null && roles.contains("leader");
-                boolean isManager = roles != null && roles.contains("manager");
+                boolean isAdmin = roles != null && roles.stream().anyMatch(r -> r.equalsIgnoreCase("ADMIN"));
+                boolean isLeader = roles != null && roles.stream().anyMatch(r -> r.equalsIgnoreCase("LEADER"));
+                boolean isManager = roles != null && roles.stream().anyMatch(r -> r.equalsIgnoreCase("MANAGER"));
 
                 if (!isAdmin && !isLeader && !isManager) {
                     return ResponseEntity.ok(Result.error(403, "无权限访问资产状态分布"));
