@@ -10,9 +10,6 @@ import java.util.List;
 
 /**
  * 资产控制器 - 处理资产的CRUD操作及状态管理
- * 
- * TODO: 需要改造AssetService，因为它依赖auth模块的User实体和SecurityContext
- * 所有依赖User查询的方法需要改为通过Feign调用auth服务
  */
 @RestController
 @RequestMapping("/api/assets")

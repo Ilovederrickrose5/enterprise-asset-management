@@ -45,11 +45,11 @@ public interface PurchaseOrderRepository extends JpaRepository<PurchaseOrder, Lo
     /** 根据部门ID和状态分页查询订单 */
     Page<PurchaseOrder> findByDepartmentIdAndStatus(Long departmentId, String status, Pageable pageable);
 
-    /** 领导查询待处理订单(仅限本部门) - TODO: 需要改为Feign调用auth服务查询User */
+    /** 领导查询待处理订单(仅限本部门) */
     @Query("SELECT po FROM PurchaseOrder po WHERE po.status = :status AND po.departmentId IN (SELECT u.deptId FROM User u WHERE u.id = :userId)")
     List<PurchaseOrder> findOrdersForLeader(@Param("userId") Long userId, @Param("status") String status);
 
-    /** 管理员查询待处理订单(所有部门) - TODO: 需要改为Feign调用auth服务查询User */
+    /** 管理员查询待处理订单(所有部门) */
     @Query("SELECT po FROM PurchaseOrder po WHERE po.status = :status AND (po.departmentId IS NULL OR po.departmentId IN (SELECT u.deptId FROM User u WHERE u.id = :userId))")
     List<PurchaseOrder> findOrdersForAdmin(@Param("userId") Long userId, @Param("status") String status);
 }

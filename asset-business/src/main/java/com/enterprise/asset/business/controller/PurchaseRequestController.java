@@ -1,7 +1,3 @@
-// TODO: Feign改造 - 需要通过Feign调用auth服务获取User/Department数据
-// 替换: UserRepository → UserClient.getUserById()
-// 替换: DepartmentRepository → DepartmentClient.getDepartmentById()
-// 替换: SecurityContext获取用户 → UserClient.getCurrentUser()
 package com.enterprise.asset.business.controller;
 
 import com.enterprise.asset.common.enums.PurchaseRequestStatus;

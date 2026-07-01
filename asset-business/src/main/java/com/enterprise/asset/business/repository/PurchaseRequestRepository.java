@@ -33,11 +33,11 @@ public interface PurchaseRequestRepository extends JpaRepository<PurchaseRequest
     /** 根据部门ID和状态查询申请 */
     List<PurchaseRequest> findByDepartmentIdAndStatus(Long departmentId, String status);
 
-    /** 领导查询待审批的申请(仅限本部门) - TODO: 需要改为Feign调用auth服务查询User */
+    /** 领导查询待审批的申请(仅限本部门) */
     @Query("SELECT pr FROM PurchaseRequest pr WHERE pr.status = :status AND pr.departmentId IN (SELECT u.deptId FROM User u WHERE u.id = :userId)")
     List<PurchaseRequest> findPendingRequestsForLeader(@Param("userId") Long userId, @Param("status") String status);
 
-    /** 管理员查询待审批的申请(所有部门) - TODO: 需要改为Feign调用auth服务查询User */
+    /** 管理员查询待审批的申请(所有部门) */
     @Query("SELECT pr FROM PurchaseRequest pr WHERE pr.status = :status AND (pr.departmentId IS NULL OR pr.departmentId IN (SELECT u.deptId FROM User u WHERE u.id = :userId))")
     List<PurchaseRequest> findPendingRequestsForAdmin(@Param("userId") Long userId, @Param("status") String status);
     

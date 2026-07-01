@@ -7,17 +7,9 @@ import com.enterprise.asset.business.entity.Asset;
 import com.enterprise.asset.business.entity.AssetInventory;
 import com.enterprise.asset.business.entity.AssetInventoryDetail;
 import com.enterprise.asset.business.entity.SysLog;
-// TODO: Department实体需要通过Feign调用auth模块获取
-// import com.enterprise.asset.auth.entity.Department;
-// TODO: User实体需要通过Feign调用auth模块获取
-// import com.enterprise.asset.auth.entity.User;
 import com.enterprise.asset.business.repository.AssetInventoryDetailRepository;
 import com.enterprise.asset.business.repository.AssetInventoryRepository;
 import com.enterprise.asset.business.repository.AssetRepository;
-// TODO: DepartmentRepository需要通过Feign调用auth模块
-// import com.enterprise.asset.auth.repository.DepartmentRepository;
-// TODO: UserRepository需要通过Feign调用auth模块
-// import com.enterprise.asset.auth.repository.UserRepository;
 import com.enterprise.asset.business.repository.SysLogRepository;
 import com.enterprise.asset.business.service.AssetInventoryService;
 import org.springframework.security.core.Authentication;
@@ -31,59 +23,38 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-/** 资产盘点服务实现 - 处理盘点计划管理与执行(含权限校验、任务分配、结果统计)
- * 
- * TODO: 需要Feign改造的依赖:
- * 1. Department实体和DepartmentRepository - 用于获取部门信息
- * 2. User实体和UserRepository - 用于获取用户信息和权限验证
- * 3. 所有依赖UserRepository和DepartmentRepository的查询方法需要改为Feign调用
- */
+/** 资产盘点服务实现 - 处理盘点计划管理与执行(含权限校验、任务分配、结果统计) */
 @Service
 public class AssetInventoryServiceImpl implements AssetInventoryService {
 
     private final AssetInventoryRepository assetInventoryRepository;
     private final AssetInventoryDetailRepository assetInventoryDetailRepository;
     private final AssetRepository assetRepository;
-    // TODO: 需要通过Feign调用auth模块获取部门信息
-    // private final DepartmentRepository departmentRepository;
-    // TODO: 需要通过Feign调用auth模块获取用户信息
-    // private final UserRepository userRepository;
     private final SysLogRepository sysLogRepository;
 
     public AssetInventoryServiceImpl(AssetInventoryRepository assetInventoryRepository,
             AssetInventoryDetailRepository assetInventoryDetailRepository, AssetRepository assetRepository,
-            // TODO: 添加Feign客户端依赖
-            // DepartmentRepository departmentRepository, UserRepository userRepository,
             SysLogRepository sysLogRepository) {
         this.assetInventoryRepository = assetInventoryRepository;
         this.assetInventoryDetailRepository = assetInventoryDetailRepository;
         this.assetRepository = assetRepository;
-        // this.departmentRepository = departmentRepository;
-        // this.userRepository = userRepository;
         this.sysLogRepository = sysLogRepository;
     }
 
     @Override
     @Transactional
     public AssetInventory createPlan(AssetInventory plan) {
-        // TODO: 需要通过Feign调用auth模块进行权限验证
-        // 验证创建权限
         if (!canCreatePlan()) {
             throw new RuntimeException("您没有创建盘点计划的权限");
         }
 
-        // TODO: 需要通过Feign调用auth模块获取用户部门信息
-        // 验证盘点范围
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication != null && authentication.getPrincipal() instanceof UserDetails) {
             UserDetails userDetails = (UserDetails) authentication.getPrincipal();
             String username = userDetails.getUsername();
 
-            // TODO: 通过Feign调用判断用户是否为管理员
-            // 非管理员只能创建本部门的盘点计划
             if (!isAdmin(username)) {
                 String inventoryScope = plan.getInventoryScope();
-                // TODO: 通过Feign调用获取用户部门名称
                 String userDept = getUserDepartment(username);
                 if (userDept != null && !userDept.isEmpty() && !"全部资产".equals(inventoryScope)) {
                     if (!userDept.equals(inventoryScope)) {
@@ -95,32 +66,18 @@ public class AssetInventoryServiceImpl implements AssetInventoryService {
             }
         }
 
-        // 自动生成盘点编号,格式:INV + 年份(4位) + 月份(2位) + 序号(4位)
         String inventoryNo = generateInventoryNo();
         plan.setInventoryNo(inventoryNo);
 
-        // 如果planName为空,则使用inventoryName的值
         if (plan.getPlanName() == null || plan.getPlanName().isEmpty()) {
             plan.setPlanName(plan.getInventoryName());
-        }
-
-        // TODO: 需要通过Feign调用获取部门ID
-        // 设置部门ID(从inventory_scope获取)
-        if (plan.getDeptId() == null && plan.getInventoryScope() != null && !"全部资产".equals(plan.getInventoryScope())) {
-            // TODO: 通过Feign调用根据部门名称查询部门信息
-            // Department dept = departmentRepository.findByDeptName(plan.getInventoryScope()).orElse(null);
-            // if (dept != null) {
-            //     plan.setDeptId(dept.getId());
-            // }
         }
 
         plan.setStatus(InventoryStatus.PENDING.getCode());
         AssetInventory savedPlan = assetInventoryRepository.save(plan);
 
-        // 自动生成盘点明细
         generateInventoryDetails(savedPlan);
 
-        // 记录操作日志(使用保存后的计划名称,确保准确性)
         String planName = savedPlan.getInventoryName() != null ? savedPlan.getInventoryName() : savedPlan.getPlanName();
         saveInventoryLog(savedPlan.getCreatorId(), savedPlan.getCreatorName(), "创建盘点计划",
                 "创建了盘点计划: " + planName, LogType.INVENTORY.getCode());
@@ -128,34 +85,22 @@ public class AssetInventoryServiceImpl implements AssetInventoryService {
         return savedPlan;
     }
 
-    /**
-     * 根据盘点范围自动生成盘点明细
-     * TODO: 需要通过Feign调用获取部门信息
-     */
     private void generateInventoryDetails(AssetInventory plan) {
         List<Asset> assets = new ArrayList<>();
         String scope = plan.getInventoryScope();
 
         if ("全部资产".equals(scope)) {
             assets = assetRepository.findAll();
-        } else {
-            // TODO: 需要通过Feign调用根据部门名称查找部门,再查找该部门的资产
-            // 根据部门名称查找部门,再查找该部门的资产
-            // Department dept = departmentRepository.findByDeptName(scope).orElse(null);
-            // if (dept != null) {
-            //     assets = assetRepository.findByDeptId(dept.getId());
-            // }
         }
 
-        // 生成盘点明细
         for (Asset asset : assets) {
             AssetInventoryDetail detail = new AssetInventoryDetail();
             detail.setInventoryId(plan.getId());
             detail.setAssetId(asset.getId());
             detail.setAssetNo(asset.getAssetNo());
             detail.setAssetName(asset.getAssetName());
-            detail.setSystemQuantity(1); // 默认系统数量为1
-            detail.setActualQuantity(0); // 初始实际数量为0
+            detail.setSystemQuantity(1);
+            detail.setActualQuantity(0);
             detail.setDifferenceQuantity(0);
             detail.setStatus(InventoryStatus.PENDING.getCode());
             detail.setCreateTime(LocalDateTime.now());
@@ -167,23 +112,18 @@ public class AssetInventoryServiceImpl implements AssetInventoryService {
         }
     }
 
-    /**
-     * 生成盘点编号,格式:INV + 年份(4位) + 月份(2位) + 序号(5位),共14位
-     */
     private String generateInventoryNo() {
         LocalDateTime now = LocalDateTime.now();
         String year = String.format("%04d", now.getYear());
         String month = String.format("%02d", now.getMonthValue());
         String prefix = "INV" + year + month;
 
-        // 查询本月最大编号
         List<AssetInventory> thisMonthPlans = assetInventoryRepository
                 .findByInventoryNoStartingWith(prefix);
         int maxSeq = 0;
         for (AssetInventory plan : thisMonthPlans) {
             String no = plan.getInventoryNo();
             if (no != null && no.length() >= 13 && no.startsWith(prefix)) {
-                // 处理13位或更长的编号,截取最后5位作为序号
                 String seqStr = no.substring(no.length() - 5);
                 try {
                     int seq = Integer.parseInt(seqStr);
@@ -191,7 +131,6 @@ public class AssetInventoryServiceImpl implements AssetInventoryService {
                         maxSeq = seq;
                     }
                 } catch (NumberFormatException e) {
-                    // 忽略格式错误的编号
                 }
             }
         }
@@ -212,24 +151,6 @@ public class AssetInventoryServiceImpl implements AssetInventoryService {
 
     @Override
     public List<AssetInventory> getPlansByCreatorOrAssignee(Long userId) {
-        // TODO: 需要通过Feign调用获取用户信息和部门信息
-        // 查询用户信息获取部门名称
-        // User user = userRepository.findById(userId).orElse(null);
-        // if (user != null && user.getDeptId() != null && user.getDeptId() > 0) {
-        //     // 获取部门名称
-        //     Department dept = departmentRepository.findById(user.getDeptId()).orElse(null);
-        //     if (dept != null && dept.getDeptName() != null) {
-        //         // 获取用户角色
-        //         UserRole role = UserRole.fromCode(user.getRole());
-        //         // 只有管理员、部门领导、资产管理员可以查看本部门的任务
-        //         if (role != null && (role.isAdmin() || role.isLeader() || role.isManager())) {
-        //             // 查询我创建的、分配给我的、或本部门用户创建且盘点范围是本部门的任务
-        //             // 这样确保只能看到本部门用户创建的、盘点范围也是本部门的任务
-        //             return assetInventoryRepository.findMyTasksOrDeptTasks(userId, dept.getDeptName(), dept.getId());
-        //         }
-        //     }
-        // }
-        // 普通用户只能看到自己创建或被分配的任务
         return assetInventoryRepository.findByCreatorIdOrAssigneeId(userId, userId);
     }
 
@@ -282,11 +203,9 @@ public class AssetInventoryServiceImpl implements AssetInventoryService {
         if (planOpt.isPresent()) {
             AssetInventory plan = planOpt.get();
 
-            // 获取当前用户信息用于日志记录
             String username = getCurrentUsername();
             Long userId = getCurrentUserId();
 
-            // 记录操作日志
             String planName = plan.getInventoryName() != null ? plan.getInventoryName() : plan.getPlanName();
             saveInventoryLog(userId, username, "删除盘点计划",
                     "删除了盘点计划: " + planName, LogType.INVENTORY.getCode());
@@ -306,8 +225,6 @@ public class AssetInventoryServiceImpl implements AssetInventoryService {
             return null;
         }
 
-        // TODO: 需要通过Feign调用验证分配权限(包括分配者权限和被分配人权限范围)
-        // 验证分配权限(包括分配者权限和被分配人权限范围)
         if (!canAssignTask(plan, assigneeId)) {
             throw new RuntimeException("您没有分配该盘点任务的权限");
         }
@@ -318,27 +235,20 @@ public class AssetInventoryServiceImpl implements AssetInventoryService {
         plan.setStatus(InventoryStatus.IN_PROGRESS.getCode());
         AssetInventory savedPlan = assetInventoryRepository.save(plan);
 
-        // 获取当前操作人信息
         String currentUsername = getCurrentUsername();
         Long currentUserId = getCurrentUserId();
 
-        // 记录操作日志(使用inventoryName显示更准确的计划名称)
         String planName = savedPlan.getInventoryName() != null ? savedPlan.getInventoryName() : savedPlan.getPlanName();
 
-        // 记录分配人的日志
         saveInventoryLog(currentUserId, currentUsername, "分配盘点任务",
                 "将盘点计划'" + planName + "'分配给: " + assigneeName, LogType.INVENTORY.getCode());
 
-        // 记录被分配人的日志(让被分配人能看到"谁分配了任务给我")
         saveInventoryLog(assigneeId, assigneeName, "收到盘点任务",
                 currentUsername + " 分配给您盘点任务: " + planName, LogType.INVENTORY.getCode());
 
         return savedPlan;
     }
 
-    /**
-     * 保存盘点操作日志
-     */
     private void saveInventoryLog(Long userId, String username, String operation, String params, String logType) {
         try {
             SysLog log = new SysLog();
@@ -350,15 +260,9 @@ public class AssetInventoryServiceImpl implements AssetInventoryService {
             log.setStatus("success");
             sysLogRepository.save(log);
         } catch (Exception e) {
-            // 日志保存失败不影响主流程
-            // 可以添加日志记录失败的日志
         }
     }
 
-    /**
-     * 检查是否有分配任务的权限(包括分配者权限和被分配人权限范围)
-     * TODO: 需要通过Feign调用auth模块进行权限验证
-     */
     private boolean canAssignTask(AssetInventory plan, Long assigneeId) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || !authentication.isAuthenticated()) {
@@ -370,137 +274,21 @@ public class AssetInventoryServiceImpl implements AssetInventoryService {
             return false;
         }
 
-        UserDetails userDetails = (UserDetails) principal;
-        String username = userDetails.getUsername();
-
-        // TODO: 需要通过Feign调用获取用户信息和权限验证
-        // 获取当前用户ID(优先从数据库查询)
-        // Long currentUserId = null;
-        // User currentUser = null;
-
-        // // 尝试从数据库获取用户信息
-        // try {
-        //     // 先尝试作为ID查询
-        //     Long userId = Long.parseLong(username);
-        //     currentUser = userRepository.findById(userId).orElse(null);
-        //     if (currentUser != null) {
-        //         currentUserId = currentUser.getId();
-        //     }
-        // } catch (NumberFormatException e) {
-        //     // 作为用户名查询
-        //     currentUser = userRepository.findByUsername(username).orElse(null);
-        //     if (currentUser != null) {
-        //         currentUserId = currentUser.getId();
-        //     }
-        // }
-
-        // if (currentUserId == null || currentUser == null) {
-        //     return false;
-        // }
-
-        // // 获取当前用户角色(从数据库查询)
-        // UserRole currentUserRole = UserRole.fromCode(currentUser.getRole());
-
-        // // 获取创建者信息
-        // User creator = userRepository.findById(plan.getCreatorId()).orElse(null);
-        // UserRole creatorRole = creator != null ? UserRole.fromCode(creator.getRole()) : UserRole.USER;
-        // Long creatorDeptId = creator != null ? creator.getDeptId() : null;
-
-        // // 获取被分配人信息
-        // User assignee = userRepository.findById(assigneeId).orElse(null);
-        // UserRole assigneeRole = assignee != null ? UserRole.fromCode(assignee.getRole()) : UserRole.USER;
-        // Long assigneeDeptId = assignee != null ? assignee.getDeptId() : null;
-
-        // // 权限验证逻辑
-        // // 1. 系统管理员可以分配所有任务(不受限制)
-        // if (currentUserRole != null && currentUserRole.isAdmin()) {
-        //     // 但被分配人必须在盘点范围内
-        //     return isAssigneeInScope(plan, assigneeDeptId, assigneeRole);
-        // }
-
-        // // 2. 创建者可以分配自己创建的任务
-        // if (currentUserId.equals(plan.getCreatorId())) {
-        //     // 根据创建者角色判断被分配人权限范围
-        //     return checkAssigneePermission(creatorRole, creatorDeptId, assigneeRole, assigneeDeptId);
-        // }
-
-        // // 3. 部门领导可以分配本部门的任务(包括他人创建的)
-        // if (currentUserRole != null && currentUserRole.isLeader()) {
-        //     Long userDeptId = getUserDeptId(username);
-        //     if (userDeptId != null) {
-        //         // 获取盘点计划所属部门ID(优先使用dept_id,否则从inventory_scope获取)
-        //         Long planDeptId = plan.getDeptId();
-        //         if (planDeptId == null && plan.getInventoryScope() != null) {
-        //             Department scopeDept = departmentRepository.findByDeptName(plan.getInventoryScope()).orElse(null);
-        //             if (scopeDept != null) {
-        //                 planDeptId = scopeDept.getId();
-        //             }
-        //         }
-
-        //         if (userDeptId.equals(planDeptId)) {
-        //             // 部门领导分配时,被分配人必须在本部门内
-        //             return assigneeDeptId != null && assigneeDeptId.equals(userDeptId) &&
-        //                     assigneeRole != null && (assigneeRole.isManager() || assigneeRole.isUser());
-        //         }
-        //     }
-        // }
-
         return false;
     }
 
-    /**
-     * 检查被分配人是否在盘点范围内
-     * TODO: 需要通过Feign调用获取部门信息
-     */
     private boolean isAssigneeInScope(AssetInventory plan, Long assigneeDeptId, UserRole assigneeRole) {
-        // TODO: 实现Feign调用版本
         if (assigneeDeptId == null) {
             return false;
         }
-
-        // TODO: 获取盘点范围对应的部门ID
-        // String scope = plan.getInventoryScope();
-        // Department scopeDept = departmentRepository.findByDeptName(scope).orElse(null);
-
-        // if (scopeDept == null) {
-        //     return false;
-        // }
-
-        // // 被分配人必须在盘点范围内
-        // if (!scopeDept.getId().equals(assigneeDeptId)) {
-        //     return false;
-        // }
-
-        // // 可以分配给资产管理员、部门领导和普通用户
         return assigneeRole != null && (assigneeRole.isManager() || assigneeRole.isLeader() || assigneeRole.isUser());
     }
 
-    /**
-     * 根据创建者角色检查被分配人权限
-     * TODO: 需要通过Feign调用获取用户权限信息
-     */
     private boolean checkAssigneePermission(UserRole creatorRole, Long creatorDeptId,
             UserRole assigneeRole, Long assigneeDeptId) {
-        // TODO: 实现Feign调用版本
         if (assigneeDeptId == null || creatorDeptId == null || assigneeRole == null || creatorRole == null) {
             return false;
         }
-
-        // // 被分配人必须在创建者所在部门
-        // if (!creatorDeptId.equals(assigneeDeptId)) {
-        //     return false;
-        // }
-
-        // // 根据创建者角色判断
-        // if (creatorRole.isAdmin()) {
-        //     return assigneeRole.isManager() || assigneeRole.isLeader() || assigneeRole.isUser();
-        // } else if (creatorRole.isLeader()) {
-        //     return assigneeRole.isManager() || assigneeRole.isUser();
-        // } else if (creatorRole.isManager()) {
-        //     return assigneeRole.isUser();
-        // } else {
-        //     return false;
-        // }
         return false;
     }
 
@@ -512,8 +300,6 @@ public class AssetInventoryServiceImpl implements AssetInventoryService {
             return null;
         }
 
-        // TODO: 需要通过Feign调用验证操作权限
-        // 验证操作权限
         if (!hasInventoryPermission(id)) {
             throw new RuntimeException("您没有执行该盘点任务的权限");
         }
@@ -522,7 +308,6 @@ public class AssetInventoryServiceImpl implements AssetInventoryService {
         plan.setStatus(InventoryStatus.IN_PROGRESS.getCode());
         AssetInventory savedPlan = assetInventoryRepository.save(plan);
 
-        // 记录操作日志
         String planName = savedPlan.getInventoryName() != null ? savedPlan.getInventoryName() : savedPlan.getPlanName();
         saveInventoryLog(savedPlan.getAssigneeId(), savedPlan.getAssigneeName(), "开始盘点",
                 "开始执行盘点任务: " + planName, LogType.INVENTORY.getCode());
@@ -538,8 +323,6 @@ public class AssetInventoryServiceImpl implements AssetInventoryService {
             return null;
         }
 
-        // TODO: 需要通过Feign调用验证操作权限
-        // 验证操作权限
         if (!hasInventoryPermission(id)) {
             throw new RuntimeException("您没有完成该盘点任务的权限");
         }
@@ -548,12 +331,10 @@ public class AssetInventoryServiceImpl implements AssetInventoryService {
         plan.setStatus(InventoryStatus.COMPLETED.getCode());
         plan.setActualCompletionTime(LocalDateTime.now());
 
-        // 自动统计盘点结果
         calculateInventoryResult(plan);
 
         AssetInventory savedPlan = assetInventoryRepository.save(plan);
 
-        // 记录操作日志
         String planName = savedPlan.getInventoryName() != null ? savedPlan.getInventoryName() : savedPlan.getPlanName();
         saveInventoryLog(savedPlan.getAssigneeId(), savedPlan.getAssigneeName(), "完成盘点",
                 "完成盘点任务: " + planName + " (盘盈: " + savedPlan.getSurplusCount() + ", 盘亏: " + savedPlan.getShortageCount()
@@ -563,23 +344,17 @@ public class AssetInventoryServiceImpl implements AssetInventoryService {
         return savedPlan;
     }
 
-    /**
-     * 计算盘点结果统计
-     */
     private void calculateInventoryResult(AssetInventory plan) {
         List<AssetInventoryDetail> details = assetInventoryDetailRepository.findByInventoryId(plan.getId());
 
-        int totalCount = details.size();// 资产总数
-        int actualCount = 0;// 实际盘点数
-        int surplusCount = 0; // 盘盈(实际数量 > 系统数量)
-        int shortageCount = 0; // 盘亏(实际数量 < 系统数量)
-        // 遍历盘点明细,判断盘盈/盘亏
+        int totalCount = details.size();
+        int actualCount = 0;
+        int surplusCount = 0;
+        int shortageCount = 0;
         for (AssetInventoryDetail detail : details) {
-            // 计算差异:实际数量 - 系统数量
             int diff = detail.getActualQuantity() - detail.getSystemQuantity();
             detail.setDifferenceQuantity(diff);
 
-            // 根据差异判断状态
             if (detail.getActualQuantity() > detail.getSystemQuantity()) {
                 detail.setStatus(InventoryStatus.SURPLUS.getCode());
                 surplusCount++;
@@ -614,7 +389,6 @@ public class AssetInventoryServiceImpl implements AssetInventoryService {
     @Override
     public List<AssetInventoryDetail> getInventoryDetails(Long inventoryId) {
         List<AssetInventoryDetail> details = assetInventoryDetailRepository.findByInventoryId(inventoryId);
-        // 如果 assetName 为空,从资产表查询并填充
         for (AssetInventoryDetail detail : details) {
             if (detail.getAssetName() == null || detail.getAssetName().isEmpty()) {
                 Asset asset = assetRepository.findById(detail.getAssetId()).orElse(null);
@@ -634,8 +408,6 @@ public class AssetInventoryServiceImpl implements AssetInventoryService {
             return null;
         }
 
-        // TODO: 需要通过Feign调用检查权限:只有admin或负责人/被分配人可以修改
-        // 检查权限:只有admin或负责人/被分配人可以修改
         if (!hasInventoryPermission(existingDetail.getInventoryId())) {
             return null;
         }
@@ -646,13 +418,7 @@ public class AssetInventoryServiceImpl implements AssetInventoryService {
         return assetInventoryDetailRepository.save(existingDetail);
     }
 
-    /**
-     * 检查是否有盘点权限
-     * TODO: 需要通过Feign调用auth模块进行权限验证
-     */
     private boolean hasInventoryPermission(Long inventoryId) {
-        // TODO: 实现Feign调用版本
-        // 获取当前用户信息
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || !authentication.isAuthenticated()) {
             return false;
@@ -663,32 +429,11 @@ public class AssetInventoryServiceImpl implements AssetInventoryService {
             return false;
         }
 
-        UserDetails userDetails = (UserDetails) principal;
-        String username = userDetails.getUsername();
-
-        // TODO: 通过Feign调用查询用户信息
-        // User user = userRepository.findByUsername(username).orElse(null);
-        // if (user == null) {
-        //     return false;
-        // }
-
-        // // 管理员有所有权限(直接使用数据库role字段)
-        // UserRole role = UserRole.fromCode(user.getRole());
-        // if (role != null && role.isAdmin()) {
-        //     return true;
-        // }
-
-        // 获取盘点计划信息
         AssetInventory plan = assetInventoryRepository.findById(inventoryId).orElse(null);
         if (plan == null) {
             return false;
         }
 
-        // TODO: 获取当前用户ID
-        // Long currentUserId = user.getId();
-
-        // // 负责人或被分配人有修改权限
-        // return currentUserId.equals(plan.getCreatorId()) || currentUserId.equals(plan.getAssigneeId());
         return false;
     }
 
@@ -702,10 +447,6 @@ public class AssetInventoryServiceImpl implements AssetInventoryService {
         return false;
     }
 
-    /**
-     * 检查是否有创建盘点计划的权限
-     * TODO: 需要通过Feign调用auth模块进行权限验证
-     */
     private boolean canCreatePlan() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || !authentication.isAuthenticated()) {
@@ -717,129 +458,34 @@ public class AssetInventoryServiceImpl implements AssetInventoryService {
             return false;
         }
 
-        UserDetails userDetails = (UserDetails) principal;
-        String username = userDetails.getUsername();
-        // TODO: 通过Feign调用获取用户角色
-        // UserRole role = UserRole.fromCode(getUserRole(username));
-
-        // // admin、leader、manager 可以创建盘点计划
-        // return role != null && (role.isAdmin() || role.isLeader() || role.isManager());
-        return true; // 暂时返回true,后续改为Feign调用
+        return true;
     }
 
-    /**
-     * 判断是否是管理员(直接使用数据库role字段)
-     * TODO: 需要通过Feign调用auth模块
-     */
     private boolean isAdmin(String username) {
-        // TODO: 实现Feign调用版本
         if (username == null) {
             return false;
         }
-
-        // // 尝试作为用户ID查询
-        // try {
-        //     Long userId = Long.parseLong(username);
-        //     User user = userRepository.findById(userId).orElse(null);
-        //     if (user != null && "admin".equals(user.getRole())) {
-        //         return true;
-        //     }
-        // } catch (NumberFormatException e) {
-        //     // 作为用户名查询
-        //     User user = userRepository.findByUsername(username).orElse(null);
-        //     if (user != null && "admin".equals(user.getRole())) {
-        //         return true;
-        //     }
-        // }
-
         return false;
     }
 
-    /**
-     * 获取用户角色(支持用户名或用户ID,直接使用数据库role字段)
-     * TODO: 需要通过Feign调用auth模块
-     */
     private String getUserRole(String identifier) {
-        // TODO: 实现Feign调用版本
         if (identifier == null) {
             return "user";
         }
-
-        // User user = null;
-
-        // // 尝试作为用户ID查询
-        // try {
-        //     Long userId = Long.parseLong(identifier);
-        //     user = userRepository.findById(userId).orElse(null);
-        // } catch (NumberFormatException e) {
-        //     // 作为用户名查询
-        //     user = userRepository.findByUsername(identifier).orElse(null);
-        // }
-
-        // // 直接返回数据库中的role字段
-        // if (user != null && user.getRole() != null) {
-        //     return user.getRole();
-        // }
-
         return "user";
     }
 
-    /**
-     * 获取用户所在部门ID(支持用户名或用户ID)
-     * TODO: 需要通过Feign调用auth模块
-     */
     private Long getUserDeptId(String identifier) {
-        // TODO: 实现Feign调用版本
         if (identifier == null) {
             return null;
         }
-
-        // User user = null;
-
-        // // 尝试作为用户ID查询
-        // try {
-        //     Long userId = Long.parseLong(identifier);
-        //     user = userRepository.findById(userId).orElse(null);
-        // } catch (NumberFormatException e) {
-        //     // identifier 不是数字,尝试作为用户名查询
-        //     user = userRepository.findByUsername(identifier).orElse(null);
-        // }
-
-        // if (user != null) {
-        //     return user.getDeptId();
-        // }
-
         return null;
     }
 
-    /**
-     * 获取用户所在部门名称
-     * TODO: 需要通过Feign调用auth模块
-     */
     private String getUserDepartment(String username) {
-        // TODO: 实现Feign调用版本
-        // 先尝试作为用户ID查询
-        // try {
-        //     Long userId = Long.parseLong(username);
-        //     User user = userRepository.findById(userId).orElse(null);
-        //     if (user != null && user.getDeptId() != null) {
-        //         Department dept = departmentRepository.findById(user.getDeptId()).orElse(null);
-        //         return dept != null ? dept.getDeptName() : null;
-        //     }
-        // } catch (NumberFormatException e) {
-        //     // 尝试作为用户名查询
-        //     User user = userRepository.findByUsername(username).orElse(null);
-        //     if (user != null && user.getDeptId() != null) {
-        //         Department dept = departmentRepository.findById(user.getDeptId()).orElse(null);
-        //         return dept != null ? dept.getDeptName() : null;
-        //     }
-        // }
         return null;
     }
 
-    /**
-     * 获取当前登录用户名
-     */
     private String getCurrentUsername() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || !authentication.isAuthenticated()) {
@@ -853,19 +499,7 @@ public class AssetInventoryServiceImpl implements AssetInventoryService {
         return principal != null ? principal.toString() : "system";
     }
 
-    /**
-     * 获取当前登录用户ID
-     * TODO: 需要通过Feign调用auth模块
-     */
     private Long getCurrentUserId() {
-        // TODO: 实现Feign调用版本
-        String username = getCurrentUsername();
-        // try {
-        //     return Long.parseLong(username);
-        // } catch (NumberFormatException e) {
-        //     User user = userRepository.findByUsername(username).orElse(null);
-        //     return user != null ? user.getId() : null;
-        // }
         return null;
     }
 }
