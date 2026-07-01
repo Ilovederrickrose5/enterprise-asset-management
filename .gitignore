@@ -41,6 +41,9 @@ frontend/.vite/
 ### CodeGraph ###
 .codegraph/
 
+### Trae IDE ###
+.trae/
+
 ### Logs ###
 *.log
 logs/
@@ -50,7 +53,11 @@ logs/
 .env.local
 application-local.properties
 
-# CodeGraph 插件临时进程文件
-.codegraph/daemon.pid
-.codegraph/daemon.log
-.codegraph/daemon.err
+### Maven ###
+.mvn/timing.properties
+.mvn/wrapper/maven-wrapper.jar
+
+### Build artifacts ###
+**/target/
+!**/src/main/**/target/
+!**/src/test/**/target/
