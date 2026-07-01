@@ -2,7 +2,6 @@ package com.enterprise.asset.business.service.impl;
 
 import com.enterprise.asset.common.enums.InventoryStatus;
 import com.enterprise.asset.common.enums.LogType;
-import com.enterprise.asset.common.enums.UserRole;
 import com.enterprise.asset.business.entity.Asset;
 import com.enterprise.asset.business.entity.AssetInventory;
 import com.enterprise.asset.business.entity.AssetInventoryDetail;
@@ -277,21 +276,6 @@ public class AssetInventoryServiceImpl implements AssetInventoryService {
         return false;
     }
 
-    private boolean isAssigneeInScope(AssetInventory plan, Long assigneeDeptId, UserRole assigneeRole) {
-        if (assigneeDeptId == null) {
-            return false;
-        }
-        return assigneeRole != null && (assigneeRole.isManager() || assigneeRole.isLeader() || assigneeRole.isUser());
-    }
-
-    private boolean checkAssigneePermission(UserRole creatorRole, Long creatorDeptId,
-            UserRole assigneeRole, Long assigneeDeptId) {
-        if (assigneeDeptId == null || creatorDeptId == null || assigneeRole == null || creatorRole == null) {
-            return false;
-        }
-        return false;
-    }
-
     @Override
     @Transactional
     public AssetInventory startTask(Long id) {
@@ -468,24 +452,6 @@ public class AssetInventoryServiceImpl implements AssetInventoryService {
         return false;
     }
 
-    private String getUserRole(String identifier) {
-        if (identifier == null) {
-            return "user";
-        }
-        return "user";
-    }
-
-    private Long getUserDeptId(String identifier) {
-        if (identifier == null) {
-            return null;
-        }
-        return null;
-    }
-
-    private String getUserDepartment(String username) {
-        return null;
-    }
-
     private String getCurrentUsername() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || !authentication.isAuthenticated()) {
@@ -497,6 +463,10 @@ public class AssetInventoryServiceImpl implements AssetInventoryService {
             return ((UserDetails) principal).getUsername();
         }
         return principal != null ? principal.toString() : "system";
+    }
+
+    private String getUserDepartment(String username) {
+        return null;
     }
 
     private Long getCurrentUserId() {
