@@ -13,7 +13,7 @@ import java.util.List;
  * Auth服务Feign客户端
  * 用于业务服务调用认证服务的用户、部门等接口
  */
-@FeignClient(name = "asset-auth", path = "/api/auth")
+@FeignClient(name = "asset-auth", path = "/api/auth") // 【本次修改点】恢复path为/api/auth，与auth服务AuthController路径匹配
 public interface AuthFeignClient {
 
     @PostMapping("/validate-token")

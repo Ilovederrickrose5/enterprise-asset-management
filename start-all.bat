@@ -1,57 +1,69 @@
 @echo off
-chcp 65001 > nul
-title 企业资产管理系统 - 微服务一键启动
+title EAM Microservice Startup
 
 echo ==============================================
-echo  企业资产管理系统（微服务架构）
-echo  启动顺序：Nacos → Auth → Business → Frontend
+echo  Enterprise Asset Management System
+echo  Startup: Nacos -> Auth -> Business -> Frontend
 echo ==============================================
 echo.
 
-:: 提示用户根据本地Nacos安装路径修改
-echo [提示] 请确保已修改脚本内Nacos路径配置！
-echo [提示] Nacos默认路径：C:\nacos\bin\startup.cmd
+set "NACOS_DIR=D:\Users\30776\Downloads\nacos-server-3.2.2\nacos\bin"
+set "PROJECT_DIR=D:\Users\30776\IdeaProjects\enterprise-asset-management"
+
+echo [INFO] Nacos Path: %NACOS_DIR%
 echo.
 
-:: 清理端口残留进程
-echo [清理] 释放端口资源
+echo [INFO] Cleaning port resources...
 for /f "tokens=5" %%a in ('netstat -ano ^| findstr ":8848"') do taskkill /F /PID %%a 2>nul
 for /f "tokens=5" %%a in ('netstat -ano ^| findstr ":8081"') do taskkill /F /PID %%a 2>nul
 for /f "tokens=5" %%a in ('netstat -ano ^| findstr ":8082"') do taskkill /F /PID %%a 2>nul
 for /f "tokens=5" %%a in ('netstat -ano ^| findstr ":5173"') do taskkill /F /PID %%a 2>nul
 echo.
 
-:: 第一步：启动Nacos服务发现
-echo [启动] Nacos服务发现中心(端口8848)
-echo [注意] 请根据您的Nacos安装路径修改下方命令！
-start "Nacos服务【关闭窗口即停止】" cmd /k "cd /d ""D:\Users\307776\Downloads\nacos-server-3.2.2\nacos\bin"" && startup.cmd -m standalone"
-timeout /t 10 /nobreak >nul
-
-:: 第二步：启动asset-auth认证服务
-echo [启动] Asset-Auth认证服务(端口8081)
-start "Auth服务【关闭窗口即停止】" cmd /k "cd /d ""D:\Users\30776\IdeaProjects\enterprise-asset-management"" && mvn -pl asset-auth spring-boot:run"
+echo [STEP 1] Starting Nacos Service Discovery...
+if not exist "%NACOS_DIR%\startup.cmd" (
+    echo [ERROR] Nacos not found at: %NACOS_DIR%
+    pause
+    exit /b 1
+)
+start "Nacos" cmd /k ""%NACOS_DIR%\startup.cmd" -m standalone"
+echo [INFO] Waiting 15 seconds for Nacos...
 timeout /t 15 /nobreak >nul
+echo.
 
-:: 第三步：启动asset-business业务服务
-echo [启动] Asset-Business业务服务(端口8082)
-start "Business服务【关闭窗口即停止】" cmd /k "cd /d ""D:\Users\30776\IdeaProjects\enterprise-asset-management"" && mvn -pl asset-business spring-boot:run"
+echo [STEP 2] Building Maven modules...
+cd /d "%PROJECT_DIR%"
+mvn clean install -DskipTests -q
+if %ERRORLEVEL% neq 0 (
+    echo [ERROR] Maven build failed!
+    pause
+    exit /b 1
+)
+echo [INFO] Maven build completed
+echo.
+
+echo [STEP 3] Starting Asset-Auth Service...
+start "Auth" cmd /k "cd /d ""%PROJECT_DIR%"" & mvn -pl asset-auth spring-boot:run"
+echo [INFO] Waiting 15 seconds for Auth service...
+timeout /t 15 /nobreak >nul
+echo.
+
+echo [STEP 4] Starting Asset-Business Service...
+start "Business" cmd /k "cd /d ""%PROJECT_DIR%"" & mvn -pl asset-business spring-boot:run"
+echo [INFO] Waiting 10 seconds for Business service...
 timeout /t 10 /nobreak >nul
-
-:: 第四步：启动前端服务
-echo [启动] Vite前端服务(端口5173)
-start "前端服务【关闭窗口即停止】" cmd /k "cd /d ""D:\Users\30776\IdeaProjects\enterprise-asset-management\frontend"" && npm.cmd run dev"
-
 echo.
-echo ==============================================
-echo ✅ 微服务启动完成：
-echo 1. Nacos控制台：http://localhost:8848/nacos
-echo 2. Auth服务健康检查：http://localhost:8081/api/auth/login
-echo 3. Business服务健康检查：http://localhost:8082/api/assets
-echo 4. 前端访问地址：http://localhost:5173
+
+echo [STEP 5] Starting Frontend Service...
+start "Frontend" cmd /k "cd /d ""%PROJECT_DIR%\frontend"" & npm.cmd run dev"
 echo.
-echo 服务关闭说明：
-echo - 关闭对应窗口即可停止服务
-echo - Nacos关闭会触发服务注销
-echo - 本控制台可直接关闭，不影响服务运行
+
 echo ==============================================
+echo [SUCCESS] All services started:
+echo 1. Nacos: http://localhost:8848/nacos
+echo 2. Auth Service: http://localhost:8081
+echo 3. Business Service: http://localhost:8082
+echo 4. Frontend: http://localhost:5173
+echo ==============================================
+echo [INFO] Close windows to stop services.
 pause

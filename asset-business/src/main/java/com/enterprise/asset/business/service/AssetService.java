@@ -10,6 +10,7 @@ import com.enterprise.asset.business.entity.User;
 import com.enterprise.asset.business.repository.AssetRepository;
 import com.enterprise.asset.business.repository.SysLogRepository;
 import com.enterprise.asset.business.repository.UserRepository;
+import com.enterprise.asset.common.dto.UserDTO;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -33,45 +34,53 @@ public class AssetService {
     }
 
     /**
+     * 获取当前用户的UserDTO信息（从SecurityContext中提取）
+     */
+    private UserDTO getCurrentUserDTO() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return null;
+        }
+        Object principal = authentication.getPrincipal();
+        if (principal instanceof UserDTO) {
+            return (UserDTO) principal;
+        }
+        return null;
+    }
+
+    /**
      * 获取所有资产（根据用户角色返回不同数据）
      * 权限规则：admin查看全部，manager/leader查看本部门，普通用户查看个人资产
      */
     public List<Asset> getAllAssets() {
         List<Asset> allAssets = assetRepository.findAll();
 
-        // 获取当前用户信息
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()) {
-            // 未登录用户返回空列表
+        // 【本次修改点】从SecurityContext直接获取UserDTO，不再查询本地UserRepository
+        UserDTO userDTO = getCurrentUserDTO();
+        if (userDTO == null) {
             return List.of();
         }
 
-        String username = authentication.getName();
-        User user = userRepository.findByUsername(username).orElse(null);
-        if (user == null) {
-            return List.of();
-        }
-
-        String role = user.getRole();
-        boolean isAdmin = "admin".equals(role);
-        boolean isLeader = "leader".equals(role);
-        boolean isManager = "manager".equals(role);
+        List<String> roles = userDTO.getRoleCodes();
+        boolean isAdmin = roles != null && roles.contains("ADMIN");
+        boolean isLeader = roles != null && roles.contains("LEADER");
+        boolean isManager = roles != null && roles.contains("MANAGER");
 
         if (isAdmin) {
             // 系统管理员：可以看到所有资产
             return allAssets;
         } else if (isLeader || isManager) {
             // 部门领导或部门资产管理员：只能看到本部门的资产
-            if (user.getDeptId() != null) {
+            if (userDTO.getDeptId() != null) {
                 return allAssets.stream()
-                        .filter(asset -> asset.getDeptId() != null && asset.getDeptId().equals(user.getDeptId()))
+                        .filter(asset -> asset.getDeptId() != null && asset.getDeptId().equals(userDTO.getDeptId()))
                         .toList();
             }
             return List.of();
         } else {
             // 普通员工：只能看到自己的资产
             return allAssets.stream()
-                    .filter(asset -> asset.getUserId() != null && asset.getUserId().equals(user.getId()))
+                    .filter(asset -> asset.getUserId() != null && asset.getUserId().equals(userDTO.getId()))
                     .toList();
         }
     }
@@ -454,15 +463,9 @@ public class AssetService {
     public List<Asset> getAvailableAssets() {
         List<Asset> allAssets = assetRepository.findAll();
 
-        // 获取当前用户信息
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()) {
-            return List.of();
-        }
-
-        String username = authentication.getName();
-        User user = userRepository.findByUsername(username).orElse(null);
-        if (user == null) {
+        // 【本次修改点】使用getCurrentUserDTO获取用户信息
+        UserDTO userDTO = getCurrentUserDTO();
+        if (userDTO == null) {
             return List.of();
         }
 

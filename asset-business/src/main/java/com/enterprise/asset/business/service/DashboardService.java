@@ -2,7 +2,6 @@ package com.enterprise.asset.business.service;
 
 import com.enterprise.asset.common.enums.ApplicationStatus;
 import com.enterprise.asset.common.dto.DashboardStatsDTO;
-import com.enterprise.asset.common.dto.UserDTO;
 import com.enterprise.asset.common.dto.DepartmentDTO;
 import com.enterprise.asset.common.util.Result;
 import com.enterprise.asset.business.client.AuthFeignClient;
@@ -29,7 +28,7 @@ public class DashboardService {
     private final AssetApplicationRepository assetApplicationRepository;
     private final AuthFeignClient authFeignClient;
 
-    public DashboardService(AssetRepository assetRepository, 
+    public DashboardService(AssetRepository assetRepository,
             AssetApplicationRepository assetApplicationRepository,
             AuthFeignClient authFeignClient) {
         this.assetRepository = assetRepository;
@@ -43,7 +42,7 @@ public class DashboardService {
      */
     public DashboardStatsDTO getStatsForAdmin() {
         DashboardStatsDTO stats = new DashboardStatsDTO();
-        
+
         // 查询资产总数（本地Repository）
         long assetCount = assetRepository.countAllAssets();
         stats.setAssetCount(assetCount);
@@ -88,8 +87,8 @@ public class DashboardService {
 
         // Feign远程调用：获取部门名称
         Result<DepartmentDTO> deptResult = authFeignClient.getDepartmentById(deptId);
-        stats.setDepartmentName(deptResult.getData() != null 
-                ? deptResult.getData().getDeptName() 
+        stats.setDepartmentName(deptResult.getData() != null
+                ? deptResult.getData().getDeptName()
                 : "部门");
 
         logger.info("部门统计数据 - 部门ID: {}, 资产数: {}, 用户数: {}",
@@ -104,7 +103,7 @@ public class DashboardService {
      */
     public DashboardStatsDTO getStatsForUser(Long userId) {
         DashboardStatsDTO stats = new DashboardStatsDTO();
-        
+
         // 查询个人资产数（本地Repository）
         long assetCount = assetRepository.countAllAssetsByUser(userId);
         stats.setAssetCount(assetCount);
