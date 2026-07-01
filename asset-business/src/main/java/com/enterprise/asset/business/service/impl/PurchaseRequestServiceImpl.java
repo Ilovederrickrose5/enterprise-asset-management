@@ -1,5 +1,6 @@
 package com.enterprise.asset.business.service.impl;
 
+import com.enterprise.asset.common.dto.UserDTO;
 import com.enterprise.asset.common.enums.PurchaseRequestStatus;
 import com.enterprise.asset.common.enums.UserRole;
 import com.enterprise.asset.business.entity.Department;
@@ -121,23 +122,25 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
             throw new SecurityException("用户未登录");
         }
 
-        String username = authentication.getName();
-        User user = userRepository.findByUsername(username).orElse(null);
-        logger.info("当前用户名: {}", username);
+        UserDTO userDTO = (authentication.getPrincipal() instanceof UserDTO) ? (UserDTO) authentication.getPrincipal()
+                : null;
+        logger.info("当前用户名: {}", userDTO != null ? userDTO.getUsername() : "null");
         logger.info("用户信息: id={}, name={}, role={}, deptId={}",
-                user != null ? user.getId() : "null",
-                user != null ? user.getRealName() : "null",
-                user != null ? user.getRole() : "null",
-                user != null ? user.getDeptId() : "null");
+                userDTO != null ? userDTO.getId() : "null",
+                userDTO != null ? userDTO.getRealName() : "null",
+                userDTO != null ? userDTO.getRoleCodes() : "null",
+                userDTO != null ? userDTO.getDeptId() : "null");
 
-        if (user == null) {
-            logger.error("用户不存在: {}", username);
+        if (userDTO == null) {
+            logger.error("用户不存在: {}", userDTO != null ? userDTO.getUsername() : "null");
             throw new SecurityException("用户不存在");
         }
 
         // 2. 权限检查
         logger.info("[步骤2/3] 检查创建权限");
-        UserRole userRole = UserRole.fromCode(user.getRole());
+        List<String> roleCodes = userDTO.getRoleCodes();
+        String roleCode = (roleCodes != null && !roleCodes.isEmpty()) ? roleCodes.get(0) : null;
+        UserRole userRole = UserRole.fromCode(roleCode);
         boolean isManager = userRole != null && userRole.isManager();
         boolean isAdmin = userRole != null && userRole.isAdmin();
 
@@ -156,10 +159,10 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
         logger.info("预估单价: {}", request.getEstimatedUnitPrice());
         logger.info("采购理由: {}", request.getPurchaseReason());
 
-        request.setApplicantId(user.getId());
-        request.setApplicantName(user.getRealName());
-        request.setDepartmentId(user.getDeptId());
-        request.setDepartmentName(getDepartmentName(user.getDeptId()));
+        request.setApplicantId(userDTO.getId());
+        request.setApplicantName(userDTO.getRealName());
+        request.setDepartmentId(userDTO.getDeptId());
+        request.setDepartmentName(getDepartmentName(userDTO.getDeptId()));
         request.setApplicationDate(LocalDateTime.now());
         request.setStatus(PurchaseRequestStatus.PENDING.getCode());
 
@@ -176,8 +179,8 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
         // 记录操作日志
         try {
             SysLog log = new SysLog();
-            log.setUserId(user.getId());
-            log.setUsername(user.getUsername());
+            log.setUserId(userDTO.getId());
+            log.setUsername(userDTO.getUsername());
             log.setOperation("提交采购需求申请：" + request.getItemName());
             log.setLogType("SYSTEM");
             log.setStatus("success");
@@ -201,16 +204,18 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
             throw new SecurityException("用户未登录");
         }
 
-        String username = authentication.getName();
-        User user = userRepository.findByUsername(username).orElse(null);
-        if (user == null) {
+        UserDTO userDTO = (authentication.getPrincipal() instanceof UserDTO) ? (UserDTO) authentication.getPrincipal()
+                : null;
+        if (userDTO == null) {
             throw new SecurityException("用户不存在");
         }
 
-        UserRole userRole = UserRole.fromCode(user.getRole());
+        List<String> roleCodes = userDTO.getRoleCodes();
+        String roleCode = (roleCodes != null && !roleCodes.isEmpty()) ? roleCodes.get(0) : null;
+        UserRole userRole = UserRole.fromCode(roleCode);
         boolean isAdmin = userRole != null && userRole.isAdmin();
 
-        if (!isAdmin && !existingRequest.getApplicantId().equals(user.getId())) {
+        if (!isAdmin && !existingRequest.getApplicantId().equals(userDTO.getId())) {
             throw new SecurityException("无权修改此采购申请");
         }
 
@@ -245,16 +250,18 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
             throw new SecurityException("用户未登录");
         }
 
-        String username = authentication.getName();
-        User user = userRepository.findByUsername(username).orElse(null);
-        if (user == null) {
+        UserDTO userDTO = (authentication.getPrincipal() instanceof UserDTO) ? (UserDTO) authentication.getPrincipal()
+                : null;
+        if (userDTO == null) {
             throw new SecurityException("用户不存在");
         }
 
-        UserRole userRole = UserRole.fromCode(user.getRole());
+        List<String> roleCodes = userDTO.getRoleCodes();
+        String roleCode = (roleCodes != null && !roleCodes.isEmpty()) ? roleCodes.get(0) : null;
+        UserRole userRole = UserRole.fromCode(roleCode);
         boolean isAdmin = userRole != null && userRole.isAdmin();
 
-        if (!isAdmin && !request.getApplicantId().equals(user.getId())) {
+        if (!isAdmin && !request.getApplicantId().equals(userDTO.getId())) {
             throw new SecurityException("无权删除此采购申请");
         }
 
@@ -290,18 +297,19 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
             throw new SecurityException("用户未登录");
         }
 
-        String username = authentication.getName();
-        User user = userRepository.findByUsername(username).orElse(null);
-        if (user == null) {
-            logger.error("用户不存在: {}", username);
+        UserDTO userDTO = (authentication.getPrincipal() instanceof UserDTO) ? (UserDTO) authentication.getPrincipal() : null;
+        if (userDTO == null) {
+            logger.error("用户不存在: {}", userDTO != null ? userDTO.getUsername() : "null");
             throw new SecurityException("用户不存在");
         }
         logger.info("当前用户: id={}, name={}, role={}, deptId={}",
-                user.getId(), user.getRealName(), user.getRole(), user.getDeptId());
+                userDTO.getId(), userDTO.getRealName(), userDTO.getRoleCodes(), userDTO.getDeptId());
 
         // 3. 权限检查
         logger.info("[步骤3/4] 检查审批权限");
-        UserRole userRole = UserRole.fromCode(user.getRole());
+        List<String> roleCodes = userDTO.getRoleCodes();
+        String roleCode = (roleCodes != null && !roleCodes.isEmpty()) ? roleCodes.get(0) : null;
+        UserRole userRole = UserRole.fromCode(roleCode);
         boolean isLeader = userRole != null && userRole.isLeader();
         boolean isAdmin = userRole != null && userRole.isAdmin();
 
@@ -314,13 +322,13 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
 
         // 部门领导只能审批本部门的采购申请
         if (isLeader && !isAdmin) {
-            if (user.getDeptId() == null) {
+            if (userDTO.getDeptId() == null) {
                 logger.error("权限验证失败: 领导用户没有部门信息");
                 throw new SecurityException("领导用户没有部门信息");
             }
-            if (request.getDepartmentId() == null || !request.getDepartmentId().equals(user.getDeptId())) {
+            if (request.getDepartmentId() == null || !request.getDepartmentId().equals(userDTO.getDeptId())) {
                 logger.error("权限验证失败: 部门领导只能审批本部门的采购申请, userDeptId={}, requestDeptId={}",
-                        user.getDeptId(), request.getDepartmentId());
+                        userDTO.getDeptId(), request.getDepartmentId());
                 throw new SecurityException("部门领导只能审批本部门的采购申请");
             }
         }
@@ -335,8 +343,8 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
 
         logger.info("执行批准操作, 审批备注: {}", approvalRemark);
         request.setStatus(PurchaseRequestStatus.APPROVED.getCode());
-        request.setApproverId(user.getId());
-        request.setApproverName(user.getRealName());
+        request.setApproverId(userDTO.getId());
+        request.setApproverName(userDTO.getRealName());
         request.setApprovalDate(LocalDateTime.now());
         request.setApprovalRemark(approvalRemark);
 
@@ -347,8 +355,8 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
         // 记录操作日志
         try {
             SysLog log = new SysLog();
-            log.setUserId(user.getId());
-            log.setUsername(user.getUsername());
+            log.setUserId(userDTO.getId());
+            log.setUsername(userDTO.getUsername());
             log.setOperation("批准采购需求申请：" + request.getItemName());
             log.setLogType("SYSTEM");
             log.setStatus("success");
@@ -371,13 +379,14 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
             throw new SecurityException("用户未登录");
         }
 
-        String username = authentication.getName();
-        User user = userRepository.findByUsername(username).orElse(null);
-        if (user == null) {
+        UserDTO userDTO = (authentication.getPrincipal() instanceof UserDTO) ? (UserDTO) authentication.getPrincipal() : null;
+        if (userDTO == null) {
             throw new SecurityException("用户不存在");
         }
 
-        UserRole userRole = UserRole.fromCode(user.getRole());
+        List<String> roleCodes = userDTO.getRoleCodes();
+        String roleCode = (roleCodes != null && !roleCodes.isEmpty()) ? roleCodes.get(0) : null;
+        UserRole userRole = UserRole.fromCode(roleCode);
         boolean isLeader = userRole != null && userRole.isLeader();
         boolean isAdmin = userRole != null && userRole.isAdmin();
 
@@ -390,8 +399,8 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
         }
 
         request.setStatus(PurchaseRequestStatus.REJECTED.getCode());
-        request.setApproverId(user.getId());
-        request.setApproverName(user.getRealName());
+        request.setApproverId(userDTO.getId());
+        request.setApproverName(userDTO.getRealName());
         request.setApprovalDate(LocalDateTime.now());
         request.setApprovalRemark(approvalRemark);
 
@@ -400,8 +409,8 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
         // 记录操作日志
         try {
             SysLog log = new SysLog();
-            log.setUserId(user.getId());
-            log.setUsername(user.getUsername());
+            log.setUserId(userDTO.getId());
+            log.setUsername(userDTO.getUsername());
             log.setOperation("拒绝采购需求申请：" + request.getItemName());
             log.setLogType("SYSTEM");
             log.setStatus("success");

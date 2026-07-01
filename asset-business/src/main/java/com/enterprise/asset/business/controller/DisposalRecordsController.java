@@ -2,11 +2,9 @@ package com.enterprise.asset.business.controller;
 
 import com.enterprise.asset.common.enums.ApplicationType;
 import com.enterprise.asset.common.util.Result;
-import com.enterprise.asset.business.util.RoleUtils;
+import com.enterprise.asset.common.dto.UserDTO;
 import com.enterprise.asset.business.entity.AssetApplication;
-import com.enterprise.asset.business.entity.User;
 import com.enterprise.asset.business.service.AssetApplicationService;
-import com.enterprise.asset.business.repository.UserRepository;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
@@ -20,11 +18,9 @@ import java.util.stream.Collectors;
 public class DisposalRecordsController {
 
     private final AssetApplicationService applicationService;
-    private final UserRepository userRepository;
 
-    public DisposalRecordsController(AssetApplicationService applicationService, UserRepository userRepository) {
+    public DisposalRecordsController(AssetApplicationService applicationService) {
         this.applicationService = applicationService;
-        this.userRepository = userRepository;
     }
 
     /**
@@ -47,11 +43,16 @@ public class DisposalRecordsController {
             return Result.error(401, "用户未认证");
         }
 
-        String username = authentication.getName();
-        User user = userRepository.findByUsername(username).orElse(null);
-        if (user == null) {
+        UserDTO userDTO = (authentication.getPrincipal() instanceof UserDTO) ? (UserDTO) authentication.getPrincipal()
+                : null;
+        if (userDTO == null) {
             return Result.error(404, "用户不存在");
         }
+
+        List<String> roles = userDTO.getRoleCodes();
+        boolean isAdmin = roles != null && roles.stream().anyMatch(r -> r.equalsIgnoreCase("ADMIN"));
+        boolean isLeader = roles != null && roles.stream().anyMatch(r -> r.equalsIgnoreCase("LEADER"));
+        boolean isManager = roles != null && roles.stream().anyMatch(r -> r.equalsIgnoreCase("MANAGER"));
 
         List<AssetApplication> allApplications = applicationService.getAllApplications();
         List<AssetApplication> disposalApplications = allApplications.stream()
@@ -60,17 +61,17 @@ public class DisposalRecordsController {
 
         List<AssetApplication> filteredApplications = disposalApplications.stream()
                 .filter(application -> {
-                    if (RoleUtils.isAdmin(user)) {
+                    if (isAdmin) {
                         return true;
                     }
 
-                    if ((RoleUtils.isLeader(user) || RoleUtils.isManager(user))
-                            && user.getDeptId() != null) {
+                    if ((isLeader || isManager)
+                            && userDTO.getDeptId() != null) {
                         return application.getDepartmentId() != null
-                                && application.getDepartmentId().equals(user.getDeptId());
+                                && application.getDepartmentId().equals(userDTO.getDeptId());
                     }
 
-                    return application.getApplicantId() != null && application.getApplicantId().equals(user.getId());
+                    return application.getApplicantId() != null && application.getApplicantId().equals(userDTO.getId());
                 })
                 .collect(Collectors.toList());
 

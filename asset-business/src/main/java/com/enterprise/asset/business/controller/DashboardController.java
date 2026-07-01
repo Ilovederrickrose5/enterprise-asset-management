@@ -38,7 +38,7 @@ public class DashboardController {
     private final RecentOperationService recentOperationService;
     private final AuthFeignClient authFeignClient;
 
-    public DashboardController(DashboardService dashboardService, 
+    public DashboardController(DashboardService dashboardService,
             AssetRepository assetRepository,
             RecentOperationService recentOperationService,
             AuthFeignClient authFeignClient) {
@@ -54,16 +54,14 @@ public class DashboardController {
      */
     @GetMapping("/stats")
     public ResponseEntity<Result<DashboardStatsDTO>> getStats() {
+        // 【本次修改点】直接从SecurityContext获取UserDTO，不再通过Feign调用
+        // JwtRequestFilter已将UserDTO存入SecurityContext，无需重复远程查询
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        String username = authentication.getName();
-
-        // Feign远程调用：根据用户名获取用户信息
-        Result<UserDTO> userResult = authFeignClient.getUserByUsername(username);
-        if (userResult.getCode() != 200 || userResult.getData() == null) {
+        if (authentication == null || !(authentication.getPrincipal() instanceof UserDTO)) {
             return ResponseEntity.ok(Result.error(401, "用户未登录"));
         }
 
-        UserDTO user = userResult.getData();
+        UserDTO user = (UserDTO) authentication.getPrincipal();
         DashboardStatsDTO stats;
 
         boolean isAdmin = user.getRoleCodes() != null && user.getRoleCodes().contains("admin");
@@ -108,16 +106,13 @@ public class DashboardController {
     public ResponseEntity<Result<List<RecentOperationDTO>>> getRecentOperations(
             @RequestParam(defaultValue = "10") int limit) {
         try {
+            // 【本次修改点】直接从SecurityContext获取UserDTO
             Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-            String username = authentication.getName();
-
-            // Feign远程调用：根据用户名获取用户信息
-            Result<UserDTO> userResult = authFeignClient.getUserByUsername(username);
-            if (userResult.getCode() != 200 || userResult.getData() == null) {
+            if (authentication == null || !(authentication.getPrincipal() instanceof UserDTO)) {
                 return ResponseEntity.ok(Result.error(401, "用户未登录"));
             }
 
-            UserDTO user = userResult.getData();
+            UserDTO user = (UserDTO) authentication.getPrincipal();
             List<RecentOperationDTO> operations = recentOperationService.getRecentOperations(limit, user);
             return ResponseEntity.ok(Result.success(operations));
         } catch (Exception e) {
@@ -135,20 +130,14 @@ public class DashboardController {
     public ResponseEntity<Result<DashboardOperationsDTO>> getDashboardOperations(
             @RequestParam(defaultValue = "10") int limit) {
         try {
+            // 【本次修改点】直接从SecurityContext获取UserDTO
             Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-            String username = authentication.getName();
-
-            System.out.println("=== [operations接口] 调试日志: 获取操作数据, 用户: " + username + ", limit: " + limit);
-
-            // Feign远程调用：根据用户名获取用户信息
-            Result<UserDTO> userResult = authFeignClient.getUserByUsername(username);
-            if (userResult.getCode() != 200 || userResult.getData() == null) {
-                System.out.println("=== [operations接口] 用户未找到, username: " + username);
+            if (authentication == null || !(authentication.getPrincipal() instanceof UserDTO)) {
                 return ResponseEntity.ok(Result.error(401, "用户未登录"));
             }
 
-            UserDTO user = userResult.getData();
-            System.out.println("=== [operations接口] 用户信息, id: " + user.getId() 
+            UserDTO user = (UserDTO) authentication.getPrincipal();
+            System.out.println("=== [operations接口] 用户信息, id: " + user.getId()
                     + ", roleCodes: " + user.getRoleCodes()
                     + ", deptId: " + user.getDeptId());
 

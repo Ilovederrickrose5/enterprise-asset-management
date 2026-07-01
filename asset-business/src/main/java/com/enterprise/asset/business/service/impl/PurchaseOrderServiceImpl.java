@@ -1,5 +1,6 @@
 package com.enterprise.asset.business.service.impl;
 
+import com.enterprise.asset.common.dto.UserDTO;
 import com.enterprise.asset.common.enums.AssetStatus;
 import com.enterprise.asset.common.enums.PurchaseOrderStatus;
 import com.enterprise.asset.common.enums.PurchaseRequestStatus;
@@ -9,13 +10,11 @@ import com.enterprise.asset.business.entity.AssetCategory;
 import com.enterprise.asset.business.entity.PurchaseOrder;
 import com.enterprise.asset.business.entity.PurchaseRequest;
 import com.enterprise.asset.business.entity.Supplier;
-import com.enterprise.asset.business.entity.User;
 import com.enterprise.asset.business.repository.AssetCategoryRepository;
 import com.enterprise.asset.business.repository.AssetRepository;
 import com.enterprise.asset.business.repository.PurchaseOrderRepository;
 import com.enterprise.asset.business.repository.PurchaseRequestRepository;
 import com.enterprise.asset.business.repository.SupplierRepository;
-import com.enterprise.asset.business.repository.UserRepository;
 import com.enterprise.asset.business.service.PurchaseOrderService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -42,18 +41,15 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
     private final PurchaseOrderRepository purchaseOrderRepository;
     private final PurchaseRequestRepository purchaseRequestRepository;
     private final SupplierRepository supplierRepository;
-    private final UserRepository userRepository;
     private final AssetRepository assetRepository;
     private final AssetCategoryRepository assetCategoryRepository;
 
     public PurchaseOrderServiceImpl(PurchaseOrderRepository purchaseOrderRepository,
             PurchaseRequestRepository purchaseRequestRepository, SupplierRepository supplierRepository,
-            UserRepository userRepository, AssetRepository assetRepository,
-            AssetCategoryRepository assetCategoryRepository) {
+            AssetRepository assetRepository, AssetCategoryRepository assetCategoryRepository) {
         this.purchaseOrderRepository = purchaseOrderRepository;
         this.purchaseRequestRepository = purchaseRequestRepository;
         this.supplierRepository = supplierRepository;
-        this.userRepository = userRepository;
         this.assetRepository = assetRepository;
         this.assetCategoryRepository = assetCategoryRepository;
     }
@@ -71,17 +67,19 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
             throw new SecurityException("用户未登录");
         }
 
-        String username = authentication.getName();
-        User user = userRepository.findByUsername(username).orElse(null);
-        if (user == null) {
+        UserDTO userDTO = (authentication.getPrincipal() instanceof UserDTO) ? (UserDTO) authentication.getPrincipal()
+                : null;
+        if (userDTO == null) {
             throw new SecurityException("用户不存在");
         }
 
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, PurchaseOrder.ORDER_DATE));
-        Long departmentId = user.getDeptId();
+        Long departmentId = userDTO.getDeptId();
 
         // 管理员可以看到所有订单
-        UserRole userRole = UserRole.fromCode(user.getRole());
+        List<String> roleCodes = userDTO.getRoleCodes();
+        String roleCode = (roleCodes != null && !roleCodes.isEmpty()) ? roleCodes.get(0) : null;
+        UserRole userRole = UserRole.fromCode(roleCode);
         boolean isAdmin = userRole != null && userRole.isAdmin();
 
         if (isAdmin) {
@@ -142,20 +140,22 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
             throw new SecurityException("用户未登录");
         }
 
-        String username = authentication.getName();
-        logger.info("当前登录用户: {}", username);
+        UserDTO userDTO = (authentication.getPrincipal() instanceof UserDTO) ? (UserDTO) authentication.getPrincipal()
+                : null;
+        logger.info("当前登录用户: {}", userDTO != null ? userDTO.getUsername() : null);
 
-        User user = userRepository.findByUsername(username).orElse(null);
-        if (user == null) {
-            logger.error("用户不存在: {}", username);
+        if (userDTO == null) {
+            logger.error("用户不存在: 无法从SecurityContext获取UserDTO");
             throw new SecurityException("用户不存在");
         }
         logger.info("用户信息: id={}, name={}, deptId={}, role={}",
-                user.getId(), user.getRealName(), user.getDeptId(), user.getRole());
+                userDTO.getId(), userDTO.getRealName(), userDTO.getDeptId(), userDTO.getRoleCodes());
 
         // 2. 权限检查
         logger.info("[步骤2/6] 检查创建权限");
-        UserRole userRole = UserRole.fromCode(user.getRole());
+        List<String> roleCodes = userDTO.getRoleCodes();
+        String roleCode = (roleCodes != null && !roleCodes.isEmpty()) ? roleCodes.get(0) : null;
+        UserRole userRole = UserRole.fromCode(roleCode);
         boolean isManager = userRole != null && userRole.isManager();
         boolean isAdmin = userRole != null && userRole.isAdmin();
         logger.info("用户角色检查: isManager={}, isAdmin={}", isManager, isAdmin);
@@ -252,11 +252,11 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
         order.setOrderDate(LocalDateTime.now());
         order.setStatus(PurchaseOrderStatus.PENDING.getCode());
         order.setPaymentStatus("unpaid");
-        order.setCreatorId(user.getId());
-        order.setCreatorName(user.getRealName());
+        order.setCreatorId(userDTO.getId());
+        order.setCreatorName(userDTO.getRealName());
 
         logger.info("订单基本信息: orderNumber={}, status={}, creatorId={}, departmentId={}",
-                orderNumber, PurchaseOrderStatus.PENDING.getCode(), user.getId(), order.getDepartmentId());
+                orderNumber, PurchaseOrderStatus.PENDING.getCode(), userDTO.getId(), order.getDepartmentId());
 
         PurchaseOrder savedOrder = purchaseOrderRepository.save(order);
         logger.info("采购订单创建成功: id={}, orderNumber={}", savedOrder.getId(), savedOrder.getOrderNumber());
@@ -277,16 +277,18 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
             throw new SecurityException("用户未登录");
         }
 
-        String username = authentication.getName();
-        User user = userRepository.findByUsername(username).orElse(null);
-        if (user == null) {
+        UserDTO userDTO = (authentication.getPrincipal() instanceof UserDTO) ? (UserDTO) authentication.getPrincipal()
+                : null;
+        if (userDTO == null) {
             throw new SecurityException("用户不存在");
         }
 
-        UserRole userRole = UserRole.fromCode(user.getRole());
+        List<String> roleCodes = userDTO.getRoleCodes();
+        String roleCode = (roleCodes != null && !roleCodes.isEmpty()) ? roleCodes.get(0) : null;
+        UserRole userRole = UserRole.fromCode(roleCode);
         boolean isAdmin = userRole != null && userRole.isAdmin();
 
-        if (!isAdmin && !existingOrder.getCreatorId().equals(user.getId())) {
+        if (!isAdmin && !existingOrder.getCreatorId().equals(userDTO.getId())) {
             throw new SecurityException("无权修改此采购订单");
         }
 
@@ -334,16 +336,18 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
             throw new SecurityException("用户未登录");
         }
 
-        String username = authentication.getName();
-        User user = userRepository.findByUsername(username).orElse(null);
-        if (user == null) {
+        UserDTO userDTO = (authentication.getPrincipal() instanceof UserDTO) ? (UserDTO) authentication.getPrincipal()
+                : null;
+        if (userDTO == null) {
             throw new SecurityException("用户不存在");
         }
 
-        UserRole userRole = UserRole.fromCode(user.getRole());
+        List<String> roleCodes = userDTO.getRoleCodes();
+        String roleCode = (roleCodes != null && !roleCodes.isEmpty()) ? roleCodes.get(0) : null;
+        UserRole userRole = UserRole.fromCode(roleCode);
         boolean isAdmin = userRole != null && userRole.isAdmin();
 
-        if (!isAdmin && !order.getCreatorId().equals(user.getId())) {
+        if (!isAdmin && !order.getCreatorId().equals(userDTO.getId())) {
             throw new SecurityException("无权删除此采购订单");
         }
 
@@ -367,13 +371,15 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
             throw new SecurityException("用户未登录");
         }
 
-        String username = authentication.getName();
-        User user = userRepository.findByUsername(username).orElse(null);
-        if (user == null) {
+        UserDTO userDTO = (authentication.getPrincipal() instanceof UserDTO) ? (UserDTO) authentication.getPrincipal()
+                : null;
+        if (userDTO == null) {
             throw new SecurityException("用户不存在");
         }
 
-        UserRole userRole = UserRole.fromCode(user.getRole());
+        List<String> roleCodes = userDTO.getRoleCodes();
+        String roleCode = (roleCodes != null && !roleCodes.isEmpty()) ? roleCodes.get(0) : null;
+        UserRole userRole = UserRole.fromCode(roleCode);
         boolean isManager = userRole != null && userRole.isManager();
         boolean isAdmin = userRole != null && userRole.isAdmin();
 
@@ -408,18 +414,20 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
             throw new SecurityException("用户未登录");
         }
 
-        String username = authentication.getName();
-        User user = userRepository.findByUsername(username).orElse(null);
-        if (user == null) {
-            logger.error("用户不存在: {}", username);
+        UserDTO userDTO = (authentication.getPrincipal() instanceof UserDTO) ? (UserDTO) authentication.getPrincipal()
+                : null;
+        if (userDTO == null) {
+            logger.error("用户不存在: 无法从SecurityContext获取UserDTO");
             throw new SecurityException("用户不存在");
         }
         logger.info("当前用户: id={}, name={}, role={}, deptId={}",
-                user.getId(), user.getRealName(), user.getRole(), user.getDeptId());
+                userDTO.getId(), userDTO.getRealName(), userDTO.getRoleCodes(), userDTO.getDeptId());
 
         // 3. 权限检查
         logger.info("[步骤3/5] 检查完成权限");
-        UserRole userRole = UserRole.fromCode(user.getRole());
+        List<String> roleCodes = userDTO.getRoleCodes();
+        String roleCode = (roleCodes != null && !roleCodes.isEmpty()) ? roleCodes.get(0) : null;
+        UserRole userRole = UserRole.fromCode(roleCode);
         boolean isManager = userRole != null && userRole.isManager();
         boolean isAdmin = userRole != null && userRole.isAdmin();
         logger.info("用户角色: isManager={}, isAdmin={}", isManager, isAdmin);
@@ -431,13 +439,13 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
 
         // 部门资产管理员只能完成本部门的订单
         if (isManager && !isAdmin) {
-            if (user.getDeptId() == null) {
+            if (userDTO.getDeptId() == null) {
                 logger.error("部门资产管理员没有部门信息");
                 throw new SecurityException("部门资产管理员没有部门信息");
             }
-            if (order.getDepartmentId() == null || !order.getDepartmentId().equals(user.getDeptId())) {
+            if (order.getDepartmentId() == null || !order.getDepartmentId().equals(userDTO.getDeptId())) {
                 logger.error("部门资产管理员只能完成本部门的订单: userDeptId={}, orderDeptId={}",
-                        user.getDeptId(), order.getDepartmentId());
+                        userDTO.getDeptId(), order.getDepartmentId());
                 throw new SecurityException("部门资产管理员只能完成本部门的订单");
             }
         }
@@ -460,7 +468,7 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
         logger.info("订单状态已更新: status=completed, paymentStatus=paid");
 
         // 自动创建资产（根据订单数量创建多个资产）
-        createAssetsFromOrder(savedOrder, user);
+        createAssetsFromOrder(savedOrder, userDTO);
 
         logger.info("========== 采购订单完成（资产入库）结束 ==========");
         return savedOrder;
@@ -469,7 +477,7 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
     /**
      * 根据采购订单自动创建资产
      */
-    private void createAssetsFromOrder(PurchaseOrder order, User currentUser) {
+    private void createAssetsFromOrder(PurchaseOrder order, UserDTO currentUser) {
         logger.info("-------- 开始根据订单创建资产 --------");
         logger.info("订单信息: orderId={}, orderNumber={}, itemName={}, quantity={}, categoryId={}",
                 order.getId(), order.getOrderNumber(), order.getItemName(), order.getQuantity(), order.getCategoryId());

@@ -6,6 +6,13 @@
 
 系统已从单体应用拆分为微服务架构，包含认证服务和业务服务两个核心模块，通过 Nacos 实现服务注册与发现，使用 OpenFeign 进行跨服务调用。
 
+
+### 系统界面预览（核心业务截图）
+![登录页面](images/login.png)
+![首页数据仪表盘](images/dashboard.png)
+![资产管理列表](images/asset-list.png)
+![资产折旧计算页面](images/depreciation.png)
+
 ### 1.1 技术栈
 
 **后端技术栈：**

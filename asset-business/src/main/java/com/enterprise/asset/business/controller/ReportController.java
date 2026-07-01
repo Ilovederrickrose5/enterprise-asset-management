@@ -4,7 +4,6 @@ import com.enterprise.asset.common.util.Result;
 import com.enterprise.asset.common.dto.AssetStatusDistributionDTO;
 import com.enterprise.asset.common.dto.DepartmentAssetStatsDTO;
 import com.enterprise.asset.common.dto.UserDTO;
-import com.enterprise.asset.business.client.AuthFeignClient;
 import com.enterprise.asset.business.service.ReportService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,11 +32,9 @@ public class ReportController {
     private static final Logger logger = LoggerFactory.getLogger(ReportController.class);
 
     private final ReportService reportService;
-    private final AuthFeignClient authFeignClient;
 
-    public ReportController(ReportService reportService, AuthFeignClient authFeignClient) {
+    public ReportController(ReportService reportService) {
         this.reportService = reportService;
-        this.authFeignClient = authFeignClient;
     }
 
     /**
@@ -48,28 +45,23 @@ public class ReportController {
     public ResponseEntity<Result<List<DepartmentAssetStatsDTO>>> getDepartmentAssetStats() {
         try {
             Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-            if (authentication != null && authentication.isAuthenticated()) {
-                String username = authentication.getName();
+            if (authentication != null && authentication.isAuthenticated()
+                    && authentication.getPrincipal() instanceof UserDTO) {
+                UserDTO user = (UserDTO) authentication.getPrincipal();
+                List<String> roles = user.getRoleCodes();
 
-                // Feign远程调用：根据用户名获取用户信息
-                Result<UserDTO> userResult = authFeignClient.getUserByUsername(username);
-                if (userResult.getCode() == 200 && userResult.getData() != null) {
-                    UserDTO user = userResult.getData();
-                    List<String> roles = user.getRoleCodes();
+                boolean isAdmin = roles != null && roles.contains("admin");
+                boolean isLeader = roles != null && roles.contains("leader");
+                boolean isManager = roles != null && roles.contains("manager");
 
-                    boolean isAdmin = roles != null && roles.contains("admin");
-                    boolean isLeader = roles != null && roles.contains("leader");
-                    boolean isManager = roles != null && roles.contains("manager");
+                if (!isAdmin && !isLeader && !isManager) {
+                    return ResponseEntity.ok(Result.error(403, "无权限访问部门资产统计"));
+                }
 
-                    if (!isAdmin && !isLeader && !isManager) {
-                        return ResponseEntity.ok(Result.error(403, "无权限访问部门资产统计"));
-                    }
-
-                    if ((isManager || isLeader) && user.getDeptId() != null) {
-                        List<DepartmentAssetStatsDTO> stats = reportService
-                                .getDepartmentAssetStatsByDepartment(user.getDeptId());
-                        return ResponseEntity.ok(Result.success(stats));
-                    }
+                if ((isManager || isLeader) && user.getDeptId() != null) {
+                    List<DepartmentAssetStatsDTO> stats = reportService
+                            .getDepartmentAssetStatsByDepartment(user.getDeptId());
+                    return ResponseEntity.ok(Result.success(stats));
                 }
             }
 
@@ -90,19 +82,14 @@ public class ReportController {
             @PathVariable Long departmentId) {
         try {
             Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-            if (authentication != null && authentication.isAuthenticated()) {
-                String username = authentication.getName();
+            if (authentication != null && authentication.isAuthenticated()
+                    && authentication.getPrincipal() instanceof UserDTO) {
+                UserDTO user = (UserDTO) authentication.getPrincipal();
+                List<String> roles = user.getRoleCodes();
+                boolean isAdmin = roles != null && roles.contains("admin");
 
-                // Feign远程调用：根据用户名获取用户信息
-                Result<UserDTO> userResult = authFeignClient.getUserByUsername(username);
-                if (userResult.getCode() == 200 && userResult.getData() != null) {
-                    UserDTO user = userResult.getData();
-                    List<String> roles = user.getRoleCodes();
-                    boolean isAdmin = roles != null && roles.contains("admin");
-
-                    if (!isAdmin && (user.getDeptId() == null || !user.getDeptId().equals(departmentId))) {
-                        return ResponseEntity.ok(Result.error(403, "无权限访问该部门资产统计"));
-                    }
+                if (!isAdmin && (user.getDeptId() == null || !user.getDeptId().equals(departmentId))) {
+                    return ResponseEntity.ok(Result.error(403, "无权限访问该部门资产统计"));
                 }
             }
 
@@ -122,28 +109,23 @@ public class ReportController {
     public ResponseEntity<Result<List<AssetStatusDistributionDTO>>> getAssetStatusDistribution() {
         try {
             Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-            if (authentication != null && authentication.isAuthenticated()) {
-                String username = authentication.getName();
+            if (authentication != null && authentication.isAuthenticated()
+                    && authentication.getPrincipal() instanceof UserDTO) {
+                UserDTO user = (UserDTO) authentication.getPrincipal();
+                List<String> roles = user.getRoleCodes();
 
-                // Feign远程调用：根据用户名获取用户信息
-                Result<UserDTO> userResult = authFeignClient.getUserByUsername(username);
-                if (userResult.getCode() == 200 && userResult.getData() != null) {
-                    UserDTO user = userResult.getData();
-                    List<String> roles = user.getRoleCodes();
+                boolean isAdmin = roles != null && roles.contains("admin");
+                boolean isLeader = roles != null && roles.contains("leader");
+                boolean isManager = roles != null && roles.contains("manager");
 
-                    boolean isAdmin = roles != null && roles.contains("admin");
-                    boolean isLeader = roles != null && roles.contains("leader");
-                    boolean isManager = roles != null && roles.contains("manager");
+                if (!isAdmin && !isLeader && !isManager) {
+                    return ResponseEntity.ok(Result.error(403, "无权限访问资产状态分布"));
+                }
 
-                    if (!isAdmin && !isLeader && !isManager) {
-                        return ResponseEntity.ok(Result.error(403, "无权限访问资产状态分布"));
-                    }
-
-                    if ((isManager || isLeader) && user.getDeptId() != null) {
-                        List<AssetStatusDistributionDTO> distribution = reportService
-                                .getAssetStatusDistributionByDepartment(user.getDeptId());
-                        return ResponseEntity.ok(Result.success(distribution));
-                    }
+                if ((isManager || isLeader) && user.getDeptId() != null) {
+                    List<AssetStatusDistributionDTO> distribution = reportService
+                            .getAssetStatusDistributionByDepartment(user.getDeptId());
+                    return ResponseEntity.ok(Result.success(distribution));
                 }
             }
 

@@ -2,10 +2,8 @@ package com.enterprise.asset.business.service;
 
 import com.enterprise.asset.business.entity.Asset;
 import com.enterprise.asset.business.entity.SysLog;
-import com.enterprise.asset.business.entity.User;
 import com.enterprise.asset.business.repository.AssetRepository;
 import com.enterprise.asset.business.repository.SysLogRepository;
-import com.enterprise.asset.business.repository.UserRepository;
 import com.enterprise.asset.common.dto.UserDTO;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -20,13 +18,10 @@ public class AssetService {
 
     private final AssetRepository assetRepository;
     private final SysLogRepository sysLogRepository;
-    private final UserRepository userRepository;
 
-    public AssetService(AssetRepository assetRepository, SysLogRepository sysLogRepository,
-            UserRepository userRepository) {
+    public AssetService(AssetRepository assetRepository, SysLogRepository sysLogRepository) {
         this.assetRepository = assetRepository;
         this.sysLogRepository = sysLogRepository;
-        this.userRepository = userRepository;
     }
 
     /**
@@ -88,20 +83,17 @@ public class AssetService {
         Asset asset = assetRepository.findById(id).orElse(null);
         if (asset != null) {
             // 获取当前用户信息
-            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-            if (authentication != null && authentication.isAuthenticated()) {
-                String username = authentication.getName();
-                User user = userRepository.findByUsername(username).orElse(null);
-                if (user != null) {
-                    // 检查用户角色
-                    boolean isManager = "manager".equals(user.getRole());
+            UserDTO userDTO = getCurrentUserDTO();
+            if (userDTO != null) {
+                List<String> roles = userDTO.getRoleCodes();
+                // 检查用户角色
+                boolean isManager = roles != null && roles.stream().anyMatch(r -> r.equalsIgnoreCase("manager"));
 
-                    // 部门资产管理员只能查看本部门资产
-                    if (isManager && user.getDeptId() != null) {
-                        if (asset.getDeptId() == null
-                                || !asset.getDeptId().equals(user.getDeptId())) {
-                            return null; // 返回null表示无权限访问
-                        }
+                // 部门资产管理员只能查看本部门资产
+                if (isManager && userDTO.getDeptId() != null) {
+                    if (asset.getDeptId() == null
+                            || !asset.getDeptId().equals(userDTO.getDeptId())) {
+                        return null; // 返回null表示无权限访问
                     }
                 }
             }
@@ -115,27 +107,24 @@ public class AssetService {
     @Transactional
     public Asset createAsset(Asset asset) {
         // 获取当前用户信息
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication != null && authentication.isAuthenticated()) {
-            String username = authentication.getName();
-            User user = userRepository.findByUsername(username).orElse(null);
-            if (user != null) {
-                // 检查用户角色
-                boolean isManager = "manager".equals(user.getRole());
+        UserDTO userDTO = getCurrentUserDTO();
+        if (userDTO != null) {
+            List<String> roles = userDTO.getRoleCodes();
+            // 检查用户角色
+            boolean isManager = roles != null && roles.stream().anyMatch(r -> r.equalsIgnoreCase("manager"));
 
-                // 检查是否是领导角色
-                boolean isLeader = "leader".equals(user.getRole());
+            // 检查是否是领导角色
+            boolean isLeader = roles != null && roles.stream().anyMatch(r -> r.equalsIgnoreCase("leader"));
 
-                // 领导角色不能创建资产
-                if (isLeader) {
-                    throw new SecurityException("领导角色无权限创建资产");
-                }
+            // 领导角色不能创建资产
+            if (isLeader) {
+                throw new SecurityException("领导角色无权限创建资产");
+            }
 
-                // 部门资产管理员只能创建本部门的资产
-                if (isManager && user.getDeptId() != null) {
-                    // 强制设置为用户所在部门
-                    asset.setDeptId(user.getDeptId());
-                }
+            // 部门资产管理员只能创建本部门的资产
+            if (isManager && userDTO.getDeptId() != null) {
+                // 强制设置为用户所在部门
+                asset.setDeptId(userDTO.getDeptId());
             }
         }
         return assetRepository.save(asset);
@@ -152,31 +141,28 @@ public class AssetService {
         }
 
         // 获取当前用户信息
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication != null && authentication.isAuthenticated()) {
-            String username = authentication.getName();
-            User user = userRepository.findByUsername(username).orElse(null);
-            if (user != null) {
-                // 检查用户角色
-                boolean isManager = "manager".equals(user.getRole());
+        UserDTO userDTO = getCurrentUserDTO();
+        if (userDTO != null) {
+            List<String> roles = userDTO.getRoleCodes();
+            // 检查用户角色
+            boolean isManager = roles != null && roles.stream().anyMatch(r -> r.equalsIgnoreCase("manager"));
 
-                // 检查是否是领导角色
-                boolean isLeader = "leader".equals(user.getRole());
+            // 检查是否是领导角色
+            boolean isLeader = roles != null && roles.stream().anyMatch(r -> r.equalsIgnoreCase("leader"));
 
-                // 领导角色不能更新资产
-                if (isLeader) {
-                    throw new SecurityException("领导角色无权限更新资产");
+            // 领导角色不能更新资产
+            if (isLeader) {
+                throw new SecurityException("领导角色无权限更新资产");
+            }
+
+            // 部门资产管理员只能更新本部门的资产
+            if (isManager && userDTO.getDeptId() != null) {
+                if (existingAsset.getDeptId() == null
+                        || !existingAsset.getDeptId().equals(userDTO.getDeptId())) {
+                    return null; // 返回null表示无权限访问
                 }
-
-                // 部门资产管理员只能更新本部门的资产
-                if (isManager && user.getDeptId() != null) {
-                    if (existingAsset.getDeptId() == null
-                            || !existingAsset.getDeptId().equals(user.getDeptId())) {
-                        return null; // 返回null表示无权限访问
-                    }
-                    // 部门资产管理员不能修改部门ID
-                    asset.setDeptId(existingAsset.getDeptId());
-                }
+                // 部门资产管理员不能修改部门ID
+                asset.setDeptId(existingAsset.getDeptId());
             }
         }
 
@@ -221,27 +207,24 @@ public class AssetService {
         }
 
         // 获取当前用户信息
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication != null && authentication.isAuthenticated()) {
-            String username = authentication.getName();
-            User user = userRepository.findByUsername(username).orElse(null);
-            if (user != null) {
-                // 检查用户角色
-                boolean isManager = "manager".equals(user.getRole());
+        UserDTO userDTO = getCurrentUserDTO();
+        if (userDTO != null) {
+            List<String> roles = userDTO.getRoleCodes();
+            // 检查用户角色
+            boolean isManager = roles != null && roles.stream().anyMatch(r -> r.equalsIgnoreCase("manager"));
 
-                // 检查是否是领导角色
-                boolean isLeader = "leader".equals(user.getRole());
+            // 检查是否是领导角色
+            boolean isLeader = roles != null && roles.stream().anyMatch(r -> r.equalsIgnoreCase("leader"));
 
-                // 领导角色不能删除资产
-                if (isLeader) {
-                    throw new SecurityException("领导角色无权限删除资产");
-                }
+            // 领导角色不能删除资产
+            if (isLeader) {
+                throw new SecurityException("领导角色无权限删除资产");
+            }
 
-                // 部门资产管理员只能删除本部门的资产
-                if (isManager && user.getDeptId() != null) {
-                    if (asset.getDeptId() == null || !asset.getDeptId().equals(user.getDeptId())) {
-                        return false; // 返回false表示无权限删除
-                    }
+            // 部门资产管理员只能删除本部门的资产
+            if (isManager && userDTO.getDeptId() != null) {
+                if (asset.getDeptId() == null || !asset.getDeptId().equals(userDTO.getDeptId())) {
+                    return false; // 返回false表示无权限删除
                 }
             }
         }
@@ -261,43 +244,40 @@ public class AssetService {
         }
 
         // 权限控制：检查当前用户是否有权限更新此资产状态
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication != null && authentication.isAuthenticated()) {
-            String username = authentication.getName();
-            User user = userRepository.findByUsername(username).orElse(null);
-            if (user != null) {
-                Long currentUserId = user.getId();
+        UserDTO userDTO = getCurrentUserDTO();
+        if (userDTO != null) {
+            List<String> roles = userDTO.getRoleCodes();
+            Long currentUserId = userDTO.getId();
 
-                // 检查是否是领导角色
-                boolean isLeader = "leader".equals(user.getRole());
+            // 检查是否是领导角色
+            boolean isLeader = roles != null && roles.stream().anyMatch(r -> r.equalsIgnoreCase("leader"));
 
-                // 领导角色不能更新资产状态
-                if (isLeader) {
-                    throw new SecurityException("领导角色无权限更新资产状态");
+            // 领导角色不能更新资产状态
+            if (isLeader) {
+                throw new SecurityException("领导角色无权限更新资产状态");
+            }
+
+            // 检查是否是管理员
+            boolean isAdmin = roles != null && roles.stream().anyMatch(r -> r.equalsIgnoreCase("admin"));
+
+            // 检查是否是部门资产管理员
+            boolean isManager = roles != null && roles.stream().anyMatch(r -> r.equalsIgnoreCase("manager"));
+
+            // 部门资产管理员只能更新本部门资产状态
+            if (isManager && userDTO.getDeptId() != null) {
+                if (asset.getDeptId() == null || !asset.getDeptId().equals(userDTO.getDeptId())) {
+                    throw new SecurityException("部门资产管理员只能更新本部门资产状态");
                 }
+            }
 
-                // 检查是否是管理员
-                boolean isAdmin = "admin".equals(user.getRole());
+            // 如果不是管理员也不是部门管理员，检查是否是资产的使用者或借用者
+            if (!isAdmin && !isManager) {
+                boolean isAssetUser = asset.getUserId() != null && asset.getUserId().equals(currentUserId);
+                boolean isBorrower = "borrowed".equals(asset.getBorrowStatus()) && asset.getBorrowerId() != null
+                        && asset.getBorrowerId().equals(currentUserId);
 
-                // 检查是否是部门资产管理员
-                boolean isManager = "manager".equals(user.getRole());
-
-                // 部门资产管理员只能更新本部门资产状态
-                if (isManager && user.getDeptId() != null) {
-                    if (asset.getDeptId() == null || !asset.getDeptId().equals(user.getDeptId())) {
-                        throw new SecurityException("部门资产管理员只能更新本部门资产状态");
-                    }
-                }
-
-                // 如果不是管理员也不是部门管理员，检查是否是资产的使用者或借用者
-                if (!isAdmin && !isManager) {
-                    boolean isAssetUser = asset.getUserId() != null && asset.getUserId().equals(currentUserId);
-                    boolean isBorrower = "borrowed".equals(asset.getBorrowStatus()) && asset.getBorrowerId() != null
-                            && asset.getBorrowerId().equals(currentUserId);
-
-                    if (!isAssetUser && !isBorrower) {
-                        throw new SecurityException("无权限更新此资产状态");
-                    }
+                if (!isAssetUser && !isBorrower) {
+                    throw new SecurityException("无权限更新此资产状态");
                 }
             }
         }
@@ -314,18 +294,14 @@ public class AssetService {
 
         // 添加操作记录
         try {
-            if (authentication != null && authentication.isAuthenticated()) {
-                String username = authentication.getName();
-                User user = userRepository.findByUsername(username).orElse(null);
-                if (user != null) {
-                    SysLog log = new SysLog();
-                    log.setUserId(user.getId());
-                    log.setUsername(user.getUsername());
-                    log.setOperation("资产状态更新：" + asset.getAssetName() + " (" + asset.getAssetNo() + ")");
-                    log.setLogType("ASSET");
-                    log.setStatus("success");
-                    sysLogRepository.save(log);
-                }
+            if (userDTO != null) {
+                SysLog log = new SysLog();
+                log.setUserId(userDTO.getId());
+                log.setUsername(userDTO.getUsername());
+                log.setOperation("资产状态更新：" + asset.getAssetName() + " (" + asset.getAssetNo() + ")");
+                log.setLogType("ASSET");
+                log.setStatus("success");
+                sysLogRepository.save(log);
             }
         } catch (Exception e) {
             // 记录操作失败不影响主流程
@@ -346,41 +322,38 @@ public class AssetService {
         }
 
         // 权限控制：检查当前用户是否有权限更新此资产使用状态
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication != null && authentication.isAuthenticated()) {
-            String username = authentication.getName();
-            User user = userRepository.findByUsername(username).orElse(null);
-            if (user != null) {
-                Long currentUserId = user.getId();
+        UserDTO userDTO = getCurrentUserDTO();
+        if (userDTO != null) {
+            List<String> roles = userDTO.getRoleCodes();
+            Long currentUserId = userDTO.getId();
 
-                // 检查是否是领导角色
-                boolean isLeader = "leader".equals(user.getRole());
+            // 检查是否是领导角色
+            boolean isLeader = roles != null && roles.stream().anyMatch(r -> r.equalsIgnoreCase("leader"));
 
-                // 领导角色不能更新资产使用状态
-                if (isLeader) {
-                    throw new SecurityException("领导角色无权限更新资产使用状态");
+            // 领导角色不能更新资产使用状态
+            if (isLeader) {
+                throw new SecurityException("领导角色无权限更新资产使用状态");
+            }
+
+            // 检查是否是资产的使用者
+            boolean isAssetUser = asset.getUserId() != null && asset.getUserId().equals(currentUserId);
+
+            // 非管理员用户只能更新自己的资产
+            if (!isAssetUser) {
+                // 检查是否是管理员
+                boolean isAdmin = roles != null && roles.stream().anyMatch(r -> r.equalsIgnoreCase("admin"));
+
+                // 检查是否是部门资产管理员
+                boolean isManager = roles != null && roles.stream().anyMatch(r -> r.equalsIgnoreCase("manager"));
+
+                if (!isAdmin && !isManager) {
+                    throw new SecurityException("无权限更新此资产使用状态");
                 }
 
-                // 检查是否是资产的使用者
-                boolean isAssetUser = asset.getUserId() != null && asset.getUserId().equals(currentUserId);
-
-                // 非管理员用户只能更新自己的资产
-                if (!isAssetUser) {
-                    // 检查是否是管理员
-                    boolean isAdmin = "admin".equals(user.getRole());
-
-                    // 检查是否是部门资产管理员
-                    boolean isManager = "manager".equals(user.getRole());
-
-                    if (!isAdmin && !isManager) {
-                        throw new SecurityException("无权限更新此资产使用状态");
-                    }
-
-                    // 部门资产管理员只能更新本部门资产使用状态
-                    if (isManager && user.getDeptId() != null) {
-                        if (asset.getDeptId() == null || !asset.getDeptId().equals(user.getDeptId())) {
-                            throw new SecurityException("部门资产管理员只能更新本部门资产使用状态");
-                        }
+                // 部门资产管理员只能更新本部门资产使用状态
+                if (isManager && userDTO.getDeptId() != null) {
+                    if (asset.getDeptId() == null || !asset.getDeptId().equals(userDTO.getDeptId())) {
+                        throw new SecurityException("部门资产管理员只能更新本部门资产使用状态");
                     }
                 }
             }
