@@ -61,3 +61,6 @@ application-local.properties
 **/target/
 !**/src/main/**/target/
 !**/src/test/**/target/
+
+### Local docs ###
+DEPLOYMENT.md
