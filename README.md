@@ -28,6 +28,8 @@
 ![资产报废申请](images/asset-scrap.png)
 ## 资产折旧计算页面
 ![资产折旧计算页面](images/depreciation.png)
+## 资产盘点管理
+![资产盘点管理](images/asset-inventory.png)
 
 
 
