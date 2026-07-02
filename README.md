@@ -10,9 +10,26 @@
 ### 系统界面预览（核心业务截图）
 ## 登录页面
 ![登录页面](images/login.png)
-![首页数据仪表盘](images/dashboard.png)
-![资产管理列表](images/asset-list.png)
+## 首页数据仪表盘
+![首页数据仪表盘](images/menudashboard.png)
+## 资产状态分布饼图
+![资产状态分布饼图](images/asset-status.png)
+## 价值分布柱状图
+![价值分布柱状图](images/asset-value.png)
+## 部门资产统计混合图
+![部门资产统计混合图](images/department-department.png)
+## 资产领用申请
+![资产领用申请](images/asset-apply.png)
+## 资产转移申请
+![资产转移申请](images/asset-transfer.png)
+## 资产维修申请
+![资产维修申请](images/asset-maintenance.png)
+## 资产报废申请
+![资产报废申请](images/asset-scrap.png)
+## 资产折旧计算页面
 ![资产折旧计算页面](images/depreciation.png)
+
+
 
 ### 1.1 技术栈
 
