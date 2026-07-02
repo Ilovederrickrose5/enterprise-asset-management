@@ -1,37 +1,67 @@
 # 企业固定资产管理系统
 
+[![GitHub Stars](https://img.shields.io/github/stars/llovederrickrose5/enterprise-asset-management.svg?style=flat)](https://github.com/llovederrickrose5/enterprise-asset-management/stargazers)
+[![GitHub License](https://img.shields.io/github/license/llovederrickrose5/enterprise-asset-management.svg?style=flat)](https://github.com/llovederrickrose5/enterprise-asset-management/blob/main/LICENSE)
+[![Java](https://img.shields.io/badge/Java-17-blue.svg)](https://www.oracle.com/java/technologies/downloads/#java17)
+[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.2.5-green.svg)](https://spring.io/projects/spring-boot)
+[![Vue.js](https://img.shields.io/badge/Vue.js-3.x-green.svg)](https://vuejs.org/)
+
+## 📋 目录
+
+- [1. 项目概述](#1-项目概述)
+  - [系统界面预览](#系统界面预览)
+  - [1.1 技术栈](#11-技术栈)
+- [2. 微服务架构](#2-微服务架构)
+  - [2.1 模块划分](#21-模块划分)
+  - [2.2 服务职责](#22-服务职责)
+  - [2.3 服务间调用](#23-服务间调用)
+- [3. 系统功能模块](#3-系统功能模块)
+  - [3.1 功能模块总览](#31-功能模块总览)
+  - [3.2 角色权限体系](#32-角色权限体系)
+- [4. 数据库设计](#4-数据库设计)
+- [5. API接口文档](#5-api接口文档)
+- [6. 核心业务流程](#6-核心业务流程)
+- [7. 安全机制](#7-安全机制)
+- [8. 配置说明](#8-配置说明)
+- [9. 快速开始](#9-快速开始)
+- [10. 项目结构](#10-项目结构)
+- [11. 系统特性](#11-系统特性)
+- [12. 版本信息](#12-版本信息)
+- [13. 许可证](#13-许可证)
+
+---
+
 ## 1. 项目概述
 
 企业固定资产管理系统是一个基于 **Spring Cloud Alibaba 微服务架构** 的企业级资产全生命周期管理平台，实现了对固定资产的采购入库、日常管理、折旧计算、盘点管理、维修报废等全流程管理。
 
 系统已从单体应用拆分为微服务架构，包含认证服务和业务服务两个核心模块，通过 Nacos 实现服务注册与发现，使用 OpenFeign 进行跨服务调用。
 
+### 系统界面预览
 
-### 系统界面预览（核心业务截图）
-## 登录页面
-![登录页面](images/login.png)
-## 首页数据仪表盘
-![首页数据仪表盘](images/menudashboard.png)
-## 资产状态分布饼图
-![资产状态分布饼图](images/asset-status.png)
-## 价值分布柱状图
-![价值分布柱状图](images/asset-value.png)
-## 部门资产统计混合图
-![部门资产统计混合图](images/department-department.png)
-## 资产领用申请
-![资产领用申请](images/asset-apply.png)
-## 资产转移申请
-![资产转移申请](images/asset-transfer.png)
-## 资产维修申请
-![资产维修申请](images/asset-maintenance.png)
-## 资产报废申请
-![资产报废申请](images/asset-scrap.png)
-## 资产折旧计算页面
-![资产折旧计算页面](images/depreciation.png)
-## 资产盘点管理
-![资产盘点管理](images/asset-inventory.png)
+| 登录页面 | 首页仪表盘 |
+|:--------:|:----------:|
+| ![登录页面](images/login.png) | ![首页数据仪表盘](images/menudashboard.png) |
 
+| 资产状态分布 | 价值分布 |
+|:-----------:|:--------:|
+| ![资产状态分布饼图](images/asset-status.png) | ![价值分布柱状图](images/asset-value.png) |
 
+| 部门资产统计 | 资产领用申请 |
+|:-----------:|:----------:|
+| ![部门资产统计混合图](images/department-department.png) | ![资产领用申请](images/asset-apply.png) |
+
+| 资产转移申请 | 资产维修申请 |
+|:-----------:|:----------:|
+| ![资产转移申请](images/asset-transfer.png) | ![资产维修申请](images/asset-maintenance.png) |
+
+| 资产报废申请 | 折旧计算页面 |
+|:-----------:|:----------:|
+| ![资产报废申请](images/asset-scrap.png) | ![资产折旧计算页面](images/depreciation.png) |
+
+| 资产盘点管理 |
+|:-----------:|
+| ![资产盘点管理](images/asset-inventory.png) |
 
 ### 1.1 技术栈
 
@@ -481,7 +511,7 @@ CREATE DATABASE asset_management CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_c
 
 #### 方式一：使用一键启动脚本（推荐）
 
-```bash
+```powershell
 # 双击运行或在命令行执行
 start-all.bat
 ```
@@ -490,7 +520,7 @@ start-all.bat
 
 **1. 启动 Nacos：**
 
-```bash
+```powershell
 # 进入Nacos目录
 cd D:\Users\30776\Downloads\nacos-server-3.2.2\nacos\bin
 
@@ -500,28 +530,28 @@ startup.cmd -m standalone
 
 **2. 编译项目：**
 
-```bash
+```powershell
 cd enterprise-asset-management
 mvn clean install -DskipTests
 ```
 
 **3. 启动认证服务：**
 
-```bash
+```powershell
 cd asset-auth
 mvn spring-boot:run
 ```
 
 **4. 启动业务服务：**
 
-```bash
+```powershell
 cd asset-business
 mvn spring-boot:run
 ```
 
 **5. 启动前端服务：**
 
-```bash
+```powershell
 cd frontend
 npm install
 npm run dev
