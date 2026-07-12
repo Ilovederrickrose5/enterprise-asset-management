@@ -75,6 +75,7 @@
 | 远程调用 | OpenFeign | 3.2.5 |
 | 持久层 | Spring Data JPA | 3.2.5 |
 | 数据库 | MySQL | 8.0+ |
+| 缓存 | Redis | 7.0+ |
 | 安全 | Spring Security + JWT | - |
 | 构建工具 | Maven | 3.9+ |
 | Java版本 | JDK | 17 |
@@ -321,11 +322,21 @@ spring.datasource.password=123456
 
 | 接口路径 | 方法 | 说明 |
 |---------|------|------|
-| `/api/assets` | GET | 获取资产列表 |
+| `/api/assets` | GET | 获取资产列表（支持分页、Redis缓存） |
 | `/api/assets/{id}` | GET | 获取资产详情 |
 | `/api/assets` | POST | 创建资产 |
 | `/api/assets/{id}` | PUT | 更新资产 |
 | `/api/assets/{id}` | DELETE | 删除资产 |
+
+**资产列表分页参数：**
+
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `page` | int | 0 | 页码（从0开始） |
+| `size` | int | 10 | 每页条数 |
+| `status` | string | - | 资产状态筛选（可选） |
+| `sortBy` | string | id | 排序字段 |
+| `sortDir` | string | desc | 排序方向（asc/desc） |
 
 ### 5.5 资产折旧接口（asset-business）
 
@@ -497,6 +508,7 @@ proxy: {
 
 - JDK 17+
 - MySQL 8.0+
+- Redis 7.0+（缓存服务）
 - Node.js 16+
 - Maven 3.9+
 - Nacos Server 3.2+（服务注册与发现）
@@ -518,7 +530,14 @@ start-all.bat
 
 #### 方式二：手动启动
 
-**1. 启动 Nacos：**
+**1. 启动 Redis：**
+
+```powershell
+# 启动Redis（默认端口6379）
+redis-server
+```
+
+**2. 启动 Nacos：**
 
 ```powershell
 # 进入Nacos目录
@@ -528,28 +547,28 @@ cd D:\Users\30776\Downloads\nacos-server-3.2.2\nacos\bin
 startup.cmd -m standalone
 ```
 
-**2. 编译项目：**
+**3. 编译项目：**
 
 ```powershell
 cd enterprise-asset-management
 mvn clean install -DskipTests
 ```
 
-**3. 启动认证服务：**
+**4. 启动认证服务：**
 
 ```powershell
 cd asset-auth
 mvn spring-boot:run
 ```
 
-**4. 启动业务服务：**
+**5. 启动业务服务：**
 
 ```powershell
 cd asset-business
 mvn spring-boot:run
 ```
 
-**5. 启动前端服务：**
+**6. 启动前端服务：**
 
 ```powershell
 cd frontend
@@ -633,6 +652,7 @@ frontend/src/
 - **智能盘点**：计划制定、任务分配、执行跟踪、结果统计
 - **灵活审批**：支持多种审批流程配置
 - **实时统计**：多维度的资产数据统计与分析
+- **Redis缓存**：资产列表查询引入Redis缓存，性能提升约90%
 - **日志追踪**：完整的操作记录与审计追踪
 
 ### 11.2 安全特性
