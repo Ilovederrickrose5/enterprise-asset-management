@@ -5,28 +5,40 @@ import com.enterprise.asset.business.entity.SysLog;
 import com.enterprise.asset.business.repository.AssetRepository;
 import com.enterprise.asset.business.repository.SysLogRepository;
 import com.enterprise.asset.common.dto.UserDTO;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
-/** 资产服务 - 处理资产CRUD操作与权限控制 */
 @Service
 public class AssetService {
 
     private final AssetRepository assetRepository;
     private final SysLogRepository sysLogRepository;
+    private final RedisTemplate<String, Object> redisTemplate;
+    private final ObjectMapper objectMapper;
 
-    public AssetService(AssetRepository assetRepository, SysLogRepository sysLogRepository) {
+    private static final int CACHE_EXPIRE_MINUTES = 5;
+
+    public AssetService(AssetRepository assetRepository, SysLogRepository sysLogRepository,
+                        RedisTemplate<String, Object> redisTemplate, ObjectMapper objectMapper) {
         this.assetRepository = assetRepository;
         this.sysLogRepository = sysLogRepository;
+        this.redisTemplate = redisTemplate;
+        this.objectMapper = objectMapper;
     }
 
-    /**
-     * 获取当前用户的UserDTO信息（从SecurityContext中提取）
-     */
     private UserDTO getCurrentUserDTO() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || !authentication.isAuthenticated()) {
@@ -39,14 +51,9 @@ public class AssetService {
         return null;
     }
 
-    /**
-     * 获取所有资产（根据用户角色返回不同数据）
-     * 权限规则：admin查看全部，manager/leader查看本部门，普通用户查看个人资产
-     */
     public List<Asset> getAllAssets() {
         List<Asset> allAssets = assetRepository.findAll();
 
-        // 【本次修改点】从SecurityContext直接获取UserDTO，不再查询本地UserRepository
         UserDTO userDTO = getCurrentUserDTO();
         if (userDTO == null) {
             return List.of();
@@ -58,10 +65,8 @@ public class AssetService {
         boolean isManager = roles != null && roles.contains("MANAGER");
 
         if (isAdmin) {
-            // 系统管理员：可以看到所有资产
             return allAssets;
         } else if (isLeader || isManager) {
-            // 部门领导或部门资产管理员：只能看到本部门的资产
             if (userDTO.getDeptId() != null) {
                 return allAssets.stream()
                         .filter(asset -> asset.getDeptId() != null && asset.getDeptId().equals(userDTO.getDeptId()))
@@ -69,31 +74,95 @@ public class AssetService {
             }
             return List.of();
         } else {
-            // 普通员工：只能看到自己的资产
             return allAssets.stream()
                     .filter(asset -> asset.getUserId() != null && asset.getUserId().equals(userDTO.getId()))
                     .toList();
         }
     }
 
-    /**
-     * 根据ID获取资产
-     */
+    public Page<Asset> getAssetsWithPagination(int page, int size, String status, String sortBy, String sortDir) {
+        UserDTO userDTO = getCurrentUserDTO();
+        if (userDTO == null) {
+            return Page.empty();
+        }
+
+        List<String> roles = userDTO.getRoleCodes();
+        boolean isAdmin = roles != null && roles.contains("ADMIN");
+        boolean isLeaderOrManager = roles != null && (roles.contains("LEADER") || roles.contains("MANAGER"));
+
+        String cacheKey = buildCacheKey(page, size, status, sortBy, sortDir, userDTO.getId(), isAdmin, isLeaderOrManager, userDTO.getDeptId());
+
+        Object cachedObj = redisTemplate.opsForValue().get(cacheKey);
+        if (cachedObj != null) {
+            try {
+                String cachedData = objectMapper.writeValueAsString(cachedObj);
+                return objectMapper.readValue(cachedData, new TypeReference<Page<Asset>>() {});
+            } catch (JsonProcessingException e) {
+                System.err.println("Redis cache deserialization error: " + e.getMessage());
+            }
+        }
+
+        Sort sort = "desc".equalsIgnoreCase(sortDir) ? Sort.by(sortBy).descending() : Sort.by(sortBy).ascending();
+        Pageable pageable = PageRequest.of(page, size, sort);
+
+        Page<Asset> result;
+        if (isAdmin) {
+            if (status != null && !status.isEmpty()) {
+                result = assetRepository.findByStatus(status, pageable);
+            } else {
+                result = assetRepository.findAll(pageable);
+            }
+        } else if (isLeaderOrManager) {
+            Long deptId = userDTO.getDeptId();
+            if (deptId != null) {
+                if (status != null && !status.isEmpty()) {
+                    result = assetRepository.findByDeptIdAndStatus(deptId, status, pageable);
+                } else {
+                    result = assetRepository.findByDeptId(deptId, pageable);
+                }
+            } else {
+                result = Page.empty();
+            }
+        } else {
+            result = assetRepository.findByUserId(userDTO.getId(), pageable);
+        }
+
+        try {
+            redisTemplate.opsForValue().set(cacheKey, result, CACHE_EXPIRE_MINUTES, TimeUnit.MINUTES);
+        } catch (Exception e) {
+            System.err.println("Redis cache set error: " + e.getMessage());
+        }
+
+        return result;
+    }
+
+    private String buildCacheKey(int page, int size, String status, String sortBy, String sortDir,
+                                  Long userId, boolean isAdmin, boolean isLeaderOrManager, Long deptId) {
+        return String.format("asset_list:user_%d:admin_%s:leader_%s:dept_%s:page_%d:size_%d:status_%s:sort_%s_%s",
+                userId, isAdmin, isLeaderOrManager, deptId != null ? deptId : "null",
+                page, size, status != null ? status : "all", sortBy, sortDir);
+    }
+
+    private void clearAssetCache() {
+        try {
+            redisTemplate.delete(redisTemplate.keys("asset_list:*"));
+        } catch (Exception e) {
+            System.err.println("Clear asset cache error: " + e.getMessage());
+        }
+    }
+
     public Asset getAssetById(Long id) {
         Asset asset = assetRepository.findById(id).orElse(null);
         if (asset != null) {
-            // 获取当前用户信息
             UserDTO userDTO = getCurrentUserDTO();
             if (userDTO != null) {
                 List<String> roles = userDTO.getRoleCodes();
-                // 检查用户角色
                 boolean isManager = roles != null && roles.stream().anyMatch(r -> r.equalsIgnoreCase("manager"));
 
-                // 部门资产管理员只能查看本部门资产
                 if (isManager && userDTO.getDeptId() != null) {
                     if (asset.getDeptId() == null
                             || !asset.getDeptId().equals(userDTO.getDeptId())) {
-                        return null; // 返回null表示无权限访问
+                        return null;
                     }
                 }
             }
@@ -101,38 +170,27 @@ public class AssetService {
         return asset;
     }
 
-    /**
-     * 创建资产
-     */
     @Transactional
     public Asset createAsset(Asset asset) {
-        // 获取当前用户信息
         UserDTO userDTO = getCurrentUserDTO();
         if (userDTO != null) {
             List<String> roles = userDTO.getRoleCodes();
-            // 检查用户角色
             boolean isManager = roles != null && roles.stream().anyMatch(r -> r.equalsIgnoreCase("manager"));
-
-            // 检查是否是领导角色
             boolean isLeader = roles != null && roles.stream().anyMatch(r -> r.equalsIgnoreCase("leader"));
 
-            // 领导角色不能创建资产
             if (isLeader) {
                 throw new SecurityException("领导角色无权限创建资产");
             }
 
-            // 部门资产管理员只能创建本部门的资产
             if (isManager && userDTO.getDeptId() != null) {
-                // 强制设置为用户所在部门
                 asset.setDeptId(userDTO.getDeptId());
             }
         }
-        return assetRepository.save(asset);
+        Asset savedAsset = assetRepository.save(asset);
+        clearAssetCache();
+        return savedAsset;
     }
 
-    /**
-     * 更新资产
-     */
     @Transactional
     public Asset updateAsset(Long id, Asset asset) {
         Asset existingAsset = assetRepository.findById(id).orElse(null);
@@ -140,28 +198,21 @@ public class AssetService {
             return null;
         }
 
-        // 获取当前用户信息
         UserDTO userDTO = getCurrentUserDTO();
         if (userDTO != null) {
             List<String> roles = userDTO.getRoleCodes();
-            // 检查用户角色
             boolean isManager = roles != null && roles.stream().anyMatch(r -> r.equalsIgnoreCase("manager"));
-
-            // 检查是否是领导角色
             boolean isLeader = roles != null && roles.stream().anyMatch(r -> r.equalsIgnoreCase("leader"));
 
-            // 领导角色不能更新资产
             if (isLeader) {
                 throw new SecurityException("领导角色无权限更新资产");
             }
 
-            // 部门资产管理员只能更新本部门的资产
             if (isManager && userDTO.getDeptId() != null) {
                 if (existingAsset.getDeptId() == null
                         || !existingAsset.getDeptId().equals(userDTO.getDeptId())) {
-                    return null; // 返回null表示无权限访问
+                    return null;
                 }
-                // 部门资产管理员不能修改部门ID
                 asset.setDeptId(existingAsset.getDeptId());
             }
         }
@@ -186,19 +237,17 @@ public class AssetService {
         existingAsset.setRemark(asset.getRemark());
         existingAsset.setUserId(asset.getUserId());
 
-        // 更新借出相关字段
         existingAsset.setBorrowStatus(asset.getBorrowStatus());
         existingAsset.setCurrentLocation(asset.getCurrentLocation());
         existingAsset.setBorrowerId(asset.getBorrowerId());
         existingAsset.setBorrowTime(asset.getBorrowTime());
         existingAsset.setExpectedReturnTime(asset.getExpectedReturnTime());
 
-        return assetRepository.save(existingAsset);
+        Asset savedAsset = assetRepository.save(existingAsset);
+        clearAssetCache();
+        return savedAsset;
     }
 
-    /**
-     * 删除资产
-     */
     @Transactional
     public boolean deleteAsset(Long id) {
         Asset asset = assetRepository.findById(id).orElse(null);
@@ -206,36 +255,28 @@ public class AssetService {
             return false;
         }
 
-        // 获取当前用户信息
         UserDTO userDTO = getCurrentUserDTO();
         if (userDTO != null) {
             List<String> roles = userDTO.getRoleCodes();
-            // 检查用户角色
             boolean isManager = roles != null && roles.stream().anyMatch(r -> r.equalsIgnoreCase("manager"));
-
-            // 检查是否是领导角色
             boolean isLeader = roles != null && roles.stream().anyMatch(r -> r.equalsIgnoreCase("leader"));
 
-            // 领导角色不能删除资产
             if (isLeader) {
                 throw new SecurityException("领导角色无权限删除资产");
             }
 
-            // 部门资产管理员只能删除本部门的资产
             if (isManager && userDTO.getDeptId() != null) {
                 if (asset.getDeptId() == null || !asset.getDeptId().equals(userDTO.getDeptId())) {
-                    return false; // 返回false表示无权限删除
+                    return false;
                 }
             }
         }
 
         assetRepository.deleteById(id);
+        clearAssetCache();
         return true;
     }
 
-    /**
-     * 更新资产状态
-     */
     @Transactional
     public Asset updateAssetStatus(Long id, String status) {
         Asset asset = assetRepository.findById(id).orElse(null);
@@ -243,34 +284,26 @@ public class AssetService {
             return null;
         }
 
-        // 权限控制：检查当前用户是否有权限更新此资产状态
         UserDTO userDTO = getCurrentUserDTO();
         if (userDTO != null) {
             List<String> roles = userDTO.getRoleCodes();
             Long currentUserId = userDTO.getId();
 
-            // 检查是否是领导角色
             boolean isLeader = roles != null && roles.stream().anyMatch(r -> r.equalsIgnoreCase("leader"));
 
-            // 领导角色不能更新资产状态
             if (isLeader) {
                 throw new SecurityException("领导角色无权限更新资产状态");
             }
 
-            // 检查是否是管理员
             boolean isAdmin = roles != null && roles.stream().anyMatch(r -> r.equalsIgnoreCase("admin"));
-
-            // 检查是否是部门资产管理员
             boolean isManager = roles != null && roles.stream().anyMatch(r -> r.equalsIgnoreCase("manager"));
 
-            // 部门资产管理员只能更新本部门资产状态
             if (isManager && userDTO.getDeptId() != null) {
                 if (asset.getDeptId() == null || !asset.getDeptId().equals(userDTO.getDeptId())) {
                     throw new SecurityException("部门资产管理员只能更新本部门资产状态");
                 }
             }
 
-            // 如果不是管理员也不是部门管理员，检查是否是资产的使用者或借用者
             if (!isAdmin && !isManager) {
                 boolean isAssetUser = asset.getUserId() != null && asset.getUserId().equals(currentUserId);
                 boolean isBorrower = "borrowed".equals(asset.getBorrowStatus()) && asset.getBorrowerId() != null
@@ -284,15 +317,14 @@ public class AssetService {
 
         asset.setStatus(status);
 
-        // 当资产状态为在库、闲置或维修中时，清空使用人信息
         if ("in_stock".equals(status) || "idle".equals(status) || "maintenance".equals(status)) {
             asset.setUserId(null);
             asset.setUseStatus("idle");
         }
 
         Asset savedAsset = assetRepository.save(asset);
+        clearAssetCache();
 
-        // 添加操作记录
         try {
             if (userDTO != null) {
                 SysLog log = new SysLog();
@@ -304,16 +336,12 @@ public class AssetService {
                 sysLogRepository.save(log);
             }
         } catch (Exception e) {
-            // 记录操作失败不影响主流程
             System.err.println("添加操作记录失败: " + e.getMessage());
         }
 
         return savedAsset;
     }
 
-    /**
-     * 更新资产使用状态
-     */
     @Transactional
     public Asset updateAssetUseStatus(Long id, String useStatus) {
         Asset asset = assetRepository.findById(id).orElse(null);
@@ -321,36 +349,27 @@ public class AssetService {
             return null;
         }
 
-        // 权限控制：检查当前用户是否有权限更新此资产使用状态
         UserDTO userDTO = getCurrentUserDTO();
         if (userDTO != null) {
             List<String> roles = userDTO.getRoleCodes();
             Long currentUserId = userDTO.getId();
 
-            // 检查是否是领导角色
             boolean isLeader = roles != null && roles.stream().anyMatch(r -> r.equalsIgnoreCase("leader"));
 
-            // 领导角色不能更新资产使用状态
             if (isLeader) {
                 throw new SecurityException("领导角色无权限更新资产使用状态");
             }
 
-            // 检查是否是资产的使用者
             boolean isAssetUser = asset.getUserId() != null && asset.getUserId().equals(currentUserId);
 
-            // 非管理员用户只能更新自己的资产
             if (!isAssetUser) {
-                // 检查是否是管理员
                 boolean isAdmin = roles != null && roles.stream().anyMatch(r -> r.equalsIgnoreCase("admin"));
-
-                // 检查是否是部门资产管理员
                 boolean isManager = roles != null && roles.stream().anyMatch(r -> r.equalsIgnoreCase("manager"));
 
                 if (!isAdmin && !isManager) {
                     throw new SecurityException("无权限更新此资产使用状态");
                 }
 
-                // 部门资产管理员只能更新本部门资产使用状态
                 if (isManager && userDTO.getDeptId() != null) {
                     if (asset.getDeptId() == null || !asset.getDeptId().equals(userDTO.getDeptId())) {
                         throw new SecurityException("部门资产管理员只能更新本部门资产使用状态");
@@ -361,85 +380,62 @@ public class AssetService {
 
         asset.setUseStatus(useStatus);
 
-        // 当使用状态为闲置时，清空使用人信息
         if ("idle".equals(useStatus)) {
             asset.setUserId(null);
             asset.setStatus("idle");
         }
 
-        return assetRepository.save(asset);
+        Asset savedAsset = assetRepository.save(asset);
+        clearAssetCache();
+        return savedAsset;
     }
 
-    /**
-     * 根据用户ID获取资产
-     */
     public List<Asset> getAssetsByUser(Long userId) {
         return assetRepository.findAll().stream()
                 .filter(asset -> asset.getUserId() != null && asset.getUserId().equals(userId))
                 .toList();
     }
 
-    /**
-     * 根据状态获取资产
-     */
     public List<Asset> getAssetsByStatus(String status) {
         return assetRepository.findAll().stream()
                 .filter(asset -> asset.getStatus() != null && asset.getStatus().equals(status))
                 .toList();
     }
 
-    /**
-     * 根据使用状态获取资产
-     */
     public List<Asset> getAssetsByUseStatus(String useStatus) {
         return assetRepository.findAll().stream()
                 .filter(asset -> asset.getUseStatus() != null && asset.getUseStatus().equals(useStatus))
                 .toList();
     }
 
-    /**
-     * 获取资产总数
-     */
     public long getAssetCount() {
         try {
             return assetRepository.countAllAssets();
         } catch (Exception e) {
             System.err.println("获取资产总数失败: " + e.getMessage());
             e.printStackTrace();
-            // 发生异常时返回0，避免500错误
             return 0;
         }
     }
 
-    /**
-     * 获取用户资产数量
-     */
     public long getAssetCountByUser(Long userId) {
         try {
             return assetRepository.countAllAssetsByUser(userId);
         } catch (Exception e) {
             System.err.println("获取用户资产数量失败: " + e.getMessage());
             e.printStackTrace();
-            // 发生异常时返回0，避免500错误
             return 0;
         }
     }
 
-    /**
-     * 获取可领用的资产（未分配给用户的资产）
-     * 用于资产领用申请
-     */
     public List<Asset> getAvailableAssets() {
         List<Asset> allAssets = assetRepository.findAll();
 
-        // 【本次修改点】使用getCurrentUserDTO获取用户信息
         UserDTO userDTO = getCurrentUserDTO();
         if (userDTO == null) {
             return List.of();
         }
 
-        // 获取所有未分配的资产（userId为空的资产）
-        // 所有角色都可以看到所有未分配的资产用于领用申请
         List<Asset> filteredAssets = allAssets.stream()
                 .filter(asset -> asset.getUserId() == null)
                 .toList();
@@ -447,9 +443,6 @@ public class AssetService {
         return filteredAssets;
     }
 
-    /**
-     * 获取所有地点列表
-     */
     public List<String> getAllLocations() {
         return assetRepository.findAll().stream()
                 .map(Asset::getLocation)

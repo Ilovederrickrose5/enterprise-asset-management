@@ -624,7 +624,8 @@ export default {
       try {
         const response = await axios.get('/assets')
         if (response.data.code === 200) {
-          assetList.value = response.data.data
+          const data = response.data.data
+          assetList.value = data.content || data
           // 更新存放位置列表
           fetchLocations()
         }
