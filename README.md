@@ -589,10 +589,10 @@ npm run dev
 
 | 用户名 | 密码 | 角色 |
 |--------|------|------|
-| admin | admin | 系统管理员 |
-| leader | leader | 部门领导 |
-| manager | manager | 部门资产管理员 |
-| user | user | 普通员工 |
+| admin | 123456 | 系统管理员 |
+| leader | 123456 | 部门领导 |
+| manager | 123456 | 部门资产管理员 |
+| user | 123456 | 普通员工 |
 
 ---
 

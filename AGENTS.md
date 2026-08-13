@@ -9,14 +9,14 @@
 
 | 分类 | 技术 | 版本 |
 |------|------|------|
-| 后端 | Java | 21 |
+| 后端 | Java | 17 |
 | 框架 | Spring Boot | 3.2.x |
 | ORM | Spring Data JPA | 3.2.x |
 | 数据库 | MySQL | 8.0+ |
 | 缓存 | Redis | 7.0+ |
 | 微服务 | Spring Cloud Alibaba | 2023.0.x |
 | 服务发现 | Nacos | 3.2.x |
-| 远程调用 | OpenFeign | 4.1.x |
+| 远程调用 | OpenFeign | 3.2.x |
 | 前端 | Vue | 3.x |
 | 构建工具 | Maven | 3.9+ |
 
@@ -43,8 +43,10 @@ enterprise-asset-management/
 ├── asset-common/                # 公共模块
 │   └── src/main/java/com/enterprise/asset/common/
 │       ├── dto/                 # 数据传输对象
-│       ├── util/                # 工具类
-│       └── entity/              # 公共实体
+│       ├── enums/               # 枚举类
+│       ├── security/            # JWT工具类
+│       └── util/                # 公共工具类
+│   * 注意：common禁止存放@Entity实体，实体仅存在于各服务模块
 ├── frontend/                    # 前端Vue项目
 │   ├── src/
 │   │   ├── components/          # 公共组件
@@ -149,7 +151,7 @@ enterprise-asset-management/
 | password | VARCHAR(255) | NOT NULL | 密码（BCrypt加密） |
 | real_name | VARCHAR(255) | NULL | 真实姓名 |
 | dept_id | BIGINT | NULL | 所属部门ID |
-| role | VARCHAR(255) | NULL | 角色：admin/leader/manager/user |
+| role | VARCHAR(255) | NULL | 角色：ADMIN/LEADER/MANAGER/USER（大写） |
 | status | INT | NOT NULL | 状态：1-启用，0-禁用 |
 
 ### 3.2 索引设计
@@ -228,10 +230,10 @@ enterprise-asset-management/
 
 | 角色 | 权限描述 |
 |------|----------|
-| `admin` | 系统管理员，拥有所有权限 |
-| `leader` | 部门领导，可审批报废申请 |
-| `manager` | 资产管理员，可管理资产、处理申请 |
-| `user` | 普通用户，可提交申请、查看自己的资产 |
+| `ADMIN` | 系统管理员，拥有所有权限 |
+| `LEADER` | 部门领导，可审批报废申请 |
+| `MANAGER` | 资产管理员，可管理资产、处理申请 |
+| `USER` | 普通用户，可提交申请、查看自己的资产 |
 
 ### 5.2 权限控制策略
 
@@ -247,19 +249,18 @@ enterprise-asset-management/
 ### 6.1 资产报废二级审批
 
 ```java
-// 审批逻辑（简化版）
+// 审批逻辑（简化版，角色代码与数据库一致为大写）
 if ("DISPOSAL".equals(applicationType)) {
-    if ("ROLE_admin".equals(userRole) || "ROLE_leader".equals(userRole)) {
-        // 领导审批（一级）
-        if ("pending_leader".equals(status)) {
-            // 更新为leader_approved或直接approved
-        }
-    } else {
-        // 资产管理员审批（二级）
-        if ("leader_approved".equals(status)) {
-            // 最终批准，更新资产状态为scrapped
-        }
+    // 资产管理员初审：pending -> pending_leader
+    if (isManager && "pending".equals(status)) {
+        application.setStatus("pending_leader");
     }
+    // 领导终审：pending_leader -> approved，同步更新资产状态为scrapped
+    else if ((isAdmin || isLeader) && "pending_leader".equals(status)) {
+        application.setStatus("approved");
+        asset.setStatus("scrapped");
+    }
+    // 任意环节被驳回 -> rejected
 }
 ```
 
@@ -316,7 +317,7 @@ public Page<Asset> getAssetsWithPagination(int page, int size, String status, St
 
 ### 7.1 环境要求
 
-- JDK 21+
+- JDK 17+
 - MySQL 8.0+
 - Redis 7.0+
 - Maven 3.9+
