@@ -72,7 +72,9 @@
 | 框架 | Spring Boot | 3.2.5 |
 | 微服务 | Spring Cloud | 2023.0.1 |
 | 服务注册 | Spring Cloud Alibaba Nacos | 2023.0.1.0 |
+| API 网关 | Spring Cloud Gateway | 2023.0.1 |
 | 远程调用 | OpenFeign | 3.2.5 |
+| 熔断降级 | Sentinel | 2023.0.1.0 |
 | 持久层 | Spring Data JPA | 3.2.5 |
 | 数据库 | MySQL | 8.0+ |
 | 缓存 | Redis | 7.0+ |
