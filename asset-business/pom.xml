@@ -51,6 +51,12 @@
             <groupId>com.alibaba.cloud</groupId>
             <artifactId>spring-cloud-starter-alibaba-nacos-discovery</artifactId>
         </dependency>
+
+        <!-- Sentinel: 服务熔断降级, 配合 OpenFeign 实现 Feign 调用失败兜底 -->
+        <dependency>
+            <groupId>com.alibaba.cloud</groupId>
+            <artifactId>spring-cloud-starter-alibaba-sentinel</artifactId>
+        </dependency>
         
         <dependency>
             <groupId>io.jsonwebtoken</groupId>

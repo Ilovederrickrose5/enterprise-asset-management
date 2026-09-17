@@ -1,0 +1,55 @@
+server:
+  port: 9000  # 网关端口, 业务服务统一从 9000 进入
+
+spring:
+  application:
+    name: asset-gateway
+
+  cloud:
+    nacos:
+      discovery:
+        server-addr: localhost:8848
+        namespace: public
+        group: DEFAULT_GROUP
+        service: ${spring.application.name}
+        enabled: true
+
+    gateway:
+      # 服务发现配置: 启用后可用 lb://服务名 路由
+      discovery:
+        locator:
+          enabled: false  # 关闭自动路由(按 Path 显式配置, 避免服务名暴露)
+
+      # 显式路由: 按路径前缀分发到下游服务
+      routes:
+        - id: asset-auth-route
+          uri: lb://asset-auth          # 从 Nacos 拉取 asset-auth 实例负载均衡
+          predicates:
+            - Path=/api/auth/**          # 认证相关请求
+          filters:
+            - StripPrefix=0              # 不剥前缀, 原样转发 /api/auth/**
+
+        - id: asset-business-route
+          uri: lb://asset-business
+          predicates:
+            - Path=/api/assets/**,/api/asset-applications/**,/api/reports/**,/api/depreciation/**,/api/inventory/**,/api/purchase/**
+          filters:
+            - StripPrefix=0
+
+      # 全局跨域: 前端 Vue 直连网关时需要
+      default-filters:
+        - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials RETAIN_UNIQUE
+
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowedOriginPatterns: "*"
+            allowedMethods: "*"
+            allowedHeaders: "*"
+            allowCredentials: true
+            maxAge: 3600
+
+logging:
+  level:
+    com.enterprise.asset.gateway: DEBUG
+    org.springframework.cloud.gateway: INFO

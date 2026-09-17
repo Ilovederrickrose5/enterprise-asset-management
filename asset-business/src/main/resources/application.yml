@@ -44,6 +44,15 @@ spring:
         service: ${spring.application.name}
         enabled: true
 
+    # Sentinel: 熔断降级配置
+    sentinel:
+      transport:
+        dashboard: localhost:8080    # Sentinel 控制台地址
+        port: 8719                    # 与控制台通信的本地端口(占用则自动+1)
+        heartbeat-interval-ms: 10000
+      eager: true                     # 服务启动即向控制台发送心跳, 加速规则下发
+      web-context-unify: false        # 链路入口区分, 便于按 url 配置流控
+
   openfeign:
     enabled: true
     client:
@@ -54,6 +63,12 @@ spring:
         asset-auth:
           connectTimeout: 3000
           readTimeout: 3000
+
+# Feign 开启 Sentinel 兜底: spring-cloud-starter-alibaba-sentinel + 此开关
+# 触发 SentinelFeign 自动配置, 调用失败时进入 fallbackFactory
+feign:
+  sentinel:
+    enabled: true
 
 server:
   port: 8082

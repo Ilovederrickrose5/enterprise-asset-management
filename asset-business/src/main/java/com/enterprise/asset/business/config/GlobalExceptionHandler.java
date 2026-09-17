@@ -1,10 +1,12 @@
 package com.enterprise.asset.business.config;
 
+import com.enterprise.asset.business.exception.BusinessException;
 import com.enterprise.asset.common.util.Result;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -27,6 +29,22 @@ public class GlobalExceptionHandler {
         logger.warn("Authentication failed: {}", e.getMessage());
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                 .body(Result.error(401, "认证失败：" + e.getMessage()));
+    }
+
+    /** 业务异常: 状态机校验失败/资产已占用/资产状态不允许操作等 */
+    @ExceptionHandler(BusinessException.class)
+    public ResponseEntity<Result<String>> handleBusinessException(BusinessException e) {
+        logger.warn("Business conflict: {}", e.getMessage());
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(Result.error(e.getCode(), e.getMessage()));
+    }
+
+    /** 乐观锁冲突: 并发审批时资产已被其他事务修改,提示前端刷新后重试 */
+    @ExceptionHandler(ObjectOptimisticLockingFailureException.class)
+    public ResponseEntity<Result<String>> handleOptimisticLockException(ObjectOptimisticLockingFailureException e) {
+        logger.warn("Optimistic lock conflict: {}", e.getMessage());
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(Result.error(409, "资产状态已被其他人变更,请刷新后重试"));
     }
 
     @ExceptionHandler(RuntimeException.class)

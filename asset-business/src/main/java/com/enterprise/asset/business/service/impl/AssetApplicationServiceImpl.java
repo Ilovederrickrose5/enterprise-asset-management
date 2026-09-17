@@ -6,6 +6,7 @@ import com.enterprise.asset.common.enums.AssetStatus;
 import com.enterprise.asset.business.entity.Asset;
 import com.enterprise.asset.business.entity.AssetApplication;
 import com.enterprise.asset.business.entity.SysLog;
+import com.enterprise.asset.business.exception.BusinessException;
 import com.enterprise.asset.business.repository.AssetApplicationRepository;
 import com.enterprise.asset.business.repository.AssetRepository;
 import com.enterprise.asset.business.repository.SysLogRepository;
@@ -72,42 +73,66 @@ public class AssetApplicationServiceImpl implements AssetApplicationService {
     /**
      * 创建申请
      * Controller传入: AssetApplication对象(包含assetId、applicantId、applicationType等)
-     * 业务逻辑: 设置申请时间→查询资产信息填充→保存申请→添加操作日志
+     * 业务逻辑: 设置申请时间→校验资产状态→原子占用资产→填充资产信息→保存申请→添加操作日志
      * 返回: 保存后的申请记录
      */
     @Override
     @Transactional
     public AssetApplication createApplication(AssetApplication application) {
-        // 接收Controller传来的申请对象
         application.setApplicationDate(LocalDateTime.now());
         if (application.getStatus() == null || application.getStatus().isEmpty()) {
             application.setStatus(ApplicationStatus.PENDING.getCode());
         }
 
-        // 查询资产表,填充资产名称和编号
-        Asset asset = assetRepository.findById(application.getAssetId()).orElse(null);
-        if (asset != null) {
-            if (application.getAssetName() == null || application.getAssetName().isEmpty()) {
-                application.setAssetName(asset.getAssetName());
-            }
-            if (application.getAssetNo() == null || application.getAssetNo().isEmpty()) {
-                application.setAssetNo(asset.getAssetNo());
-            }
+        // === 闸3: 校验资产状态 - 已报废/已处置的资产不能再申请任何业务 ===
+        Asset asset = assetRepository.findById(application.getAssetId())
+                .orElseThrow(() -> new BusinessException("资产不存在,无法创建申请"));
+
+        AssetStatus assetStatus = AssetStatus.fromCode(asset.getStatus());
+        if (assetStatus != null && assetStatus.isScrapped()) {
+            throw new BusinessException("资产已报废,无法创建申请");
         }
 
-        // 保存申请到数据库
+        // 填充资产名称和编号
+        if (application.getAssetName() == null || application.getAssetName().isEmpty()) {
+            application.setAssetName(asset.getAssetName());
+        }
+        if (application.getAssetNo() == null || application.getAssetNo().isEmpty()) {
+            application.setAssetNo(asset.getAssetNo());
+        }
+
+        // 先保存申请拿到ID,再尝试占用资产
         AssetApplication savedApplication = assetApplicationRepository.save(application);
 
-        // 添加操作日志到SysLog表
-        if (asset != null) {
-            SysLog log = new SysLog();
-            log.setUserId(application.getApplicantId());
-            log.setUsername(application.getApplicantName());
-            log.setOperation("申请" + getTypeNameCN(application.getApplicationType()) + ": " + asset.getAssetName());
-            log.setLogType("ASSET");
-            log.setStatus("success");
-            sysLogRepository.save(log);
+        // === 闸1: 原子占用资产,防并发重复申请 ===
+        // 第一阶段: 尝试无主占用(资产当前未被任何申请占用)
+        int rows = assetRepository.lockAsset(asset.getId(), savedApplication.getId());
+        if (rows == 0) {
+            // 第二阶段: 占用失败,检查是否为"二级审批接力"场景
+            // 仅当旧占用申请已处于非活跃状态(已审批/已驳回/已完成等)时,才允许接力占用
+            Asset occupiedAsset = assetRepository.findById(asset.getId()).orElse(null);
+            Long currentAppId = occupiedAsset != null ? occupiedAsset.getCurrentApplicationId() : null;
+            if (currentAppId != null) {
+                AssetApplication currentApp = assetApplicationRepository.findById(currentAppId).orElse(null);
+                if (currentApp != null && isInactiveApplicationStatus(currentApp.getStatus())) {
+                    // 用条件UPDATE原子接力,防止接力瞬间又有新申请钻空子
+                    rows = assetRepository.transferLock(asset.getId(), currentAppId, savedApplication.getId());
+                }
+            }
         }
+        if (rows == 0) {
+            // 抛异常触发事务回滚,撤回刚保存的申请记录
+            throw new BusinessException("该资产已有进行中的申请,请勿重复提交");
+        }
+
+        // 添加操作日志到SysLog表
+        SysLog log = new SysLog();
+        log.setUserId(application.getApplicantId());
+        log.setUsername(application.getApplicantName());
+        log.setOperation("申请" + getTypeNameCN(application.getApplicationType()) + ": " + asset.getAssetName());
+        log.setLogType("ASSET");
+        log.setStatus("success");
+        sysLogRepository.save(log);
 
         return savedApplication;
     }
@@ -139,7 +164,7 @@ public class AssetApplicationServiceImpl implements AssetApplicationService {
      * 批准申请
      * Controller传入:
      * id(申请ID)、approverId(审批人ID)、approverName(审批人姓名)、approvalRemark(审批备注)
-     * 业务逻辑: 更新申请状态→根据申请类型更新资产状态(领用/转移/报废)→添加审批日志
+     * 业务逻辑: 状态机校验→更新申请状态→根据申请类型更新资产状态→释放占用→添加审批日志
      * 返回: 批准后的申请记录
      */
     @Override
@@ -148,6 +173,18 @@ public class AssetApplicationServiceImpl implements AssetApplicationService {
         AssetApplication application = assetApplicationRepository.findById(id).orElse(null);
         if (application == null) {
             return null;
+        }
+
+        ApplicationType type = ApplicationType.fromCode(application.getApplicationType());
+
+        // === 闸3: 状态机校验 - 防止重复审批/跨状态审批 ===
+        // 已 finalize 的申请(approved/rejected)禁止再审批,这是并发的关键防线
+        ApplicationStatus currentStatus = ApplicationStatus.fromCode(application.getStatus());
+        if (currentStatus != null && currentStatus.isFinalized()) {
+            throw new BusinessException("申请已结束审批流程,请勿重复操作");
+        }
+        if (!isApprovableStatus(type, currentStatus)) {
+            throw new BusinessException("当前申请状态[" + application.getStatus() + "]不允许审批");
         }
 
         // 更新申请状态为已批准
@@ -161,7 +198,14 @@ public class AssetApplicationServiceImpl implements AssetApplicationService {
         // 根据申请类型更新资产状态
         Asset asset = assetRepository.findById(application.getAssetId()).orElse(null);
         if (asset != null) {
-            ApplicationType type = ApplicationType.fromCode(application.getApplicationType());
+            // === 闸3: 资产状态校验 - 已报废的资产不能再被领用/转移/维修 ===
+            if (type != ApplicationType.DISPOSAL) {
+                AssetStatus assetStatus = AssetStatus.fromCode(asset.getStatus());
+                if (assetStatus != null && assetStatus.isScrapped()) {
+                    throw new BusinessException("资产已报废,无法执行此审批");
+                }
+            }
+
             // 根据applicationType 区分业务逻辑
             if (type == ApplicationType.RECEIVE) {
                 // 领用: 资产分配给申请人
@@ -185,9 +229,13 @@ public class AssetApplicationServiceImpl implements AssetApplicationService {
             } else if (type == ApplicationType.MAINTENANCE) {
                 // 维修: 批准后资产状态不变,等待点击开始维修
             }
-            // 保存资产状态变更(维修除外)
+            // === 闸2: 保存资产状态时,@Version自动校验,并发冲突会抛 ObjectOptimisticLockingFailureException
+            // ===
+            // 由 GlobalExceptionHandler 捕获并返回"资产状态已被其他人变更,请刷新后重试"
             if (type != ApplicationType.MAINTENANCE) {
                 assetRepository.save(asset);
+                // 审批通过后释放占用(维修除外,维修期间需继续占用资产防并发申请)
+                assetRepository.unlockAsset(asset.getId(), application.getId());
             }
 
             // 添加审批日志
@@ -238,6 +286,12 @@ public class AssetApplicationServiceImpl implements AssetApplicationService {
             return null;
         }
 
+        // === 闸3: 状态机校验 - 已 finalize 的申请不能再拒绝 ===
+        ApplicationStatus currentStatus = ApplicationStatus.fromCode(application.getStatus());
+        if (currentStatus != null && currentStatus.isFinalized()) {
+            throw new BusinessException("申请已结束审批流程,无法再次拒绝");
+        }
+
         application.setStatus(ApplicationStatus.REJECTED.getCode());
         application.setApprovalDate(LocalDateTime.now());
         application.setApproverId(approverId);
@@ -247,6 +301,9 @@ public class AssetApplicationServiceImpl implements AssetApplicationService {
 
         Asset asset = assetRepository.findById(application.getAssetId()).orElse(null);
         if (asset != null) {
+            // 拒绝后释放占用,允许其他人重新对该资产提交申请
+            assetRepository.unlockAsset(asset.getId(), application.getId());
+
             SysLog log = new SysLog();
             log.setUserId(approverId);
             log.setUsername(approverName);
@@ -325,6 +382,8 @@ public class AssetApplicationServiceImpl implements AssetApplicationService {
             asset.setStatus(AssetStatus.USING.getCode());
             asset.setUseStatus(AssetStatus.USING.getCode());
             assetRepository.save(asset);
+            // 维修完成释放占用,允许其他人重新申请该资产
+            assetRepository.unlockAsset(asset.getId(), application.getId());
 
             SysLog log = new SysLog();
             log.setUserId(userId);
@@ -387,6 +446,43 @@ public class AssetApplicationServiceImpl implements AssetApplicationService {
             return "资产" + type.getName();
         }
         return applicationType;
+    }
+
+    /**
+     * 判断申请是否可被审批(状态机校验)
+     * - DISPOSAL(报废): 允许从 PENDING_LEADER(领导审批) 或 LEADER_APPROVED(资产管理员终审) 转入
+     * APPROVED
+     * - 其他类型: 仅允许从 PENDING 转入 APPROVED
+     * 兼容 controller 现有调用方式
+     */
+    private boolean isApprovableStatus(ApplicationType type, ApplicationStatus currentStatus) {
+        if (currentStatus == null) {
+            return false;
+        }
+        if (type == ApplicationType.DISPOSAL) {
+            return currentStatus == ApplicationStatus.PENDING_LEADER
+                    || currentStatus == ApplicationStatus.LEADER_APPROVED;
+        }
+        return currentStatus == ApplicationStatus.PENDING;
+    }
+
+    /**
+     * 判断申请状态是否"非活跃"(已离开审批流程)
+     * 用于 createApplication 的接力占用判定: 仅当旧占用申请已非活跃时,新申请才能接管占用
+     * 包含: APPROVED/REJECTED/COMPLETED/LEADER_APPROVED + controller 自定义的
+     * final_approval_created
+     */
+    private boolean isInactiveApplicationStatus(String statusCode) {
+        if (statusCode == null) {
+            return false;
+        }
+        ApplicationStatus status = ApplicationStatus.fromCode(statusCode);
+        if (status != null && (status.isFinalized() || status == ApplicationStatus.COMPLETED
+                || status == ApplicationStatus.LEADER_APPROVED)) {
+            return true;
+        }
+        // controller createFinalApproval 流程会用到这个中间态
+        return "final_approval_created".equalsIgnoreCase(statusCode);
     }
 
     /** 资产转移添加双方日志 */

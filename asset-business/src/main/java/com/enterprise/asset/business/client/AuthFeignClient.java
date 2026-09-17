@@ -1,5 +1,6 @@
 package com.enterprise.asset.business.client;
 
+import com.enterprise.asset.business.client.fallback.AuthFeignClientFallbackFactory;
 import com.enterprise.asset.common.dto.UserDTO;
 import com.enterprise.asset.common.dto.DepartmentDTO;
 import com.enterprise.asset.common.dto.ValidateTokenRequest;
@@ -12,8 +13,11 @@ import java.util.List;
 /**
  * Auth服务Feign客户端
  * 用于业务服务调用认证服务的用户、部门等接口
+ *
+ * fallbackFactory: Sentinel 触发熔断/调用异常时进入降级工厂
+ * 触发条件需 application.yml 配置 feign.sentinel.enabled=true
  */
-@FeignClient(name = "asset-auth", path = "/api/auth") // 【本次修改点】恢复path为/api/auth，与auth服务AuthController路径匹配
+@FeignClient(name = "asset-auth", path = "/api/auth", fallbackFactory = AuthFeignClientFallbackFactory.class)
 public interface AuthFeignClient {
 
     @PostMapping("/validate-token")

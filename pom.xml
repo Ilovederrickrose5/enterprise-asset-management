@@ -19,6 +19,7 @@
         <module>asset-common</module>
         <module>asset-auth</module>
         <module>asset-business</module>
+        <module>asset-gateway</module>
     </modules>
     
     <properties>
