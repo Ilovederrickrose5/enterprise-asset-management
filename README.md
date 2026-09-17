@@ -101,6 +101,7 @@
 
 ```
 enterprise-asset-management/
+├── asset-gateway/      # API网关（端口：9000）统一入口、路由转发、跨域处理
 ├── asset-auth/          # 认证服务（端口：8081）
 │   ├── 用户管理
 │   ├── 角色管理
@@ -128,19 +129,21 @@ enterprise-asset-management/
 
 | 服务 | 职责 | 端口 |
 |------|------|------|
+| **asset-gateway** | API 网关,统一路由入口、跨域处理、对外隔离 | 9000 |
 | **asset-auth** | 用户认证、角色权限、部门管理、系统日志 | 8081 |
 | **asset-business** | 资产管理、折旧计算、盘点管理、采购管理、报表统计 | 8082 |
 | **Nacos** | 服务注册与发现 | 8848 |
+| **Sentinel Dashboard** | 熔断降级规则可视化(可选) | 8080 |
 | **frontend** | 前端页面展示与交互 | 5173 |
 
 ### 2.3 服务间调用
 
 ```
-frontend ──→ asset-auth (认证、用户、部门)
-    │              ↓
-    └──→ asset-business (资产、折旧、盘点、采购、报表)
-                   ↓
-              AuthFeignClient (跨服务调用auth)
+frontend ──→ asset-gateway (9000) ──→ asset-auth (认证、用户、部门)
+                  │                       ↑
+                  └──→ asset-business (资产、折旧、盘点、采购、报表)
+                                │
+                                └──AuthFeignClient──┘ (跨服务调用,失败走 Sentinel 降级)
 ```
 
 ---
@@ -514,6 +517,7 @@ proxy: {
 - Node.js 16+
 - Maven 3.9+
 - Nacos Server 3.2+（服务注册与发现）
+- Sentinel Dashboard 1.8.x（可选,熔断规则可视化）
 
 ### 9.2 数据库初始化
 
@@ -649,6 +653,7 @@ frontend/src/
 ### 11.1 核心特性
 
 - **微服务架构**：基于 Spring Cloud Alibaba 的分布式服务架构
+- **API 网关**：Spring Cloud Gateway 统一入口,路由转发 + 跨域处理
 - **全流程管理**：覆盖资产从采购到报废的完整生命周期
 - **多维度折旧**：支持直线法、双倍余额递减法、工作量法
 - **智能盘点**：计划制定、任务分配、执行跟踪、结果统计
@@ -657,7 +662,24 @@ frontend/src/
 - **Redis缓存**：资产列表查询引入Redis缓存，性能提升约90%
 - **日志追踪**：完整的操作记录与审计追踪
 
-### 11.2 安全特性
+### 11.2 并发控制(三层防御)
+
+针对"同一资产被并发提交领用/报废申请"等场景,采用三层防御保证状态流转不错乱:
+
+| 层级 | 机制 | 防护目标 |
+|------|------|---------|
+| 第一层 | asset 表 `current_application_id` 字段 + 条件 UPDATE 原子占用 | 源头防止并发申请 |
+| 第二层 | `@Version` 乐观锁 + `ObjectOptimisticLockingFailureException` 全局捕获 | 防止审批覆盖 |
+| 第三层 | approveApplication 状态机校验(已 finalize 拒绝重复审批,已报废资产拒绝领用) | 兜底越权乱序 |
+
+### 11.3 熔断降级
+
+- Feign 接入 Sentinel,`feign.sentinel.enabled=true` 触发自动接管
+- `AuthFeignClient` 配置 `fallbackFactory`,调用失败进入 `AuthFeignClientFallbackFactory`
+- 用 FallbackFactory 而非 fallback 属性:能拿到 cause 异常写日志
+- 查询类降级返回 503 + 友好提示,统计类降级返回 0,避免阻塞前端
+
+### 11.4 安全特性
 
 - JWT Token 认证
 - 基于角色的访问控制（RBAC）
@@ -665,10 +687,12 @@ frontend/src/
 - 操作日志记录
 - 跨域访问控制
 
-### 11.3 架构特性
+### 11.5 架构特性
 
 - Nacos 服务注册与发现
+- Spring Cloud Gateway 路由转发
 - OpenFeign 跨服务调用
+- Sentinel 熔断降级
 - 服务间 Token 透传
 - 统一异常处理
 - 统一响应格式
