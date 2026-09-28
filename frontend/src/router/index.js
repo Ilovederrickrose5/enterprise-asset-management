@@ -17,6 +17,11 @@ import PurchaseApproval from '../views/PurchaseApproval.vue'
 import MyApplications from '../views/MyApplications.vue'
 import Supplier from '../views/Supplier.vue'
 import { getCurrentUserRole, hasPermission } from '../utils/permission'
+import { useUserStore } from '../stores/userStore'
+
+// 错误页面
+const NotFound = () => import('../views/NotFound.vue')
+const Forbidden = () => import('../views/Forbidden.vue')
 
 const routes = [
   {
@@ -205,6 +210,20 @@ const routes = [
       roles: ['admin', 'manager']
     }
   },
+  {
+    path: '/404',
+    name: 'NotFound',
+    component: NotFound
+  },
+  {
+    path: '/403',
+    name: 'Forbidden',
+    component: Forbidden
+  },
+  {
+    path: '/:pathMatch(.*)*',
+    redirect: '/404'
+  }
 ]
 
 const router = createRouter({
@@ -214,20 +233,22 @@ const router = createRouter({
 
 // 路由守卫
 router.beforeEach((to, from) => {
-  const token = localStorage.getItem('token')
+  const userStore = useUserStore()
+  const token = userStore.token
 
   // 检查是否需要认证
   if (to.matched.some(record => record.meta.requiresAuth)) {
     if (!token) {
-      return { name: 'Login' }
+      // 未登录，带上 redirect 参数跳登录页
+      return { name: 'Login', query: { redirect: encodeURIComponent(to.fullPath) } }
     }
 
     // 检查角色权限（优先使用后端返回的角色信息）
     const userRole = getCurrentUserRole()
 
     if (!hasPermission(to, userRole)) {
-      // 没有权限，重定向到首页
-      return { name: 'Home' }
+      // 没有权限，跳 403
+      return { name: 'Forbidden' }
     }
   }
 

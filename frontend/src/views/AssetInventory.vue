@@ -336,11 +336,13 @@ import { ArrowLeft, Plus } from '@element-plus/icons-vue'
 import { useRouter } from 'vue-router'
 import axios from '../utils/request'
 import { getCurrentUserRole } from '../utils/permission'
+import { useUserStore } from '../stores/userStore'
 
 const router = useRouter()
+const userStore = useUserStore()
 
 // 当前登录用户
-const currentUser = ref(JSON.parse(localStorage.getItem('user')) || {})
+const currentUser = ref(userStore.user || {})
 const currentUserRole = ref(getCurrentUserRole())
 
 // 当前用户部门
@@ -720,8 +722,8 @@ const submitPlanForm = async () => {
   if (!planFormRef.value.validate()) return
 
   try {
-    const user = JSON.parse(localStorage.getItem('user'))
-    
+    const user = userStore.user
+
     // 处理日期格式转换
     // inventoryDate: 转换为 yyyy-MM-dd 格式（后端 LocalDate 类型）
     const inventoryDateStr = planForm.value.inventoryDate 
@@ -755,15 +757,15 @@ const submitPlanForm = async () => {
     console.log('  - inventoryScope:', typeof requestData.inventoryScope, requestData.inventoryScope)
     console.log('  - creatorId:', typeof requestData.creatorId, requestData.creatorId)
     console.log('  - expectedCompletionTime:', typeof requestData.expectedCompletionTime, requestData.expectedCompletionTime)
-    console.log('localStorage中的token:', localStorage.getItem('token') ? '存在' : '不存在')
+    console.log('localStorage中的token:', userStore.token ? '存在' : '不存在')
     console.log('======================================')
-    
+
     // 创建请求配置
     const requestConfig = {
       baseURL: '',  // 避免重复添加/api前缀
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + localStorage.getItem('token')
+        'Authorization': 'Bearer ' + userStore.token
       }
     }
     

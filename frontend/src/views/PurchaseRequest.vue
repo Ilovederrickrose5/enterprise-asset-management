@@ -227,8 +227,10 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { View, Edit, Delete, ShoppingCart } from '@element-plus/icons-vue'
 import axios from '../utils/request'
 import ManagementPage from '../components/business/ManagementPage.vue'
+import { useUserStore } from '../stores/userStore'
 
 const router = useRouter()
+const userStore = useUserStore()
 const managementPageRef = ref(null)
 
 // 数据
@@ -360,13 +362,8 @@ const totalAmount = computed(() => {
 
 // 获取当前用户
 const getCurrentUser = () => {
-  const userStr = localStorage.getItem('user')
-  if (userStr) {
-    try {
-      currentUser.value = JSON.parse(userStr)
-    } catch (e) {
-      console.error('解析用户数据失败:', e)
-    }
+  if (userStore.user) {
+    currentUser.value = userStore.user
   }
 }
 

@@ -92,15 +92,18 @@
 
 <script>
 import { ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import axios from '../utils/request'
 import { User, Lock, CircleCheck, DataAnalysis } from '@element-plus/icons-vue'
 import { normalizeUser } from '../utils/common'
+import { useUserStore } from '../stores/userStore'
 
 export default {
   name: 'Login',
   setup() {
     const router = useRouter()
+    const route = useRoute()
+    const userStore = useUserStore()
     const loginFormRef = ref(null)
     const loginForm = ref({
       username: '',
@@ -141,10 +144,16 @@ export default {
             const normalizedUser = normalizeUser(response.data.data)
             console.log('标准化后的用户数据:', normalizedUser)
             
-            localStorage.setItem('token', response.data.data.token)
-            localStorage.setItem('user', JSON.stringify(normalizedUser))
-            
-            router.push('/home')
+            // 写入 store + localStorage（统一入口）
+            userStore.login(normalizedUser, response.data.data.token)
+
+            // 登录成功后跳转到 redirect 参数指定的页面，否则回首页
+            const redirect = route.query.redirect
+            if (redirect) {
+              router.push(decodeURIComponent(redirect))
+            } else {
+              router.push('/home')
+            }
           } else {
             error.value = response.data.message
           }

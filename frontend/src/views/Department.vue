@@ -39,12 +39,14 @@ import axios from '../utils/request'
 import { ElMessage } from 'element-plus'
 import ManagementPage from '../components/business/ManagementPage.vue'
 import { hasAdminPermission } from '../utils/permission.js'
+import { useUserStore } from '../stores/userStore'
 
+const userStore = useUserStore()
 const loading = ref(false)
 const departmentList = ref([])
 const managementPageRef = ref(null)
 
-const getToken = () => localStorage.getItem('token')
+const getToken = () => userStore.token
 
 // 用户列表（用于选择部门负责人）
 const userList = ref([])

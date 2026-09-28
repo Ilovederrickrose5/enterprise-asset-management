@@ -108,8 +108,10 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import axios from '../utils/request'
+import { useUserStore } from '../stores/userStore'
 
 const router = useRouter()
+const userStore = useUserStore()
 const loading = ref(false)
 const requests = ref([])
 const viewDialogVisible = ref(false)
@@ -131,16 +133,11 @@ const approvalRules = {
   approvalRemark: [{ required: true, message: '请输入审批意见', trigger: 'blur' }]
 }
 
-const getToken = () => localStorage.getItem('token')
+const getToken = () => userStore.token
 
 const getCurrentUser = () => {
-  const userStr = localStorage.getItem('user')
-  if (userStr) {
-    try {
-      currentUser.value = JSON.parse(userStr)
-    } catch (e) {
-      console.error('解析用户数据失败:', e)
-    }
+  if (userStore.user) {
+    currentUser.value = userStore.user
   }
 }
 

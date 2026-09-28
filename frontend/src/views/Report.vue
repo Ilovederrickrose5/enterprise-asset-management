@@ -116,11 +116,13 @@ import { useRouter } from 'vue-router'
 import axios from '../utils/request'
 import * as echarts from 'echarts'
 import { ArrowLeft } from '@element-plus/icons-vue'
+import { useUserStore } from '../stores/userStore'
 
 export default {
   name: 'Report',
   setup() {
     const router = useRouter()
+    const userStore = useUserStore()
     const activeTab = ref('department')
     const departmentStats = ref([])
     const statusDistribution = ref([])
@@ -131,8 +133,6 @@ export default {
     const statusChart = ref(null)
     const statusValueChart = ref(null)
 
-    const getToken = () => localStorage.getItem('token')
-
     const goBack = () => {
       router.push('/home')
     }
@@ -141,13 +141,12 @@ export default {
       if (price === null || price === undefined) return '-'
       return '¥' + parseFloat(price).toFixed(2)
     }
-    
+
     const fetchDepartmentStats = async () => {
       try {
-        const userStr = localStorage.getItem('user')
-        const user = userStr ? JSON.parse(userStr) : {}
-        const userRole = getUserRole(user)
-        
+        const user = userStore.user || {}
+        const userRole = userStore.currentUserRole
+
         let response
         if ((userRole === 'manager' || userRole === 'leader') && user.departmentId) {
           // 获取部门资产统计
@@ -156,7 +155,7 @@ export default {
           // 系统管理员可以查看所有部门数据
           response = await axios.get('/reports/department-stats')
         }
-        
+
         if (response.data.code === 200) {
           departmentStats.value = response.data.data
           renderDepartmentChart()
@@ -165,73 +164,7 @@ export default {
         console.error('获取部门资产统计失败', error)
       }
     }
-    
-    // 获取用户角色
-    const getUserRole = (user) => {
-      if (!user) return 'user';
 
-      // 直接检查用户名是否为admin
-      if (user.username && user.username.toLowerCase() === 'admin') {
-        return 'admin';
-      }
-
-      // 优先使用后端返回的角色
-      if (user.roles && user.roles.length > 0) {
-        // 检查是否有admin角色
-        for (const role of user.roles) {
-          let roleName = '';
-          try {
-            roleName = typeof role === 'string' ? role : role.name || role.code;
-            roleName = roleName.toLowerCase();
-            if (roleName.startsWith('role_')) {
-              roleName = roleName.substring(5); // 移除ROLE_前缀
-            }
-            if (roleName === 'admin') {
-              return 'admin';
-            }
-          } catch (e) {
-            console.error('处理角色时出错:', e);
-          }
-        }
-
-        // 检查是否有leader角色
-        for (const role of user.roles) {
-          let roleName = '';
-          try {
-            roleName = typeof role === 'string' ? role : role.name || role.code;
-            roleName = roleName.toLowerCase();
-            if (roleName.startsWith('role_')) {
-              roleName = roleName.substring(5); // 移除ROLE_前缀
-            }
-            if (roleName === 'leader') {
-              return 'leader';
-            }
-          } catch (e) {
-            console.error('处理角色时出错:', e);
-          }
-        }
-
-        // 检查是否有manager角色
-        for (const role of user.roles) {
-          let roleName = '';
-          try {
-            roleName = typeof role === 'string' ? role : role.name || role.code;
-            roleName = roleName.toLowerCase();
-            if (roleName.startsWith('role_')) {
-              roleName = roleName.substring(5); // 移除ROLE_前缀
-            }
-            if (roleName === 'manager') {
-              return 'manager';
-            }
-          } catch (e) {
-            console.error('处理角色时出错:', e);
-          }
-        }
-      }
-
-      // 默认返回user角色
-      return 'user';
-    }
     // 获取资产状态分布
     const fetchStatusDistribution = async () => {
       try {

@@ -64,8 +64,10 @@ import { ref, reactive, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import axios from '../utils/request'
 import ManagementPage from '../components/business/ManagementPage.vue'
+import { useUserStore } from '../stores/userStore'
 
 const router = useRouter()
+const userStore = useUserStore()
 
 // 数据
 const applications = ref([])
@@ -150,24 +152,17 @@ const getUserRole = (username) => {
   if (roleMap[lowerUsername]) {
     return roleMap[lowerUsername]
   }
-  
-  const userStr = localStorage.getItem('user')
-  if (userStr) {
-    try {
-      const user = JSON.parse(userStr)
-      if (user.authorities) {
-        if (user.authorities.includes('ROLE_leader') || user.authorities.includes('ROLE_LEADER')) {
-          return 'leader'
-        }
-        if (user.authorities.includes('ROLE_manager') || user.authorities.includes('ROLE_MANAGER')) {
-          return 'manager'
-        }
-      }
-    } catch (e) {
-      console.error('解析用户信息失败:', e)
+
+  const user = userStore.user
+  if (user && user.authorities) {
+    if (user.authorities.includes('ROLE_leader') || user.authorities.includes('ROLE_LEADER')) {
+      return 'leader'
+    }
+    if (user.authorities.includes('ROLE_manager') || user.authorities.includes('ROLE_MANAGER')) {
+      return 'manager'
     }
   }
-  
+
   return 'user'
 }
 
@@ -232,12 +227,11 @@ const getStatusText = (status) => {
 // 获取申请记录
 const fetchApplications = async (page = 1, size = 10, type = '', status = '') => {
   try {
-    const userStr = localStorage.getItem('user')
-    if (!userStr) {
+    const user = userStore.user
+    if (!user) {
       router.push('/login')
       return { data: [], total: 0 }
     }
-    const user = JSON.parse(userStr)
     currentUser.value = user
     userId.value = user.id
     userRole.value = getUserRole(user.username)

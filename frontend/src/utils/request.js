@@ -1,4 +1,8 @@
 import axios from 'axios'
+import { pinia } from '../stores'
+import { useUserStore } from '../stores/userStore'
+
+const useStore = () => useUserStore(pinia)
 
 // 创建axios实例
 const service = axios.create({
@@ -9,8 +13,8 @@ const service = axios.create({
 // 请求拦截器
 service.interceptors.request.use(
   config => {
-    // 从localStorage获取token
-    const token = localStorage.getItem('token')
+    // 从 store 获取 token（store 与 localStorage 同步）
+    const token = useStore().token
     // 如果token存在，添加到请求头
     if (token) {
       config.headers['Authorization'] = `Bearer ${token}`
@@ -38,12 +42,8 @@ service.interceptors.response.use(
       const isLoginRequest = error.config && error.config.url && error.config.url.includes('/auth/login')
 
       if (!isLoginRequest) {
-        // 非登录请求的401错误（token过期），清除登录信息并跳转
-        localStorage.removeItem('token')
-        localStorage.removeItem('user')
-        localStorage.removeItem('username')
-        localStorage.removeItem('role')
-        localStorage.removeItem('department')
+        // 非登录请求的401错误（token过期），统一通过 store 登出（清空 store + localStorage）
+        useStore().logout()
         // 跳转到登录页面
         window.location.href = '/'
       }

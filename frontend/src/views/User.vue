@@ -101,7 +101,9 @@ import axios from '../utils/request'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import ManagementPage from '../components/business/ManagementPage.vue'
 import { hasAdminPermission } from '../utils/permission.js'
+import { useUserStore } from '../stores/userStore'
 
+const userStore = useUserStore()
 const loading = ref(false)
 const userList = ref([])
 const departmentOptions = ref([])
@@ -114,7 +116,7 @@ const currentUser = ref({})
 const currentUserId = ref(null)
 const selectedRole = ref(null)
 
-const getToken = () => localStorage.getItem('token')
+const getToken = () => userStore.token
 
 // 表格列配置
 const tableColumns = [

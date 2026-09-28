@@ -143,9 +143,11 @@ import ApprovalPage from '../components/business/ApprovalPage.vue'
 import StatusTag from '../components/common/StatusTag.vue'
 import TimeFormatter from '../components/common/TimeFormatter.vue'
 import { getAssetName, getAssetModel } from '../utils/common.js'
+import { useUserStore } from '../stores/userStore'
 
 const router = useRouter()
 const route = useRoute()
+const userStore = useUserStore()
 const approvalPageRef = ref(null)
 const currentUser = ref(null)
 const leaderStatus = ref(false)
@@ -197,17 +199,12 @@ const approvedTabLabel = computed(() => typeConfig[applicationType.value]?.appro
 const pendingEmptyText = computed(() => typeConfig[applicationType.value]?.pendingEmpty || '暂无待审批的资产申请')
 const approvedEmptyText = computed(() => typeConfig[applicationType.value]?.approvedEmpty || '暂无已审批的资产申请')
 
-const getToken = () => localStorage.getItem('token')
+const getToken = () => userStore.token
 
 const getCurrentUser = () => {
-  const userStr = localStorage.getItem('user')
-  if (userStr) {
-    try {
-      currentUser.value = JSON.parse(userStr)
-      leaderStatus.value = currentUser.value?.roles?.some(role => role.toLowerCase().includes('leader')) || false
-    } catch (e) {
-      // 忽略解析错误
-    }
+  if (userStore.user) {
+    currentUser.value = userStore.user
+    leaderStatus.value = currentUser.value?.roles?.some(role => role.toLowerCase().includes('leader')) || false
   }
 }
 

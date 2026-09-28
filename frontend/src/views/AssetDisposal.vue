@@ -35,6 +35,9 @@ import ApplyPage from '../components/business/ApplyPage.vue'
 import DisposalForm from '../components/business/DisposalForm.vue'
 import StatusTag from '../components/common/StatusTag.vue'
 import { getAssetInfo } from '../utils/common.js'
+import { useUserStore } from '../stores/userStore'
+
+const userStore = useUserStore()
 
 const loading = ref(false)
 const assetOptions = ref([])
@@ -42,7 +45,7 @@ const allAssets = ref([])
 const myDisposals = ref([])
 const currentUser = ref(null)
 
-const getToken = () => localStorage.getItem('token')
+const getToken = () => userStore.token
 
 // 记录表格列配置
 const recordColumns = [
@@ -56,9 +59,8 @@ const recordColumns = [
 ]
 
 const getCurrentUser = () => {
-  const userStr = localStorage.getItem('user')
-  if (userStr) {
-    currentUser.value = JSON.parse(userStr)
+  if (userStore.user) {
+    currentUser.value = userStore.user
   }
 }
 

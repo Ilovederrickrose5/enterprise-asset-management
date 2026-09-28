@@ -4,7 +4,7 @@
     <div class="card-header">
       <el-button type="info" @click="goBack" :icon="ArrowLeft">返回首页</el-button>
       <span class="title">{{ pageTitle }}</span>
-      <el-button v-if="hasAdminPermission()" type="primary" @click="handleAdd" :icon="Plus">新增资产</el-button>
+      <el-button v-permission="'admin'" type="primary" @click="handleAdd" :icon="Plus">新增资产</el-button>
     </div>
 
     <!-- 搜索栏 -->
@@ -80,7 +80,7 @@
               <el-tag :type="getStatusType(scope.row.status)" style="margin-right: 8px;">
                 {{ getStatusText(scope.row.status) }}
               </el-tag>
-              <template v-if="!hasManagerPermission()">
+              <template v-if="!userStore.hasRole(['admin', 'leader', 'manager'])">
                 <el-button 
                   size="small" 
                   type="success" 
@@ -136,23 +136,23 @@
               </template>            </div>
             </template>
           </el-table-column>
-          <el-table-column v-if="hasManagerPermission()" prop="purchasePrice" label="采购价格" width="120">
+          <el-table-column v-permission="['admin', 'leader', 'manager']" prop="purchasePrice" label="采购价格" width="120">
             <template #default="scope">
               {{ formatPrice(scope.row.purchasePrice) }}
             </template>
           </el-table-column>
-          <el-table-column v-if="hasManagerPermission()" prop="purchaseDate" label="采购日期" width="120" />
-          <el-table-column v-if="hasManagerPermission()" label="供应商" min-width="120">
+          <el-table-column v-permission="['admin', 'leader', 'manager']" prop="purchaseDate" label="采购日期" width="120" />
+          <el-table-column v-permission="['admin', 'leader', 'manager']" label="供应商" min-width="120">
             <template #default="scope">
               {{ getSupplierName(scope.row.supplierId) }}
             </template>
           </el-table-column>
-          <el-table-column v-if="hasManagerPermission()" prop="createTime" label="创建时间" width="180">
+          <el-table-column v-permission="['admin', 'leader', 'manager']" prop="createTime" label="创建时间" width="180">
             <template #default="scope">
               {{ formatTime(scope.row.createTime) }}
             </template>
           </el-table-column>
-          <el-table-column v-if="hasManagerPermission()" label="操作" width="280" fixed="right">
+          <el-table-column v-permission="['admin', 'leader', 'manager']" label="操作" width="280" fixed="right">
             <template #default="scope">
               <el-button type="primary" size="small" @click="handleEdit(scope.row)" :icon="Edit">编辑</el-button>
               <el-button type="warning" size="small" @click="handleUpdateStatus(scope.row)" :icon="Refresh">状态</el-button>
@@ -404,6 +404,7 @@ import { ref, reactive, onMounted, computed } from 'vue'
 import axios from '../utils/request'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { useUserStore } from '../stores/userStore'
 import { 
   Plus, 
   Edit, 
@@ -418,6 +419,7 @@ export default {
   setup() {
     const router = useRouter()
     const route = useRoute()
+    const userStore = useUserStore()
     const loading = ref(false)
     const assetList = ref([])
     const categoryOptions = ref([])
@@ -483,127 +485,11 @@ export default {
       useStatus: [{ required: true, message: '请选择使用状态', trigger: 'change' }]
     })
 
-    const getToken = () => localStorage.getItem('token')
-    
-    // 检查是否为系统管理员（用于新增资产）
-    const hasAdminPermission = () => {
-      const userStr = localStorage.getItem('user')
-      
-      if (userStr) {
-        try {
-          const user = JSON.parse(userStr)
-          
-          // 只有系统管理员可以新增资产
-          if (user.roles && Array.isArray(user.roles) && user.roles.length > 0) {
-            for (const role of user.roles) {
-              let roleName = ''
-              if (typeof role === 'string') {
-                roleName = role.toLowerCase()
-              } else if (role.name) {
-                roleName = role.name.toLowerCase()
-              }
-              // 移除 ROLE_ 前缀并比较（不区分大小写）
-              if (roleName.startsWith('role_')) {
-                roleName = roleName.substring(5)
-              }
-              if (roleName === 'admin') {
-                return true
-              }
-            }
-          }
-          
-          // 兼容旧版用户数据（没有roles数组时，检查role字段）
-          if (user.role) {
-            const roleName = user.role.toLowerCase()
-            if (roleName === 'admin') {
-              return true
-            }
-          }
-        } catch (e) {
-          console.error('解析用户信息失败:', e)
-        }
-      }
-      return false
-    }
-    
-    // 检查是否为管理角色（管理员、领导、部门资产管理员，用于查看详细信息）
-    const hasManagerPermission = () => {
-      const userStr = localStorage.getItem('user')
-      
-      if (userStr) {
-        try {
-          const user = JSON.parse(userStr)
-          
-          // 管理员、领导、部门资产管理员可以查看详细信息
-          if (user.roles && Array.isArray(user.roles) && user.roles.length > 0) {
-            for (const role of user.roles) {
-              let roleName = ''
-              if (typeof role === 'string') {
-                roleName = role.toLowerCase()
-              } else if (role.name) {
-                roleName = role.name.toLowerCase()
-              }
-              // 移除 ROLE_ 前缀并比较（不区分大小写）
-              if (roleName.startsWith('role_')) {
-                roleName = roleName.substring(5)
-              }
-              if (roleName === 'admin' || roleName === 'leader' || roleName === 'manager') {
-                return true
-              }
-            }
-          }
-          
-          // 兼容旧版用户数据（没有roles数组时，检查role字段）
-          if (user.role) {
-            const roleName = user.role.toLowerCase()
-            if (roleName === 'admin' || roleName === 'leader' || roleName === 'manager') {
-              return true
-            }
-          }
-        } catch (e) {
-          console.error('解析用户信息失败:', e)
-        }
-      }
-      return false
-    }
-    
+    const getToken = () => userStore.token
+
     // 获取用户角色
     const getUserRole = () => {
-      const userStr = localStorage.getItem('user')
-      if (userStr) {
-        try {
-          const user = JSON.parse(userStr)
-          
-          // 优先从roles数组获取角色
-          if (user.roles && Array.isArray(user.roles)) {
-            for (const role of user.roles) {
-              let roleName = ''
-              if (typeof role === 'string') {
-                roleName = role.toLowerCase()
-              } else if (role.name) {
-                roleName = role.name.toLowerCase()
-              }
-              if (roleName.startsWith('role_')) {
-                roleName = roleName.substring(5)
-              }
-              if (roleName === 'admin') return 'admin'
-              if (roleName === 'leader') return 'leader'
-              if (roleName === 'manager') return 'manager'
-            }
-          }
-          
-          // 兼容旧版用户数据（没有roles数组时，检查role字段）
-          if (user.role) {
-            const roleName = user.role.toLowerCase()
-            if (roleName === 'admin') return 'admin'
-            if (roleName === 'leader') return 'leader'
-            if (roleName === 'manager') return 'manager'
-          }
-        } catch (e) {
-          console.error('解析用户信息失败:', e)
-        }
-      }
-      return 'user'
+      return userStore.currentUserRole
     }
     
     // 页面标题（根据角色动态显示）
@@ -705,20 +591,10 @@ export default {
     // 过滤后的资产列表
     const filteredAssetList = computed(() => {
       // 获取当前用户信息
-      const userStr = localStorage.getItem('user')
-      let currentUserId = null
-      let currentDepartmentId = null
-      let hasPermission = false
-      if (userStr) {
-        try {
-          const user = JSON.parse(userStr)
-          currentUserId = user.id
-          currentDepartmentId = user.departmentId || user.deptId
-          hasPermission = hasManagerPermission()
-        } catch (e) {
-          console.error('解析用户信息失败:', e)
-        }
-      }
+      const currentUser = userStore.user
+      const currentUserId = currentUser ? currentUser.id : null
+      const currentDepartmentId = currentUser ? (currentUser.departmentId || currentUser.deptId) : null
+      const hasPermission = userStore.hasRole(['admin', 'leader', 'manager'])
       
       // 检查是否只显示我的资产
       const onlyMyAssets = route.query.onlyMyAssets === 'true'
@@ -756,7 +632,7 @@ export default {
         
         // 领导和部门资产管理员只能查看本部门的资产
         const assetDeptId = getAssetDeptId(asset)
-        if (hasPermission && !hasAdminPermission() && currentDepartmentId && Number(assetDeptId) !== Number(currentDepartmentId)) {
+        if (hasPermission && !userStore.hasRole('admin') && currentDepartmentId && Number(assetDeptId) !== Number(currentDepartmentId)) {
           return false
         }
         
@@ -846,24 +722,17 @@ export default {
 
     // 检查当前用户是否是资产的使用者或借用者
     const isAssetUserOrBorrower = (asset) => {
-      const userStr = localStorage.getItem('user')
-      if (userStr) {
-        try {
-          const user = JSON.parse(userStr)
-          const currentUserId = user.id
-          
-          // 检查是否是资产的使用者（类型转换确保比较正确）
-          if (Number(asset.userId) === Number(currentUserId)) {
-            return true
-          }
-          
-          // 检查是否是资产的借用者（类型转换确保比较正确）
-          if (asset.borrowStatus === 'borrowed' && Number(asset.borrowerId) === Number(currentUserId)) {
-            return true
-          }
-        } catch (e) {
-          console.error('解析用户信息失败:', e)
-        }
+      const currentUserId = userStore.userId
+      if (currentUserId == null) return false
+
+      // 检查是否是资产的使用者（类型转换确保比较正确）
+      if (Number(asset.userId) === Number(currentUserId)) {
+        return true
+      }
+
+      // 检查是否是资产的借用者（类型转换确保比较正确）
+      if (asset.borrowStatus === 'borrowed' && Number(asset.borrowerId) === Number(currentUserId)) {
+        return true
       }
       return false
     }
@@ -1169,12 +1038,11 @@ export default {
     // 维修完成处理函数
     const handleRepairComplete = async (row) => {
       try {
-        const userStr = localStorage.getItem('user')
-        if (!userStr) {
+        const currentUser = userStore.user
+        if (!currentUser) {
           ElMessage.error('请先登录')
           return
         }
-        const currentUser = JSON.parse(userStr)
 
         // 找到对应的维修中申请
         const inProgressApp = maintenanceApplications.value.find(app => {
@@ -1216,11 +1084,10 @@ export default {
     // 获取维修申请列表
     const fetchMaintenanceApplications = async () => {
       try {
-        const userStr = localStorage.getItem('user')
-        if (!userStr) {
+        const currentUser = userStore.user
+        if (!currentUser) {
           return
         }
-        const currentUser = JSON.parse(userStr)
         const response = await axios.get(`/asset-applications/applicant/${currentUser.id}`)
         if (response.data.code === 200) {
           // 后端返回的是Page分页对象，实际数据在content属性中
@@ -1275,13 +1142,12 @@ export default {
         }
       ).then(async () => {
         try {
-          const userStr = localStorage.getItem('user')
-          if (!userStr) {
+          const currentUser = userStore.user
+          if (!currentUser) {
             ElMessage.error('请先登录')
             return
           }
-          const currentUser = JSON.parse(userStr)
-          
+
           // 创建维修申请记录
           const maintenanceData = {
             assetId: row.id,
@@ -1320,12 +1186,11 @@ export default {
     // 开始维修处理函数
     const handleStartMaintenance = async (row) => {
       try {
-        const userStr = localStorage.getItem('user')
-        if (!userStr) {
+        const currentUser = userStore.user
+        if (!currentUser) {
           ElMessage.error('请先登录')
           return
         }
-        const currentUser = JSON.parse(userStr)
 
         // 找到对应的已批准申请
         const approvedApp = maintenanceApplications.value.find(app => {
@@ -1396,8 +1261,6 @@ export default {
       statusDialogVisible,
       statusForm,
       pageTitle,
-      hasAdminPermission,
-      hasManagerPermission,
       isAssetUserOrBorrower,
       isEdit,
       goBack,

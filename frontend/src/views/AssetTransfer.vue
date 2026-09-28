@@ -40,6 +40,9 @@ import ApplyPage from '../components/business/ApplyPage.vue'
 import TransferForm from '../components/business/TransferForm.vue'
 import StatusTag from '../components/common/StatusTag.vue'
 import { getAssetInfo } from '../utils/common.js'
+import { useUserStore } from '../stores/userStore'
+
+const userStore = useUserStore()
 
 const loading = ref(false)
 const assetOptions = ref([])
@@ -48,7 +51,7 @@ const userOptions = ref([])
 const myTransfers = ref([])
 const currentUser = ref(null)
 
-const getToken = () => localStorage.getItem('token')
+const getToken = () => userStore.token
 
 // 记录表格列配置
 const recordColumns = [
@@ -61,9 +64,8 @@ const recordColumns = [
 ]
 
 const getCurrentUser = () => {
-  const userStr = localStorage.getItem('user')
-  if (userStr) {
-    currentUser.value = JSON.parse(userStr)
+  if (userStore.user) {
+    currentUser.value = userStore.user
   }
 }
 

@@ -319,6 +319,7 @@ import * as echarts from 'echarts'
 import { ElMessageBox } from 'element-plus'
 import { getAccessibleMenus } from '../utils/permission'
 import { checkChartPermission, getAccessLevel } from '../utils/chartPermission'
+import { useUserStore } from '../stores/userStore'
 import { 
   DataBoard, 
   Clock, 
@@ -342,6 +343,7 @@ export default {
   name: 'Home',
   setup() {
     const router = useRouter()
+    const userStore = useUserStore()
     const currentMenu = ref('1')
     const isCollapse = ref(false)
     const statsData = ref({})
@@ -357,43 +359,11 @@ export default {
     // 搜索关键词
     const searchKeyword = ref('')
     
-    const username = localStorage.getItem('username')
-    const userDepartment = localStorage.getItem('department') || '公司'
-    // 从本地存储获取用户角色
+    const username = computed(() => (userStore.user ? userStore.user.username : ''))
+    const userDepartment = computed(() => (userStore.user ? (userStore.user.departmentName || userStore.user.department) : '') || '公司')
+    // 获取当前用户角色（统一从 store 取）
     const getUserRoleFromLocalStorage = () => {
-      const userStr = localStorage.getItem('user')
-      if (userStr) {
-        try {
-          const user = JSON.parse(userStr)
-          if (user.roles && Array.isArray(user.roles)) {
-            for (const role of user.roles) {
-              let roleName = ''
-              if (typeof role === 'string') {
-                roleName = role
-              } else if (role.name) {
-                roleName = role.name
-              }
-              roleName = roleName.toLowerCase()
-              if (roleName.startsWith('role_')) {
-                roleName = roleName.substring(5)
-              }
-              if (roleName === 'admin') return 'admin'
-              if (roleName === 'leader') return 'leader'
-              if (roleName === 'manager') return 'manager'
-            }
-          } else if (user.role) {
-            return user.role.toLowerCase()
-          } else if (user.username) {
-            const username = user.username.toLowerCase()
-            if (username === 'admin') return 'admin'
-            if (username.startsWith('leader')) return 'leader'
-            if (username.startsWith('admin_')) return 'manager'
-          }
-        } catch (e) {
-          console.error('解析用户信息失败:', e)
-        }
-      }
-      return 'user'
+      return userStore.currentUserRole
     }
     
     const accessibleMenus = computed(() => {
@@ -414,161 +384,24 @@ export default {
     
     // 获取用户显示名称（优先显示真实姓名，否则显示用户名）
     const getUserName = () => {
-      const userStr = localStorage.getItem('user')
-      
-      if (userStr) {
-        try {
-          const user = JSON.parse(userStr)
-          
-          // 优先显示真实姓名
-          if (user.realName && user.realName.trim()) {
-            return user.realName.trim()
-          }
-          
-          // 否则显示用户名
-          if (user.username && user.username.trim()) {
-            return user.username.trim()
-          }
-        } catch (e) {
-          console.error('解析用户信息失败:', e)
-        }
+      const user = userStore.user
+      if (user) {
+        if (user.realName && user.realName.trim()) return user.realName.trim()
+        if (user.username && user.username.trim()) return user.username.trim()
       }
-      
       return '用户'
     }
 
     const getRoleName = () => {
-      const userStr = localStorage.getItem('user')
-      
-      if (userStr) {
-        try {
-          const user = JSON.parse(userStr)
-          
-          // 角色名称映射
-          const roleMap = {
-            'ROLE_ADMIN': '系统管理员',
-            'ROLE_MANAGER': '部门资产管理员',
-            'ROLE_LEADER': '领导',
-            'ROLE_USER': '普通员工',
-            'admin': '系统管理员',
-            'manager': '部门资产管理员',
-            'leader': '领导',
-            'user': '普通员工'
-          }
-          
-          // 优先检查后端返回的角色
-          if (user.roles && Array.isArray(user.roles) && user.roles.length > 0) {
-            // 首先检查是否有系统管理员角色
-            for (const role of user.roles) {
-              if (typeof role === 'string') {
-                if (role === 'ROLE_ADMIN' || role === 'admin') {
-                  return '系统管理员'
-                }
-              } else if (role.name) {
-                if (role.name === 'ROLE_ADMIN' || role.name === 'admin') {
-                  return '系统管理员'
-                }
-              }
-            }
-            
-            // 然后检查是否有部门资产管理员角色
-            for (const role of user.roles) {
-              if (typeof role === 'string') {
-                if (role === 'ROLE_MANAGER' || role === 'manager') {
-                  return '部门资产管理员'
-                }
-              } else if (role.name) {
-                if (role.name === 'ROLE_MANAGER' || role.name === 'manager') {
-                  return '部门资产管理员'
-                }
-              }
-            }
-            
-            // 然后检查是否有领导角色
-            for (const role of user.roles) {
-              if (typeof role === 'string') {
-                if (role === 'ROLE_LEADER' || role === 'leader') {
-                  return '领导'
-                }
-              } else if (role.name) {
-                if (role.name === 'ROLE_LEADER' || role.name === 'leader') {
-                  return '领导'
-                }
-              }
-            }
-            
-            // 最后检查是否有普通员工角色
-            for (const role of user.roles) {
-              if (typeof role === 'string') {
-                if (role === 'ROLE_USER' || role === 'user') {
-                  return '普通员工'
-                }
-              } else if (role.name) {
-                if (role.name === 'ROLE_USER' || role.name === 'user') {
-                  return '普通员工'
-                }
-              }
-            }
-          } else if (user.role) {
-            return roleMap[user.role] || user.role || '用户'
-          }
-          
-          // 如果没有角色信息，通过用户名推断
-          if (user.username) {
-            const usernameLower = user.username.toLowerCase()
-            if (usernameLower === 'admin') {
-              return '系统管理员'
-            } else if (usernameLower.startsWith('leader')) {
-              return '领导'
-            } else if (usernameLower.startsWith('admin_')) {
-              return '部门资产管理员'
-            } else if (usernameLower.startsWith('user')) {
-              return '普通员工'
-            }
-          }
-        } catch (e) {
-          console.error('解析用户信息失败:', e)
-        }
+      const roleMap = {
+        admin: '系统管理员',
+        manager: '部门资产管理员',
+        leader: '领导',
+        user: '普通员工',
       }
-      return '用户'
+      return roleMap[userStore.currentUserRole] || '用户'
     }
-    
-    const hasAdminPermission = () => {
-      const userStr = localStorage.getItem('user')
-      
-      if (userStr) {
-        try {
-          const user = JSON.parse(userStr)
-          
-          // 检查用户是否有管理员或领导权限
-          if (user.roles && Array.isArray(user.roles) && user.roles.length > 0) {
-            for (const role of user.roles) {
-              if (typeof role === 'string') {
-                if (role === 'ROLE_ADMIN' || role === 'admin' || role === 'ROLE_LEADER' || role === 'leader') {
-                  return true
-                }
-              } else if (role.name) {
-                if (role.name === 'ROLE_ADMIN' || role.name === 'admin' || role.name === 'ROLE_LEADER' || role.name === 'leader') {
-                  return true
-                }
-              }
-            }
-          }
-          
-          // 如果没有角色信息，通过用户名推断
-          if (user.username) {
-            const usernameLower = user.username.toLowerCase()
-            if (usernameLower === 'admin' || usernameLower.startsWith('leader')) {
-              return true
-            }
-          }
-        } catch (e) {
-          console.error('解析用户信息失败:', e)
-        }
-      }
-      return false
-    }
-    
+
     const getMenuIcon = (menuId) => {
       const iconMap = {
         1: DataBoard,
@@ -627,10 +460,8 @@ export default {
         cancelButtonText: '取消',
         type: 'warning'
       }).then(() => {
-        localStorage.removeItem('token')
-        localStorage.removeItem('user')
-        localStorage.removeItem('username')
-        localStorage.removeItem('role')
+        // 统一通过 store 登出（清空 store + localStorage）
+        userStore.logout()
         router.push('/')
       }).catch(() => {
         // 取消退出登录
@@ -662,10 +493,9 @@ export default {
     
     const loadMyApplicationCount = async () => {
       try {
-        const userStr = localStorage.getItem('user')
-        if (userStr) {
-          const user = JSON.parse(userStr)
-          const userRole = getUserRoleFromLocalStorage()
+        const user = userStore.user
+        if (user) {
+          const userRole = userStore.currentUserRole
           
           let totalCount = 0
           
@@ -735,20 +565,19 @@ export default {
     
     const loadMyAssetCount = async () => {
       // 只有普通员工才需要加载我的资产数量
-      if (!hasAdminPermission()) {
+      if (!userStore.hasRole(['admin', 'leader'])) {
         try {
-          const userStr = localStorage.getItem('user')
-          if (userStr) {
-            const user = JSON.parse(userStr)
-            const token = localStorage.getItem('token')
-            
+          const user = userStore.user
+          if (user) {
+            const token = userStore.token
+
             // 加载用户资产数量
             const response = await axios.get('/assets')
-            
+
             if (response.data.code === 200) {
               // 过滤出当前用户的资产，包括使用中的、闲置的和维修中的
-              const userAssets = response.data.data.filter(asset => 
-                asset.userId === user.id && 
+              const userAssets = response.data.data.filter(asset =>
+                asset.userId === user.id &&
                 (asset.status === 'using' || asset.status === 'idle' || asset.status === 'maintenance')
               )
               myAssetCount.value = userAssets.length
@@ -767,11 +596,10 @@ export default {
     
     const loadRecentApplications = async () => {
       // 只有普通员工才需要加载最近申请
-      if (!hasAdminPermission()) {
+      if (!userStore.hasRole(['admin', 'leader'])) {
         try {
-          const userStr = localStorage.getItem('user')
-          if (userStr) {
-            const user = JSON.parse(userStr)
+          const user = userStore.user
+          if (user) {
             
             // 加载用户最近的申请记录
             const response = await axios.get(`/asset-applications/applicant/${user.id}`)
@@ -953,13 +781,11 @@ export default {
       return typeMap[statusLower] || 'info'
     }
     
-    const getToken = () => localStorage.getItem('token')
+    const getToken = () => userStore.token
     
     const fetchDepartmentStats = async () => {
       try {
-        const userStr = localStorage.getItem('user')
-        const user = userStr ? JSON.parse(userStr) : {}
-        const userRole = getUserRole(user)
+        const userRole = userStore.currentUserRole
         
         let response
         if (userRole === 'admin' || userRole === 'leader' || userRole === 'manager') {
@@ -994,86 +820,6 @@ export default {
       }
     }
     
-    // 获取用户角色
-    const getUserRole = (user) => {
-      if (!user) return 'user';
-
-      // 直接检查用户名是否为admin
-      if (user.username && user.username.toLowerCase() === 'admin') {
-        return 'admin';
-      }
-
-      // 优先使用后端返回的角色
-      if (user.roles && user.roles.length > 0) {
-        // 检查是否有admin角色
-        for (const role of user.roles) {
-          let roleName = '';
-          try {
-            roleName = typeof role === 'string' ? role : role.name || role.code;
-            roleName = roleName.toLowerCase();
-            if (roleName.startsWith('role_')) {
-              roleName = roleName.substring(5); // 移除ROLE_前缀
-            }
-            if (roleName === 'admin') {
-              return 'admin';
-            }
-          } catch (e) {
-            console.error('处理角色时出错:', e);
-          }
-        }
-
-        // 检查是否有leader角色
-        for (const role of user.roles) {
-          let roleName = '';
-          try {
-            roleName = typeof role === 'string' ? role : role.name || role.code;
-            roleName = roleName.toLowerCase();
-            if (roleName.startsWith('role_')) {
-              roleName = roleName.substring(5); // 移除ROLE_前缀
-            }
-            if (roleName === 'leader') {
-              return 'leader';
-            }
-          } catch (e) {
-            console.error('处理角色时出错:', e);
-          }
-        }
-
-        // 检查是否有manager角色
-        for (const role of user.roles) {
-          let roleName = '';
-          try {
-            roleName = typeof role === 'string' ? role : role.name || role.code;
-            roleName = roleName.toLowerCase();
-            if (roleName.startsWith('role_')) {
-              roleName = roleName.substring(5); // 移除ROLE_前缀
-            }
-            if (roleName === 'manager') {
-              return 'manager';
-            }
-          } catch (e) {
-            console.error('处理角色时出错:', e);
-          }
-        }
-      }
-
-      // 如果没有角色信息，通过用户名推断
-      if (user.username) {
-        const usernameLower = user.username.toLowerCase();
-        if (usernameLower === 'admin') {
-          return 'admin';
-        } else if (usernameLower.startsWith('leader')) {
-          return 'leader';
-        } else if (usernameLower.startsWith('admin_')) {
-          return 'manager';
-        } else if (usernameLower.startsWith('user')) {
-          return 'user';
-        }
-      }
-
-      return 'user';
-    }
-
     const fetchStatusDistribution = async () => {
       try {
         const response = await axios.get('/reports/status-distribution')
@@ -1460,7 +1206,6 @@ export default {
       searchKeyword,
       getRoleName,
       getUserName,
-      hasAdminPermission,
       getMenuIcon,
       getMenuTitle,
       handleMenuSelect,

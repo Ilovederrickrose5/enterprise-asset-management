@@ -54,8 +54,10 @@ import ApplyForm from '../components/business/ApplyForm.vue'
 import StatusTag from '../components/common/StatusTag.vue'
 import TimeFormatter from '../components/common/TimeFormatter.vue'
 import { getAssetName, getAssetModel } from '../utils/common.js'
+import { useUserStore } from '../stores/userStore'
 
 const route = useRoute()
+const userStore = useUserStore()
 const loading = ref(false)
 const myApplications = ref([])
 const currentUser = ref(null)
@@ -64,7 +66,7 @@ const assetOptions = ref([])
 const allAssets = ref([])
 const applicationType = ref('RECEIVE')
 
-const getToken = () => localStorage.getItem('token')
+const getToken = () => userStore.token
 
 const typeLabels = {
   RECEIVE: '资产领用',
@@ -86,13 +88,8 @@ const recordColumns = [
 ]
 
 const getCurrentUser = () => {
-  const userStr = localStorage.getItem('user')
-  if (userStr) {
-    try {
-      currentUser.value = JSON.parse(userStr)
-    } catch (e) {
-      // 忽略解析错误
-    }
+  if (userStore.user) {
+    currentUser.value = userStore.user
   }
 }
 

@@ -118,9 +118,11 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { View, Edit, Delete, Check } from '@element-plus/icons-vue'
 import axios from '../utils/request'
 import ManagementPage from '../components/business/ManagementPage.vue'
+import { useUserStore } from '../stores/userStore'
 
 const router = useRouter()
 const route = useRoute()
+const userStore = useUserStore()
 const managementPageRef = ref(null)
 
 // 订单列表数据
@@ -434,9 +436,8 @@ const handleSubmit = async ({ isEdit, id, ...form }) => {
     }
 
     // 获取当前用户信息
-    const userStr = localStorage.getItem('user')
-    if (userStr) {
-      const user = JSON.parse(userStr)
+    const user = userStore.user
+    if (user) {
       form.creatorId = user.id
       form.creatorName = user.realName
       form.departmentId = user.departmentId
