@@ -52,7 +52,8 @@ public class ReportController {
 
                 boolean isAdmin = roles != null && roles.stream().anyMatch(r -> r.equalsIgnoreCase("ADMIN"));
                 boolean isLeader = roles != null && roles.stream().anyMatch(r -> r.equalsIgnoreCase("LEADER"));
-                boolean isManager = roles != null && roles.stream().anyMatch(r -> r.equalsIgnoreCase("MANAGER"));
+                boolean isManager = roles != null && roles.stream().anyMatch(r -> r.equalsIgnoreCase("MANAGER")
+                        || r.equalsIgnoreCase("ASSET_MANAGER") || r.equalsIgnoreCase("DEPT_MANAGER"));
 
                 if (!isAdmin && !isLeader && !isManager) {
                     return ResponseEntity.ok(Result.error(403, "无权限访问部门资产统计"));
@@ -116,7 +117,8 @@ public class ReportController {
 
                 boolean isAdmin = roles != null && roles.stream().anyMatch(r -> r.equalsIgnoreCase("ADMIN"));
                 boolean isLeader = roles != null && roles.stream().anyMatch(r -> r.equalsIgnoreCase("LEADER"));
-                boolean isManager = roles != null && roles.stream().anyMatch(r -> r.equalsIgnoreCase("MANAGER"));
+                boolean isManager = roles != null && roles.stream().anyMatch(r -> r.equalsIgnoreCase("MANAGER")
+                        || r.equalsIgnoreCase("ASSET_MANAGER") || r.equalsIgnoreCase("DEPT_MANAGER"));
 
                 if (!isAdmin && !isLeader && !isManager) {
                     return ResponseEntity.ok(Result.error(403, "无权限访问资产状态分布"));

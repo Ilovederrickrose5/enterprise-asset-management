@@ -1,184 +1,269 @@
 <template>
-  <div class="asset-list-container">
-    <!-- 导航栏 -->
-    <div class="card-header">
-      <el-button type="info" @click="goBack" :icon="ArrowLeft">返回首页</el-button>
-      <span class="title">{{ pageTitle }}</span>
-      <el-button v-permission="'admin'" type="primary" @click="handleAdd" :icon="Plus">新增资产</el-button>
-    </div>
+  <div class="eam-page asset-list-page">
+    <PageHeader :title="pageTitle" :subtitle="pageSubtitle" eyebrow="ASSETS">
+      <template #actions>
+        <el-button v-permission="['admin', 'manager']" type="primary" @click="handleAdd" :icon="Plus">
+          新增资产
+        </el-button>
+      </template>
+    </PageHeader>
 
-    <!-- 搜索栏 -->
-    <div class="search-form">
-      <el-form :model="searchForm" inline>
-        <el-form-item label="资产名称">
-          <el-input v-model="searchForm.assetName" placeholder="请输入资产名称" clearable />
-        </el-form-item>
-        <el-form-item label="资产状态">
-          <el-select v-model="searchForm.status" placeholder="请选择状态" clearable style="width: 150px">
-            <el-option label="在库" value="in_stock" />
-            <el-option label="使用中" value="using" />
-            <el-option label="维修中" value="maintenance" />
-            <el-option label="已报废" value="scrapped" />
-          </el-select>
-        </el-form-item>
-        <el-form-item>
-          <el-button type="primary" @click="handleSearch" :icon="Search">搜索</el-button>
-          <el-button @click="handleReset">重置</el-button>
-        </el-form-item>
-      </el-form>
-    </div>
+    <div class="eam-page-body">
+      <!-- 筛选 -->
+      <section class="eam-panel filter-panel">
+        <div class="eam-panel__body filter-body">
+          <el-form :model="searchForm" class="filter-form" @submit.prevent="handleSearch">
+            <el-form-item label="资产名称">
+              <el-input
+                v-model="searchForm.assetName"
+                placeholder="搜索名称或编号"
+                clearable
+                :prefix-icon="Search"
+              />
+            </el-form-item>
+            <el-form-item label="资产状态">
+              <el-select v-model="searchForm.status" placeholder="全部状态" clearable style="width: 160px">
+                <el-option label="在库" value="in_stock" />
+                <el-option label="使用中" value="using" />
+                <el-option label="维修中" value="maintenance" />
+                <el-option label="已报废" value="scrapped" />
+              </el-select>
+            </el-form-item>
+            <div class="filter-actions">
+              <el-button type="primary" @click="handleSearch">搜索</el-button>
+              <el-button @click="handleReset">重置</el-button>
+            </div>
+          </el-form>
+        </div>
+      </section>
 
-    <!-- 资产列表 -->
-    <div class="table-container">
-      <el-table :data="filteredAssetList" v-loading="loading" stripe>
-        <el-table-column type="index" label="序号" width="60" />
-        <el-table-column prop="assetNo" label="资产编号" min-width="140" />
-        <el-table-column prop="assetName" label="资产名称" min-width="150" />
-        <el-table-column prop="categoryName" label="资产分类" min-width="120" />
-        <el-table-column prop="model" label="型号" min-width="120" />
-        <el-table-column prop="userName" label="使用人" min-width="100" />
-        <el-table-column label="存放位置" min-width="180">
+      <!-- 资产列表 -->
+      <section class="eam-panel">
+        <div class="eam-panel__head">
+          <div class="eam-panel__title">
+            <span class="eam-panel__icon"><el-icon><Files /></el-icon></span>
+            <div>
+              <strong>资产清单</strong>
+              <span>共 {{ total }} 项资产 · 数据实时同步</span>
+            </div>
+          </div>
+          <span class="eam-panel__count">第 {{ currentPage }} 页</span>
+        </div>
+
+        <div class="eam-panel__body table-body">
+      <el-table v-if="!isMobile" :data="filteredAssetList" v-loading="loading" class="asset-table">
+        <el-table-column type="index" label="序号" width="52" />
+        <el-table-column prop="assetNo" label="资产编号" width="178">
+          <template #default="scope">
+            <span class="mono">{{ scope.row.assetNo }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="assetName" label="资产名称" min-width="140" show-overflow-tooltip />
+        <el-table-column v-if="showDetailColumns" prop="categoryName" label="分类" width="96" show-overflow-tooltip />
+        <el-table-column v-if="showModelColumn" prop="model" label="型号" min-width="96" show-overflow-tooltip />
+        <el-table-column v-if="showDetailColumns" prop="userName" label="使用人" width="100" show-overflow-tooltip />
+        <el-table-column label="存放位置" width="150">
           <template #default="scope">
             <div class="location-cell">
-              <!-- 原存放位置 -->
-              <span>{{ scope.row.location || '-' }}</span>
-              
-              <!-- 已借出标识 -->
-              <el-tag 
-                v-if="scope.row.borrowStatus === 'borrowed'" 
-                type="warning" 
-                size="small"
-                class="borrow-tag"
-              >
-                已借出
-              </el-tag>
-              
-              <!-- 借出详情tooltip -->
-              <el-tooltip 
-                v-if="scope.row.borrowStatus === 'borrowed'"
-                placement="top"
-                effect="light"
-              >
-                <template #content>
-                  <div class="borrow-tooltip">
-                    <div><strong>当前位置：</strong>{{ scope.row.currentLocation || '未知' }}</div>
-                    <div><strong>借用人：</strong>{{ scope.row.borrowerName || '未知' }}</div>
-                    <div><strong>借出时间：</strong>{{ formatTime(scope.row.borrowTime) }}</div>
-                    <div v-if="scope.row.expectedReturnTime">
-                      <strong>预计归还：</strong>{{ formatTime(scope.row.expectedReturnTime) }}
+              <span class="loc-text">{{ scope.row.location || '-' }}</span>
+              <template v-if="scope.row.borrowStatus === 'borrowed'">
+                <span class="borrow-chip">已借出</span>
+                <el-tooltip placement="top" effect="light">
+                  <template #content>
+                    <div class="borrow-tooltip">
+                      <div><strong>当前位置：</strong>{{ scope.row.currentLocation || '未知' }}</div>
+                      <div><strong>借用人：</strong>{{ scope.row.borrowerName || '未知' }}</div>
+                      <div><strong>借出时间：</strong>{{ formatTime(scope.row.borrowTime) }}</div>
+                      <div v-if="scope.row.expectedReturnTime">
+                        <strong>预计归还：</strong>{{ formatTime(scope.row.expectedReturnTime) }}
+                      </div>
                     </div>
-                  </div>
-                </template>
-                <el-icon class="info-icon"><Info-Filled /></el-icon>
-              </el-tooltip>
+                  </template>
+                  <el-icon class="info-icon"><InfoFilled /></el-icon>
+                </el-tooltip>
+              </template>
             </div>
           </template>
         </el-table-column>
-        <el-table-column label="资产状态" min-width="150">
+        <el-table-column label="资产状态" width="118">
           <template #default="scope">
-            <div class="status-with-action">
-              <el-tag :type="getStatusType(scope.row.status)" style="margin-right: 8px;">
-                {{ getStatusText(scope.row.status) }}
-              </el-tag>
-              <template v-if="!userStore.hasRole(['admin', 'leader', 'manager'])">
-                <el-button 
-                  size="small" 
-                  type="success" 
-                  :icon="Plus" 
-                  @click="handleApplyAsset(scope.row)"
-                  :disabled="scope.row.status === 'using'"
-                  style="padding: 4px 8px; font-size: 12px;"
-                >
-                  申请
-                </el-button>
-                <!-- 资产使用者或借用者的特定操作按钮 -->
-                <template v-if="isAssetUserOrBorrower(scope.row)">
-                  <!-- 维修完成按钮：仅在资产状态为维修中时显示 -->
-                  <el-button 
-                    v-if="scope.row.status === 'maintenance'" 
-                    size="small" 
-                    type="success" 
-                    @click="handleRepairComplete(scope.row)"
-                    style="padding: 4px 8px; font-size: 12px; margin-left: 4px;"
-                  >
-                    维修完成
-                  </el-button>
-                  <!-- 已批准的维修申请：显示"开始维修"按钮 -->
-                  <el-button 
-                    v-else-if="hasApprovedMaintenance(scope.row.id)" 
-                    size="small" 
-                    type="primary" 
-                    @click="handleStartMaintenance(scope.row)"
-                    style="padding: 4px 8px; font-size: 12px; margin-left: 4px;"
-                  >
-                    开始维修
-                  </el-button>
-                  <!-- 申请维修按钮：仅在资产状态为使用中或已借出时显示，且没有未完成的申请 -->
-                  <el-button 
-                    v-else-if="(scope.row.status === 'using' || scope.row.borrowStatus === 'borrowed') && !hasPendingMaintenance(scope.row.id) && !hasApprovedMaintenance(scope.row.id)" 
-                    size="small" 
-                    type="warning" 
-                    @click="handleApplyMaintenance(scope.row)"
-                    style="padding: 4px 8px; font-size: 12px; margin-left: 4px;"
-                  >
-                    申请维修
-                  </el-button>
-                  <!-- 已有待审批申请时显示提示 -->
-                  <el-tag 
-                    v-else-if="hasPendingMaintenance(scope.row.id)" 
-                    type="info" 
-                    size="small"
-                    style="margin-left: 4px;"
-                  >
-                    申请已提交
-                  </el-tag>
-                </template>
-              </template>            </div>
-            </template>
-          </el-table-column>
-          <el-table-column v-permission="['admin', 'leader', 'manager']" prop="purchasePrice" label="采购价格" width="120">
+            <StatusTag :status="scope.row.status" :status-map="assetStatusMap" />
+          </template>
+        </el-table-column>
+
+        <template v-if="showStaffColumns">
+          <el-table-column prop="purchasePrice" label="采购价格" width="110" align="right">
             <template #default="scope">
-              {{ formatPrice(scope.row.purchasePrice) }}
+              <span class="money">{{ formatPrice(scope.row.purchasePrice) }}</span>
             </template>
           </el-table-column>
-          <el-table-column v-permission="['admin', 'leader', 'manager']" prop="purchaseDate" label="采购日期" width="120" />
-          <el-table-column v-permission="['admin', 'leader', 'manager']" label="供应商" min-width="120">
+          <el-table-column v-if="showSupplierColumn" label="供应商" min-width="96" show-overflow-tooltip>
             <template #default="scope">
               {{ getSupplierName(scope.row.supplierId) }}
             </template>
           </el-table-column>
-          <el-table-column v-permission="['admin', 'leader', 'manager']" prop="createTime" label="创建时间" width="180">
-            <template #default="scope">
-              {{ formatTime(scope.row.createTime) }}
-            </template>
-          </el-table-column>
-          <el-table-column v-permission="['admin', 'leader', 'manager']" label="操作" width="280" fixed="right">
-            <template #default="scope">
-              <el-button type="primary" size="small" @click="handleEdit(scope.row)" :icon="Edit">编辑</el-button>
-              <el-button type="warning" size="small" @click="handleUpdateStatus(scope.row)" :icon="Refresh">状态</el-button>
-              <el-button type="danger" size="small" @click="handleDelete(scope.row)" :icon="Delete">删除</el-button>
-            </template>
-          </el-table-column>
+        </template>
+
+        <el-table-column v-if="showStaffColumns && canManageAssets" label="操作" width="172" fixed="right">
+          <template #default="scope">
+            <div class="row-actions">
+              <el-button link class="act act--primary" @click="handleEdit(scope.row)">编辑</el-button>
+              <span class="act-sep" aria-hidden="true"></span>
+              <el-button link class="act" @click="handleUpdateStatus(scope.row)">状态</el-button>
+              <span class="act-sep" aria-hidden="true"></span>
+              <el-button link class="act act--danger" @click="handleDelete(scope.row)">删除</el-button>
+            </div>
+          </template>
+        </el-table-column>
+
+        <el-table-column v-if="!showStaffColumns" label="操作" width="172" fixed="right">
+          <template #default="scope">
+            <div class="row-actions">
+              <el-button
+                link
+                class="act act--primary"
+                :disabled="scope.row.status === 'using' || scope.row.status === 'scrapped'"
+                @click="handleApplyAsset(scope.row)"
+              >
+                申请
+              </el-button>
+              <template v-if="isAssetUserOrBorrower(scope.row)">
+                <template v-if="scope.row.status === 'maintenance'">
+                  <span class="act-sep" aria-hidden="true"></span>
+                  <el-button link class="act" @click="handleRepairComplete(scope.row)">维修完成</el-button>
+                </template>
+                <template v-else-if="hasApprovedMaintenance(scope.row.id)">
+                  <span class="act-sep" aria-hidden="true"></span>
+                  <el-button link class="act" @click="handleStartMaintenance(scope.row)">开始维修</el-button>
+                </template>
+                <template v-else-if="(scope.row.status === 'using' || scope.row.borrowStatus === 'borrowed') && !hasPendingMaintenance(scope.row.id)">
+                  <span class="act-sep" aria-hidden="true"></span>
+                  <el-button link class="act" @click="handleApplyMaintenance(scope.row)">申请维修</el-button>
+                </template>
+                <template v-else-if="hasPendingMaintenance(scope.row.id)">
+                  <span class="act-note">申请已提交</span>
+                </template>
+              </template>
+            </div>
+          </template>
+        </el-table-column>
+
+        <template #empty>
+          <div class="table-empty">
+            <span class="empty-icon"><el-icon><Files /></el-icon></span>
+            <p class="empty-text">暂无资产记录</p>
+            <p class="empty-hint">调整筛选条件或新增资产后再试</p>
+          </div>
+        </template>
         </el-table>
-      </div>
+
+        <div v-if="isMobile" v-loading="loading" class="asset-cards">
+          <article
+            v-for="asset in filteredAssetList"
+            :key="asset.id"
+            class="asset-card-item"
+          >
+            <div class="asset-card-item__top">
+              <div class="asset-card-item__title">
+                <span class="mono">{{ asset.assetNo }}</span>
+                <strong>{{ asset.assetName }}</strong>
+              </div>
+              <StatusTag :status="asset.status" :status-map="assetStatusMap" />
+            </div>
+
+            <dl class="asset-card-item__meta">
+              <div><dt>分类</dt><dd>{{ asset.categoryName }}</dd></div>
+              <div><dt>型号</dt><dd>{{ asset.model || '-' }}</dd></div>
+              <div><dt>使用人</dt><dd>{{ asset.userName }}</dd></div>
+              <div><dt>位置</dt><dd>{{ asset.location || '-' }}</dd></div>
+              <div v-if="showStaffColumns"><dt>采购价</dt><dd>{{ formatPrice(asset.purchasePrice) }}</dd></div>
+              <div v-if="asset.borrowStatus === 'borrowed'"><dt>借出</dt><dd>已借出</dd></div>
+            </dl>
+
+            <div v-if="canManageAssets" class="asset-card-item__foot">
+              <el-button link class="act act--primary" @click="handleEdit(asset)">编辑</el-button>
+              <span class="act-sep" aria-hidden="true"></span>
+              <el-button link class="act" @click="handleUpdateStatus(asset)">状态</el-button>
+              <span class="act-sep" aria-hidden="true"></span>
+              <el-button link class="act act--danger" @click="handleDelete(asset)">删除</el-button>
+            </div>
+
+            <div v-else-if="!showStaffColumns" class="asset-card-item__foot">
+              <el-button
+                link
+                class="act act--primary"
+                :disabled="asset.status === 'using' || asset.status === 'scrapped'"
+                @click="handleApplyAsset(asset)"
+              >
+                申请
+              </el-button>
+              <template v-if="isAssetUserOrBorrower(asset)">
+                <template v-if="asset.status === 'maintenance'">
+                  <span class="act-sep" aria-hidden="true"></span>
+                  <el-button link class="act" @click="handleRepairComplete(asset)">维修完成</el-button>
+                </template>
+                <template v-else-if="hasApprovedMaintenance(asset.id)">
+                  <span class="act-sep" aria-hidden="true"></span>
+                  <el-button link class="act" @click="handleStartMaintenance(asset)">开始维修</el-button>
+                </template>
+                <template v-else-if="(asset.status === 'using' || asset.borrowStatus === 'borrowed') && !hasPendingMaintenance(asset.id)">
+                  <span class="act-sep" aria-hidden="true"></span>
+                  <el-button link class="act" @click="handleApplyMaintenance(asset)">申请维修</el-button>
+                </template>
+                <template v-else-if="hasPendingMaintenance(asset.id)">
+                  <span class="act-note">申请已提交</span>
+                </template>
+              </template>
+            </div>
+          </article>
+
+          <div v-if="!filteredAssetList.length && !loading" class="table-empty">
+            <span class="empty-icon"><el-icon><Files /></el-icon></span>
+            <p class="empty-text">暂无资产记录</p>
+            <p class="empty-hint">调整筛选条件或新增资产后再试</p>
+          </div>
+        </div>
+
+        <div class="pagination-wrapper">
+          <el-pagination
+            v-model:current-page="currentPage"
+            v-model:page-size="pageSize"
+            :page-sizes="[10, 20, 50, 100]"
+            :total="total"
+            layout="total, sizes, prev, pager, next, jumper"
+            @size-change="handleSizeChange"
+            @current-change="handleCurrentChange"
+          />
+        </div>
+        </div>
+      </section>
+    </div>
 
     <!-- 新增/编辑对话框 -->
     <el-dialog
       v-model="dialogVisible"
-      :title="dialogTitle"
-      width="700px"
+      width="720px"
       :close-on-click-modal="false"
-      class="asset-dialog"
+      align-center
+      class="eam-dialog asset-dialog"
     >
-      <el-form :model="form" :rules="rules" ref="formRef" label-width="100px">
+      <template #header>
+        <div class="dialog-head">
+          <div class="dialog-head__text">
+            <strong>{{ dialogTitle }}</strong>
+            <span>{{ isEdit ? '修改资产信息后保存，列表数据将同步刷新' : '完善资产基础信息与采购信息后入库' }}</span>
+          </div>
+        </div>
+      </template>
+      <el-form :model="form" :rules="rules" ref="formRef" label-width="96px" class="asset-form">
         <!-- 基本信息 -->
-        <el-divider content-position="left">基本信息</el-divider>
+        <div class="form-section"><span>基本信息</span></div>
         <el-row :gutter="20">
           <el-col :span="12">
             <el-form-item label="资产编号" prop="assetNo" required>
               <el-input v-model="form.assetNo" placeholder="系统自动生成" :disabled="!isEdit" />
-              <el-button type="primary" size="small" @click="generateAssetNo" v-if="!isEdit" style="margin-top: 8px">
-                生成编号
+              <el-button v-if="!isEdit" link type="primary" size="small" class="generate-link" @click="generateAssetNo">
+                自动生成编号
               </el-button>
             </el-form-item>
           </el-col>
@@ -238,7 +323,7 @@
         </el-row>
 
         <!-- 采购信息 -->
-        <el-divider content-position="left">采购信息</el-divider>
+        <div class="form-section"><span>采购信息</span></div>
         <el-row :gutter="20">
           <el-col :span="12">
             <el-form-item label="采购价格" prop="purchasePrice" required>
@@ -258,14 +343,14 @@
             </el-form-item>
           </el-col>
           <el-col :span="12">
-            <el-form-item label="使用年限" prop="usefulLife" required>
-              <el-input-number v-model="form.usefulLife" :min="0" style="width: 100%" />
+            <el-form-item label="使用年限(月)" prop="usefulLife" required>
+              <el-input-number v-model="form.usefulLife" :min="1" :step="12" style="width: 100%" />
             </el-form-item>
           </el-col>
         </el-row>
 
         <!-- 状态信息 -->
-        <el-divider content-position="left">状态信息</el-divider>
+        <div class="form-section"><span>状态信息</span></div>
         <el-row :gutter="20">
           <el-col :span="12">
             <el-form-item label="资产状态" prop="status" required>
@@ -303,7 +388,7 @@
         </el-row>
 
         <!-- 借出信息 -->
-        <el-divider content-position="left">借出信息</el-divider>
+        <div class="form-section"><span>借出信息</span></div>
         <el-row :gutter="20">
           <el-col :span="12">
             <el-form-item label="借出状态" prop="borrowStatus" required>
@@ -363,25 +448,36 @@
         </template>
         
         <!-- 备注信息 -->
-        <el-divider content-position="left">备注信息</el-divider>
+        <div class="form-section"><span>备注信息</span></div>
         <el-form-item label="备注">
           <el-input v-model="form.remark" type="textarea" :rows="3" placeholder="请输入备注" />
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleSubmit">确定</el-button>
+        <div class="dialog-footer">
+          <el-button @click="dialogVisible = false">取消</el-button>
+          <el-button type="primary" @click="handleSubmit">保存</el-button>
+        </div>
       </template>
     </el-dialog>
 
     <!-- 更新状态对话框 -->
     <el-dialog
       v-model="statusDialogVisible"
-      title="更新资产状态"
-      width="400px"
+      width="440px"
       :close-on-click-modal="false"
+      align-center
+      class="eam-dialog"
     >
-      <el-form :model="statusForm" label-width="100px">
+      <template #header>
+        <div class="dialog-head">
+          <div class="dialog-head__text">
+            <strong>更新资产状态</strong>
+            <span>{{ currentAsset?.assetName || '调整资产状态，保存后立即生效' }}</span>
+          </div>
+        </div>
+      </template>
+      <el-form :model="statusForm" label-position="top" class="status-form">
         <el-form-item label="资产状态">
           <el-select v-model="statusForm.status" placeholder="请选择资产状态" style="width: 100%">
             <el-option label="在库" value="in_stock" />
@@ -392,36 +488,43 @@
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="statusDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleStatusSubmit">确定</el-button>
+        <div class="dialog-footer">
+          <el-button @click="statusDialogVisible = false">取消</el-button>
+          <el-button type="primary" @click="handleStatusSubmit">保存</el-button>
+        </div>
       </template>
     </el-dialog>
   </div>
 </template>
 
 <script>
-import { ref, reactive, onMounted, computed } from 'vue'
+import { ref, reactive, onMounted, onUnmounted, computed } from 'vue'
 import axios from '../utils/request'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useUserStore } from '../stores/userStore'
-import { 
-  Plus, 
-  Edit, 
-  Delete, 
-  ArrowLeft,
+import {
+  Plus,
   Search,
-  Refresh
+  InfoFilled,
+  Files
 } from '@element-plus/icons-vue'
+import PageHeader from '../components/common/PageHeader.vue'
+import StatusTag from '../components/common/StatusTag.vue'
 
 export default {
   name: 'AssetList',
+  components: { PageHeader, StatusTag },
   setup() {
     const router = useRouter()
     const route = useRoute()
     const userStore = useUserStore()
     const loading = ref(false)
     const assetList = ref([])
+    const currentPage = ref(1)
+    const pageSize = ref(10)
+    const total = ref(0)
+    const onlyMine = computed(() => route.query.onlyMyAssets === 'true')
     const categoryOptions = ref([])
     const departmentOptions = ref([])
     const userOptions = ref([])
@@ -457,7 +560,7 @@ export default {
       netValue: 0,
       purchaseDate: '',
       warrantyPeriod: 12,
-      usefulLife: 5,
+      usefulLife: 60,
       status: 'in_stock',
       useStatus: 'idle',
       location: '',
@@ -504,14 +607,56 @@ export default {
       return titleMap[userRole] || '我的资产'
     })
 
-    // 获取资产列表
+    const showStaffColumns = computed(() => userStore.hasRole(['admin', 'leader', 'manager']))
+    const canManageAssets = computed(() => userStore.hasRole(['admin', 'manager']))
+
+    const viewportWidth = ref(window.innerWidth)
+    const isMobile = computed(() => viewportWidth.value <= 1024)
+    const showDetailColumns = computed(() => viewportWidth.value > 1180)
+    const showModelColumn = computed(() => viewportWidth.value > 1280)
+    const showSupplierColumn = computed(() => viewportWidth.value > 1360)
+
+    const handleViewportResize = () => {
+      viewportWidth.value = window.innerWidth
+    }
+
+    const pageSubtitle = computed(() => {
+      return showStaffColumns.value
+        ? '管理资产台账、使用状态与借出情况，支持按名称与状态筛选'
+        : '查看名下与可领用资产，可发起领用、报修等申请'
+    })
+
+    const assetStatusMap = {
+      in_stock: { text: '在库', type: 'info' },
+      using: { text: '使用中', type: 'success' },
+      maintenance: { text: '维修中', type: 'warning' },
+      scrapped: { text: '已报废', type: 'danger' }
+    }
+
+    // 获取资产列表（分页与筛选均由后端处理）
     const fetchAssets = async () => {
       loading.value = true
       try {
-        const response = await axios.get('/assets')
+        const params = {
+          page: currentPage.value - 1,
+          size: pageSize.value,
+          sortBy: 'id',
+          sortDir: 'desc'
+        }
+        if (searchForm.status) {
+          params.status = searchForm.status
+        }
+        if (searchForm.assetName) {
+          params.keyword = searchForm.assetName.trim()
+        }
+        if (onlyMine.value) {
+          params.onlyMine = true
+        }
+        const response = await axios.get('/assets', { params })
         if (response.data.code === 200) {
           const data = response.data.data
-          assetList.value = data.content || data
+          assetList.value = data.content || data || []
+          total.value = data.totalElements ?? assetList.value.length
           // 更新存放位置列表
           fetchLocations()
         }
@@ -576,10 +721,9 @@ export default {
       }
     }
 
-    // 获取存放位置列表
+    // 获取存放位置列表（跨页累积，作为自动补全候选）
     const fetchLocations = () => {
-      // 从资产列表中提取唯一的存放位置
-      const locations = new Set()
+      const locations = new Set(locationOptions.value)
       assetList.value.forEach(asset => {
         if (asset.location) {
           locations.add(asset.location)
@@ -588,122 +732,23 @@ export default {
       locationOptions.value = Array.from(locations)
     }
 
-    // 过滤后的资产列表
+    // 资产列表展示数据（权限范围、搜索和分页由后端完成，这里只做名称补全）
     const filteredAssetList = computed(() => {
-      // 获取当前用户信息
-      const currentUser = userStore.user
-      const currentUserId = currentUser ? currentUser.id : null
-      const currentDepartmentId = currentUser ? (currentUser.departmentId || currentUser.deptId) : null
-      const hasPermission = userStore.hasRole(['admin', 'leader', 'manager'])
-      
-      // 检查是否只显示我的资产
-      const onlyMyAssets = route.query.onlyMyAssets === 'true'
-      
-      // 获取资产的部门ID（兼容多种字段名格式）
-      const getAssetDeptId = (asset) => {
-        // 检查多种可能的字段名格式
-        if (asset.deptId !== undefined && asset.deptId !== null) return asset.deptId
-        if (asset.departmentId !== undefined && asset.departmentId !== null) return asset.departmentId
-        if (asset.dept_id !== undefined && asset.dept_id !== null) return asset.dept_id
-        return null
-      }
-      
       return assetList.value.map(asset => {
         const category = categoryOptions.value.find(c => c.id === asset.categoryId)
-        const assetDeptId = getAssetDeptId(asset)
-        const department = departmentOptions.value.find(d => d.id === assetDeptId)
+        const department = departmentOptions.value.find(d => d.id === asset.deptId)
         const user = userOptions.value.find(u => u.id === asset.userId)
-        // 确保类型匹配，将supplierId转换为数字
         const supplierId = Number(asset.supplierId)
         const supplier = supplierOptions.value.find(s => Number(s.id) === supplierId)
         return {
           ...asset,
-          deptId: assetDeptId,  // 统一字段名
           categoryName: category ? category.categoryName : '-',
           departmentName: department ? department.deptName : '-',
           userName: user ? (user.realName || user.username) : '-',
           supplierName: supplier ? supplier.supplierName : '-'
         }
-      }).filter(asset => {
-        // 普通员工只能查看自己的资产（类型转换确保比较正确）
-        if (!hasPermission && Number(asset.userId) !== Number(currentUserId)) {
-          return false
-        }
-        
-        // 领导和部门资产管理员只能查看本部门的资产
-        const assetDeptId = getAssetDeptId(asset)
-        if (hasPermission && !userStore.hasRole('admin') && currentDepartmentId && Number(assetDeptId) !== Number(currentDepartmentId)) {
-          return false
-        }
-        
-        // 只显示我的资产（类型转换确保比较正确）
-        if (onlyMyAssets && Number(asset.userId) !== Number(currentUserId)) {
-          return false
-        }
-        
-        if (searchForm.assetName && !asset.assetName.includes(searchForm.assetName)) {
-          return false
-        }
-        if (searchForm.status && asset.status !== searchForm.status) {
-          return false
-        }
-        return true
       })
     })
-
-    // 获取状态类型
-    const getStatusType = (status) => {
-      const typeMap = {
-        'in_stock': 'info',
-        'using': 'success',
-        'maintenance': 'warning',
-        'scrapped': 'danger'
-      }
-      return typeMap[status] || 'info'
-    }
-
-    // 获取状态文本
-    const getStatusText = (status) => {
-      const textMap = {
-        'in_stock': '在库',
-        'using': '使用中',
-        'maintenance': '维修中',
-        'scrapped': '已报废'
-      }
-      return textMap[status] || status
-    }
-
-    // 获取使用状态类型
-    const getUseStatusType = (useStatus) => {
-      const typeMap = {
-        'idle': 'info',
-        'using': 'success',
-        'repairing': 'warning'
-      }
-      return typeMap[useStatus] || 'info'
-    }
-
-    // 获取使用状态文本
-    const getUseStatusText = (useStatus) => {
-      const textMap = {
-        'idle': '闲置',
-        'using': '使用中',
-        'repairing': '维修中'
-      }
-      return textMap[useStatus] || useStatus
-    }
-
-    // 获取用户所属部门名称
-    const getUserDepartmentName = (userId) => {
-      if (!userId) return '-'
-      const user = userOptions.value.find(u => u.id === userId)
-      if (!user) return '-'
-      // 兼容 deptId 和 departmentId 两种字段名
-      const userDeptId = user.departmentId || user.deptId
-      if (!userDeptId) return '-'
-      const department = departmentOptions.value.find(d => d.id === userDeptId)
-      return department ? department.deptName : '-'
-    }
 
     // 获取供应商名称
     const getSupplierName = (supplierId) => {
@@ -717,7 +762,9 @@ export default {
     // 格式化价格
     const formatPrice = (price) => {
       if (price === null || price === undefined) return '-'
-      return '¥' + parseFloat(price).toFixed(2)
+      const amount = parseFloat(price)
+      if (!Number.isFinite(amount)) return '-'
+      return '¥' + amount.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
     }
 
     // 检查当前用户是否是资产的使用者或借用者
@@ -768,11 +815,6 @@ export default {
       }
     }
 
-    // 返回首页
-    const goBack = () => {
-      router.push('/home')
-    }
-    
     // 申请资产
     const handleApplyAsset = (row) => {
       router.push({ path: '/assets/apply', query: { assetId: row.id } })
@@ -780,13 +822,28 @@ export default {
 
     // 搜索
     const handleSearch = () => {
-      // 过滤逻辑在 computed 中处理
+      currentPage.value = 1
+      fetchAssets()
     }
 
     // 重置搜索
     const handleReset = () => {
       searchForm.assetName = ''
       searchForm.status = ''
+      currentPage.value = 1
+      fetchAssets()
+    }
+
+    // 分页
+    const handleSizeChange = (size) => {
+      pageSize.value = size
+      currentPage.value = 1
+      fetchAssets()
+    }
+
+    const handleCurrentChange = (page) => {
+      currentPage.value = page
+      fetchAssets()
     }
 
     // 新增资产
@@ -806,7 +863,7 @@ export default {
         netValue: 0,
         purchaseDate: '',
         warrantyPeriod: 12,
-        usefulLife: 5,
+        usefulLife: 60,
         status: 'in_stock', // 默认在库
         useStatus: 'idle', // 默认闲置
         location: '',
@@ -840,7 +897,7 @@ export default {
         netValue: row.netValue || row.purchasePrice || 0,
         purchaseDate: row.purchaseDate || '',
         warrantyPeriod: row.warrantyPeriod || 12,
-        usefulLife: row.usefulLife || 5,
+        usefulLife: row.usefulLife || 60,
         status: row.status || 'in_stock',
         useStatus: row.useStatus || 'idle',
         location: row.location || '',
@@ -1229,11 +1286,13 @@ export default {
 
 
     onMounted(() => {
+      window.addEventListener('resize', handleViewportResize)
+
       // 读取 URL 参数中的搜索关键词
       if (route.query.keyword) {
         searchForm.assetName = route.query.keyword
       }
-      
+
       fetchAssets()
       fetchCategories()
       fetchDepartments()
@@ -1243,10 +1302,20 @@ export default {
       fetchMaintenanceApplications()
     })
 
+    onUnmounted(() => {
+      window.removeEventListener('resize', handleViewportResize)
+    })
+
     return {
+      userStore,
       loading,
       assetList,
       filteredAssetList,
+      currentPage,
+      pageSize,
+      total,
+      handleSizeChange,
+      handleCurrentChange,
       categoryOptions,
       departmentOptions,
       userOptions,
@@ -1261,9 +1330,17 @@ export default {
       statusDialogVisible,
       statusForm,
       pageTitle,
+      pageSubtitle,
+      showStaffColumns,
+      canManageAssets,
+      isMobile,
+      showDetailColumns,
+      showModelColumn,
+      showSupplierColumn,
+      assetStatusMap,
+      currentAsset,
       isAssetUserOrBorrower,
       isEdit,
-      goBack,
       handleSearch,
       handleReset,
       handleAdd,
@@ -1286,139 +1363,197 @@ export default {
       handleLocationSelect,
       handleBorrowStatusChange,
       handleBorrowerChange,
-      getStatusType,
-      getStatusText,
-      getUserDepartmentName,
       getSupplierName,
       formatPrice,
       formatTime,
       Plus,
-      Edit,
-      Delete,
-      ArrowLeft,
       Search,
-      Refresh
+      InfoFilled,
+      Files
     }
   }
 }
 </script>
 
 <style scoped>
-.asset-list-container {
-  padding: 20px;
-  height: 100vh;
-  overflow: hidden;
+.filter-panel {
+  animation-delay: 0.04s;
 }
 
-.asset-card {
-  height: 100%;
+.filter-body {
+  padding: 16px 22px;
+}
+
+.filter-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 4px 18px;
+}
+
+.filter-form :deep(.el-form-item) {
+  margin: 0;
+}
+
+.filter-form :deep(.el-form-item__label) {
+  padding-right: 10px;
+  font-size: 12px;
+  color: var(--eam-ink-400);
+}
+
+.filter-actions {
+  display: flex;
+  gap: 10px;
+  margin-left: auto;
+}
+
+.table-body {
+  padding: 8px 22px 18px;
+}
+
+.mono {
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  color: var(--eam-ink-600);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.asset-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+}
+
+.asset-card-item {
   display: flex;
   flex-direction: column;
-  padding: 0;
-  margin: 0;
-  border: none;
-  box-shadow: none;
+  gap: 12px;
+  padding: 16px;
+  background: #fff;
+  border: 1px solid var(--eam-line-soft);
+  border-radius: var(--eam-radius-md);
+  box-shadow: 0 1px 2px rgba(20, 24, 33, 0.04);
 }
 
-.asset-card :deep(.el-card__body) {
-  padding: 0;
-  margin: 0;
-}
-
-.card-header {
+.asset-card-item__top {
   display: flex;
+  align-items: flex-start;
   justify-content: space-between;
-  align-items: center;
-  position: sticky;
-  top: 0;
-  z-index: 10;
-  background-color: white;
-  padding: 15px 20px;
-  margin: 0;
-  border-bottom: 1px solid #e4e7ed;
-  border-radius: 4px 4px 0 0;
+  gap: 10px;
 }
 
-.title {
-  font-size: 18px;
-  font-weight: bold;
+.asset-card-item__title {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
 }
 
-.search-form {
-  position: sticky;
-  top: 70px;
-  z-index: 5;
-  background-color: #f5f7fa;
-  margin: 0 0 20px 0;
-  padding: 15px 20px;
-  border-radius: 4px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  border-top: 1px solid #e4e7ed;
-}
-
-.table-container {
-  flex: 1;
-  overflow-y: auto;
-  margin-top: 10px;
-  max-height: calc(100vh - 200px);
-}
-
-/* 优化表格行高和单元格间距 */
-:deep(.el-table__row) {
-  height: 48px;
-}
-
-:deep(.el-table__cell) {
-  padding: 8px 12px;
-}
-
-/* 优化资产名称列的显示 */
-:deep(.el-table__column--min-width) {
-  white-space: nowrap;
+.asset-card-item__title strong {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--eam-ink-900);
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.status-with-action {
+.asset-card-item__title .mono {
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--eam-ink-300);
+}
+
+.asset-card-item__meta {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 14px;
+  margin: 0;
+  padding: 12px 0 0;
+  border-top: 1px solid var(--eam-line-soft);
+}
+
+.asset-card-item__meta div {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+}
+
+.asset-card-item__meta dt {
+  flex: 0 0 auto;
+  font-size: 11.5px;
+  color: var(--eam-ink-300);
+}
+
+.asset-card-item__meta dd {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--eam-ink-700);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.asset-card-item__foot {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
+  gap: 2px;
+  padding-top: 2px;
 }
 
-.el-tag {
-  margin-right: 8px;
-  margin-bottom: 4px;
-}
-
-.el-button {
-  margin-bottom: 4px;
+.money {
+  font-weight: 500;
+  color: var(--eam-ink-800);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .location-cell {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 4px;
+  gap: 6px;
+  min-width: 0;
 }
 
-.borrow-tag {
-  margin-left: 4px;
+.loc-text {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--eam-ink-600);
+}
+
+.borrow-chip {
+  flex: 0 0 auto;
+  padding: 1px 7px;
+  font-size: 11px;
+  line-height: 1.5;
+  color: #8a6430;
+  background: var(--eam-warning-soft);
+  border-radius: var(--eam-radius-pill);
 }
 
 .info-icon {
-  margin-left: 4px;
-  color: #909399;
+  flex: 0 0 auto;
+  font-size: 13px;
+  color: var(--eam-ink-300);
   cursor: pointer;
-  font-size: 14px;
+  transition: color var(--eam-duration-fast) var(--eam-ease);
 }
 
 .info-icon:hover {
-  color: #409eff;
+  color: var(--eam-primary);
 }
 
 .borrow-tooltip {
-  line-height: 1.8;
   font-size: 12px;
+  line-height: 1.8;
 }
 
 .borrow-tooltip div {
@@ -1427,5 +1562,207 @@ export default {
 
 .borrow-tooltip div:last-child {
   margin-bottom: 0;
+}
+
+.row-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  flex-wrap: wrap;
+}
+
+.act {
+  height: 26px;
+  padding: 0 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--eam-ink-500);
+  border-radius: 7px;
+  transition: color var(--eam-duration-fast) var(--eam-ease),
+    background-color var(--eam-duration-fast) var(--eam-ease);
+}
+
+.act:hover {
+  color: var(--eam-ink-800);
+  background: rgba(20, 24, 33, 0.04);
+}
+
+.act.is-disabled,
+.act.is-disabled:hover {
+  color: var(--eam-ink-300);
+  background: transparent;
+  cursor: not-allowed;
+}
+
+.act--primary {
+  color: var(--eam-primary-deep);
+}
+
+.act--primary:hover {
+  color: var(--eam-primary-deep);
+  background: var(--eam-primary-soft);
+}
+
+.act--danger {
+  color: #8c4646;
+}
+
+.act--danger:hover {
+  color: #8c4646;
+  background: var(--eam-danger-soft);
+}
+
+.act-sep {
+  width: 1px;
+  height: 11px;
+  background: var(--eam-line);
+}
+
+.act-note {
+  padding-left: 2px;
+  font-size: 11.5px;
+  color: var(--eam-ink-300);
+}
+
+.pagination-wrapper {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 4px;
+  padding-top: 16px;
+  border-top: 1px solid var(--eam-line-soft);
+}
+
+.table-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  grid-column: 1 / -1;
+  padding: 38px 0;
+}
+
+.empty-icon {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  margin-bottom: 4px;
+  font-size: 19px;
+  color: var(--eam-ink-300);
+  background: #f3f5f8;
+  border: 1px solid var(--eam-line-soft);
+  border-radius: 14px;
+}
+
+.empty-text {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--eam-ink-500);
+}
+
+.empty-hint {
+  margin: 0;
+  font-size: 12px;
+  color: var(--eam-ink-300);
+}
+
+.dialog-head__text strong {
+  display: block;
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--eam-ink-900);
+}
+
+.dialog-head__text span {
+  display: block;
+  margin-top: 3px;
+  font-size: 12px;
+  color: var(--eam-ink-400);
+}
+
+.dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.form-section {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 22px 0 14px;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--eam-ink-400);
+}
+
+.form-section::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--eam-line-soft);
+}
+
+.form-section span {
+  white-space: nowrap;
+}
+
+.asset-form > .form-section:first-child {
+  margin-top: 4px;
+}
+
+.asset-form :deep(.el-form-item) {
+  margin-bottom: 16px;
+}
+
+.generate-link {
+  height: auto;
+  margin-top: 6px;
+  padding: 0;
+  font-size: 12px;
+}
+
+.asset-form :deep(.el-form-item__label) {
+  font-size: 12.5px;
+  color: var(--eam-ink-500);
+}
+
+.status-form :deep(.el-form-item) {
+  margin-bottom: 0;
+}
+
+@media (max-width: 768px) {
+  .filter-body {
+    padding: 14px 16px;
+  }
+
+  .filter-form :deep(.el-form-item) {
+    width: 100%;
+  }
+
+  .filter-form :deep(.el-input),
+  .filter-form :deep(.el-select) {
+    width: 100% !important;
+  }
+
+  .filter-actions {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .filter-actions .el-button {
+    flex: 1;
+  }
+
+  .table-body {
+    padding: 6px 12px 16px;
+  }
+
+  .pagination-wrapper {
+    justify-content: center;
+  }
 }
 </style>

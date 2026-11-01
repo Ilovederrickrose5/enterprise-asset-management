@@ -14,10 +14,7 @@ import org.springframework.cloud.openfeign.EnableFeignClients;
         "com.enterprise.asset.common"
 })
 @EnableDiscoveryClient
-@EnableFeignClients(basePackages = {
-    "com.enterprise.asset.business.client",  // 本模块的Feign客户端
-    "com.enterprise.asset.auth.client"       // auth模块的Feign客户端（用于调用User、Department等服务）
-})
+@EnableFeignClients(basePackages = "com.enterprise.asset.business.client")
 public class BusinessApplication {
 
     public static void main(String[] args) {

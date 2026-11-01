@@ -1,15 +1,35 @@
 # 企业固定资产管理系统
 
-[![GitHub Stars](https://img.shields.io/github/stars/llovederrickrose5/enterprise-asset-management.svg?style=flat)](https://github.com/llovederrickrose5/enterprise-asset-management/stargazers)
-[![GitHub License](https://img.shields.io/github/license/llovederrickrose5/enterprise-asset-management.svg?style=flat)](https://github.com/llovederrickrose5/enterprise-asset-management/blob/main/LICENSE)
+[![GitHub Stars](https://img.shields.io/github/stars/ilovederrickrose5/enterprise-asset-management.svg?style=flat)](https://github.com/ilovederrickrose5/enterprise-asset-management/stargazers)
+[![GitHub License](https://img.shields.io/github/license/ilovederrickrose5/enterprise-asset-management.svg?style=flat)](https://github.com/ilovederrickrose5/enterprise-asset-management/blob/main/LICENSE)
 [![Java](https://img.shields.io/badge/Java-17-blue.svg)](https://www.oracle.com/java/technologies/downloads/#java17)
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.2.5-green.svg)](https://spring.io/projects/spring-boot)
 [![Vue.js](https://img.shields.io/badge/Vue.js-3.x-green.svg)](https://vuejs.org/)
+[![Element Plus](https://img.shields.io/badge/Element%20Plus-2.13-blue.svg)](https://element-plus.org/)
+
+企业级资产全生命周期管理平台，基于 **Spring Cloud Alibaba 微服务架构 + Vue 3** 构建，覆盖资产入库、领用、转移、维修、报废、盘点、折旧与采购管理。
+
+## 🖼️ 系统界面预览
+
+| 登录页 | 系统概览 |
+|:------:|:--------:|
+| ![登录页](images/login.png) | ![系统概览](images/dashboard.png) |
+
+| 资产列表 | 资产领用申请 |
+|:--------:|:------------:|
+| ![资产列表](images/asset-list.png) | ![资产领用申请](images/asset-apply.png) |
+
+| 资产审批 | 资产转移申请 |
+|:--------:|:------------:|
+| ![资产审批](images/asset-approval.png) | ![资产转移申请](images/asset-transfer.png) |
+
+| 资产报废申请 |
+|:------------:|
+| ![资产报废申请](images/asset-disposal.png) |
 
 ## 📋 目录
 
 - [1. 项目概述](#1-项目概述)
-  - [系统界面预览](#系统界面预览)
   - [1.1 技术栈](#11-技术栈)
 - [2. 微服务架构](#2-微服务架构)
   - [2.1 模块划分](#21-模块划分)
@@ -35,33 +55,7 @@
 
 企业固定资产管理系统是一个基于 **Spring Cloud Alibaba 微服务架构** 的企业级资产全生命周期管理平台，实现了对固定资产的采购入库、日常管理、折旧计算、盘点管理、维修报废等全流程管理。
 
-系统已从单体应用拆分为微服务架构，包含认证服务和业务服务两个核心模块，通过 Nacos 实现服务注册与发现，使用 OpenFeign 进行跨服务调用。
-
-### 系统界面预览
-
-| 登录页面 | 首页仪表盘 |
-|:--------:|:----------:|
-| ![登录页面](images/login.png) | ![首页数据仪表盘](images/menudashboard.png) |
-
-| 资产状态分布 | 价值分布 |
-|:-----------:|:--------:|
-| ![资产状态分布饼图](images/asset-status.png) | ![价值分布柱状图](images/asset-value.png) |
-
-| 部门资产统计 | 资产领用申请 |
-|:-----------:|:----------:|
-| ![部门资产统计混合图](images/department-department.png) | ![资产领用申请](images/asset-apply.png) |
-
-| 资产转移申请 | 资产维修申请 |
-|:-----------:|:----------:|
-| ![资产转移申请](images/asset-transfer.png) | ![资产维修申请](images/asset-maintenance.png) |
-
-| 资产报废申请 | 折旧计算页面 |
-|:-----------:|:----------:|
-| ![资产报废申请](images/asset-scrap.png) | ![资产折旧计算页面](images/depreciation.png) |
-
-| 资产盘点管理 |
-|:-----------:|
-| ![资产盘点管理](images/asset-inventory.png) |
+系统已从单体应用拆分为微服务架构，包含认证服务、业务服务与 API 网关三个核心模块，通过 Nacos 实现服务注册与发现，使用 OpenFeign 进行跨服务调用。
 
 ### 1.1 技术栈
 
@@ -86,12 +80,13 @@
 
 | 分类 | 技术 | 版本 |
 |------|------|------|
-| 框架 | Vue | 3.x |
-| UI组件库 | Element Plus | 2.x |
-| 状态管理 | Pinia | - |
-| HTTP客户端 | Axios | - |
-| 图表 | ECharts | - |
-| 构建工具 | Vite | - |
+| 框架 | Vue | 3.5.x |
+| UI组件库 | Element Plus | 2.13.x |
+| 状态管理 | Pinia | 3.0.x |
+| 路由 | Vue Router | 4.x |
+| HTTP客户端 | Axios | 1.x |
+| 图表 | ECharts | 5.x |
+| 构建工具 | Vite | 7.x |
 
 ---
 
@@ -494,16 +489,18 @@ Vite 配置多代理，区分认证服务和业务服务：
 
 ```javascript
 proxy: {
-  '/api/auth': {
-    target: 'http://localhost:8081',
-    changeOrigin: true
-  },
-  '/api': {
-    target: 'http://localhost:8082',
-    changeOrigin: true
-  }
+  // 用户、角色、部门管理 → asset-auth
+  '/api/users':       { target: 'http://localhost:8081', changeOrigin: true },
+  '/api/roles':       { target: 'http://localhost:8081', changeOrigin: true },
+  '/api/departments': { target: 'http://localhost:8081', changeOrigin: true },
+  // 登录认证 → asset-auth
+  '/api/auth':        { target: 'http://localhost:8081', changeOrigin: true, ws: true },
+  // 其余业务接口 → asset-business
+  '/api':             { target: 'http://localhost:8082', changeOrigin: true, ws: true }
 }
 ```
+
+> 若通过 API 网关访问，前端也可把 `/api` 统一指向 `http://localhost:9000`（asset-gateway），由网关完成路由转发。
 
 ---
 
@@ -512,12 +509,12 @@ proxy: {
 ### 9.1 环境要求
 
 - JDK 17+
-- MySQL 8.0+
-- Redis 7.0+（缓存服务）
-- Node.js 16+
 - Maven 3.9+
-- Nacos Server 3.2+（服务注册与发现）
-- Sentinel Dashboard 1.8.x（可选,熔断规则可视化）
+- Node.js 18+
+- MySQL 8.0+（本机安装即可）
+- Docker Desktop（可选，用于一键启动 Redis 与 Nacos）
+- Redis 7.0+ / Nacos 3.2+（如不使用 Docker，需自行安装）
+- Sentinel Dashboard 1.8.x（可选，熔断规则可视化）
 
 ### 9.2 数据库初始化
 
@@ -525,80 +522,71 @@ proxy: {
 CREATE DATABASE asset_management CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 ```
 
+数据库表结构由 JPA 在服务启动时自动创建/更新。默认连接配置：`localhost:3306`，用户名 `root`，密码 `123456`（可在各服务的 `application.yml` 中修改）。
+
 ### 9.3 启动步骤
 
-#### 方式一：使用一键启动脚本（推荐）
+**1. 启动基础设施（Redis + Nacos）：**
 
-```powershell
-# 双击运行或在命令行执行
-start-all.bat
+```bash
+# 在项目根目录执行，MySQL 复用本机 3306
+docker compose up -d
 ```
 
-#### 方式二：手动启动
+> 若本机已安装 Redis 与 Nacos，也可手动启动：`redis-server`、`startup.cmd -m standalone`。
 
-**1. 启动 Redis：**
+**2. 编译项目：**
 
-```powershell
-# 启动Redis（默认端口6379）
-redis-server
-```
-
-**2. 启动 Nacos：**
-
-```powershell
-# 进入Nacos目录
-cd D:\Users\30776\Downloads\nacos-server-3.2.2\nacos\bin
-
-# 启动Nacos（单机模式）
-startup.cmd -m standalone
-```
-
-**3. 编译项目：**
-
-```powershell
-cd enterprise-asset-management
+```bash
 mvn clean install -DskipTests
 ```
 
-**4. 启动认证服务：**
+**3. 启动认证服务（8081）：**
 
-```powershell
-cd asset-auth
-mvn spring-boot:run
+```bash
+mvn -pl asset-auth spring-boot:run
 ```
 
-**5. 启动业务服务：**
+**4. 启动业务服务（8082）：**
 
-```powershell
-cd asset-business
-mvn spring-boot:run
+```bash
+mvn -pl asset-business spring-boot:run
 ```
 
-**6. 启动前端服务：**
+**5. 启动前端：**
 
-```powershell
+```bash
 cd frontend
 npm install
 npm run dev
+```
+
+**6.（可选）启动 API 网关（9000）：**
+
+```bash
+mvn -pl asset-gateway spring-boot:run
 ```
 
 ### 9.4 访问地址
 
 | 服务 | 地址 |
 |------|------|
-| Nacos控制台 | http://localhost:8848/nacos |
+| 前端页面 | http://localhost:5173 |
+| API 网关 | http://localhost:9000 |
 | 认证服务 | http://localhost:8081 |
 | 业务服务 | http://localhost:8082 |
-| 前端页面 | http://localhost:5173 |
+| Nacos 控制台 | http://localhost:8848/nacos |
 
-### 9.5 默认账号
+### 9.5 演示账号
 
-| 用户名 | 密码 | 角色 |
+初始化数据包含以下账号，密码均为 `123456`：
+
+| 用户名 | 角色 | 说明 |
 |--------|------|------|
-| admin | 123456 | 系统管理员 |
-| leader | 123456 | 部门领导 |
-| manager | 123456 | 部门资产管理员 |
-| user | 123456 | 普通员工 |
+| `admin` | 系统管理员 | 全部权限，包含用户、部门、角色管理 |
+| `admin_yy` | 资产管理员 | 运营部资产管理员，可管理资产、初审报废 |
+| `leader_yy` | 部门领导 | 运营部领导，可终审报废申请 |
+| `user_yy_1` | 普通员工 | 运营部员工，可提交领用、转移、维修、报废申请 |
 
 ---
 
@@ -626,6 +614,10 @@ asset-business/
 ├── config/           # 配置类
 └── BusinessApplication.java
 
+asset-gateway/
+├── resources/        # 路由规则、跨域与服务发现配置
+└── GatewayApplication.java
+
 asset-common/
 ├── dto/              # 数据传输对象
 ├── enums/            # 枚举类
@@ -637,11 +629,16 @@ asset-common/
 
 ```
 frontend/src/
-├── views/            # 页面组件
-├── components/       # 公共组件
-├── router/           # 路由配置
+├── views/            # 页面视图
+├── components/
+│   ├── common/       # 通用组件（PageHeader、DataTable、StatusTag 等）
+│   └── business/     # 业务组件（申请表单、审批表格、详情弹窗等）
+├── stores/           # Pinia 状态管理（用户、权限）
+├── styles/           # 设计系统（theme.css：色板、圆角、阴影、动效）
+├── router/           # 路由与权限守卫
+├── directives/       # 自定义指令（权限控制）
 ├── config/           # 配置文件
-├── utils/            # 工具函数
+├── utils/            # 工具函数（请求封装、权限判断、图表权限）
 ├── App.vue
 └── main.js
 ```
@@ -705,8 +702,9 @@ frontend/src/
 - **Spring Boot 版本**：3.2.5
 - **Spring Cloud 版本**：2023.0.1
 - **Spring Cloud Alibaba 版本**：2023.0.1.0
-- **Vue 版本**：3.x
-- **Element Plus 版本**：2.x
+- **Vue 版本**：3.5.x
+- **Element Plus 版本**：2.13.x
+- **Vite 版本**：7.x
 
 ---
 

@@ -254,15 +254,10 @@ const fetchRoles = async () => {
   }
 }
 
-// 处理新增
-const handleAdd = () => {
-  console.log('新增员工')
-}
+// 新增/编辑对话框由 ManagementPage 内部管理
+const handleAdd = () => {}
 
-// 处理编辑
-const handleEdit = (row) => {
-  console.log('编辑员工', row)
-}
+const handleEdit = () => {}
 
 // 处理删除
 const handleDelete = (row) => {

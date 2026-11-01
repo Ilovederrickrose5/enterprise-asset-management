@@ -1,13 +1,17 @@
 <template>
   <div class="data-table-wrapper">
     <template v-if="!loading && data.length === 0">
-      <el-empty description="暂无数据" />
+      <div class="empty-wrap">
+        <span class="empty-icon"><el-icon><Files /></el-icon></span>
+        <p class="empty-text">{{ emptyText }}</p>
+        <p v-if="emptyHint" class="empty-hint">{{ emptyHint }}</p>
+      </div>
     </template>
     <el-table
       v-else
+      class="eam-data-table"
       :data="data"
       v-loading="loading"
-      stripe
       :border="border"
       :height="height"
       :max-height="maxHeight"
@@ -137,7 +141,7 @@
 
 <script setup>
 import { ref, computed, watch } from 'vue'
-import { Edit, Delete } from '@element-plus/icons-vue'
+import { Edit, Delete, Files } from '@element-plus/icons-vue'
 
 const props = defineProps({
   data: {
@@ -203,6 +207,14 @@ const props = defineProps({
   paginationLayout: {
     type: String,
     default: 'total, sizes, prev, pager, next, jumper'
+  },
+  emptyText: {
+    type: String,
+    default: '暂无记录'
+  },
+  emptyHint: {
+    type: String,
+    default: ''
   }
 })
 
@@ -290,9 +302,53 @@ const formatTime = (time, fallback = '-') => {
   width: 100%;
 }
 
+.empty-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 40px 0;
+}
+
+.empty-icon {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  margin-bottom: 4px;
+  font-size: 19px;
+  color: var(--eam-ink-300);
+  background: #f3f5f8;
+  border: 1px solid var(--eam-line-soft);
+  border-radius: 14px;
+}
+
+.empty-text {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--eam-ink-500);
+}
+
+.empty-hint {
+  margin: 0;
+  font-size: 12px;
+  color: var(--eam-ink-300);
+}
+
 .pagination-wrapper {
-  margin-top: 20px;
   display: flex;
   justify-content: flex-end;
+  margin-top: 4px;
+  padding: 16px 4px 2px;
+  border-top: 1px solid var(--eam-line-soft);
+}
+
+.data-table-wrapper :deep(.el-table__row) {
+  height: 56px;
+}
+
+.data-table-wrapper :deep(.el-table .cell) {
+  font-variant-numeric: tabular-nums;
 }
 </style>

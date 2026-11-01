@@ -46,17 +46,17 @@ function checkDepartmentChartPermission(userRole) {
   return rolePermissions[userRole] || false
 }
 
-// 获取用户访问级别
+// 获取用户访问级别（与 userStore 的角色优先级保持一致）
 export function getAccessLevel() {
   switch (useStore().currentUserRole) {
     case 'admin':
       return 4 // 完全访问
     case 'leader':
-      return 2 // 只读访问
+      return 3 // 本部门数据访问
     case 'manager':
-      return 3 // 部分数据访问
+      return 2 // 本部门资产维护
     case 'user':
-      return 1 // 无访问权限
+      return 1 // 仅个人数据
     default:
       return 1
   }
@@ -66,14 +66,13 @@ export function getAccessLevel() {
 export function hasDepartmentAccess(departmentId) {
   const store = useStore()
   const userRole = store.currentUserRole
-  const user = store.user
 
-  if (userRole === 'admin' || userRole === 'leader') {
+  if (userRole === 'admin') {
     return true
   }
 
-  if (userRole === 'manager' && user && user.departmentId) {
-    return user.departmentId === departmentId
+  if (userRole === 'leader' || userRole === 'manager') {
+    return store.departmentId != null && Number(store.departmentId) === Number(departmentId)
   }
 
   return false

@@ -1,5 +1,6 @@
 package com.enterprise.asset.auth.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Data;
 import org.hibernate.annotations.UpdateTimestamp;
@@ -22,6 +23,7 @@ public class User {
     @Column(unique = true, nullable = false)
     private String username;
 
+    @JsonIgnore
     @Column(nullable = false)
     private String password;
 
@@ -56,6 +58,10 @@ public class User {
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.EAGER)
     private List<UserRole> userRoles = new ArrayList<>();
 
+    /** 接收前端传入的角色编码，落库时写入 user_role 关联表 */
+    @Transient
+    private String role;
+
     /** 获取用户所有角色编码 */
     public List<String> getRoleCodes() {
         if (userRoles == null || userRoles.isEmpty()) {
@@ -82,6 +88,9 @@ public class User {
      * 注意：此方法仅用于兼容旧代码，新代码应使用getRoleCodes()
      */
     public String getRole() {
+        if (role != null && !role.isBlank()) {
+            return role;
+        }
         List<String> roleCodes = getRoleCodes();
         if (roleCodes == null || roleCodes.isEmpty()) {
             return null;
@@ -89,12 +98,8 @@ public class User {
         return roleCodes.get(0).toLowerCase();
     }
 
-    /**
-     * 兼容旧代码的角色设置方法
-     * 注意：此方法仅用于兼容旧代码，不推荐使用
-     */
+    /** 角色编码先暂存在瞬态字段，由 UserService 写入 user_role 关联表 */
     public void setRole(String role) {
-        // 保留空实现以兼容旧代码
-        // 实际角色应通过UserRoleRepository管理
+        this.role = role;
     }
 }

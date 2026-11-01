@@ -411,7 +411,7 @@ const formatDateForApi = (date) => {
 // 加载资产列表（过滤掉已报废的资产）
 const loadAssets = async () => {
   try {
-    const response = await axios.get('/assets')
+    const response = await axios.get('/assets/all')
     if (response.data.code === 200) {
       // 只保留允许计提折旧的资产状态：使用中、在库、维修中
       const allowedStatus = ['using', 'in_stock', 'maintenance']
@@ -446,23 +446,8 @@ const loadRecords = async () => {
       }
     })
     
-    console.log('=== 加载折旧记录调试信息 ===')
-    console.log('响应数据:', JSON.stringify(response.data, null, 2))
-    console.log('code字段:', response.data.code)
-    
-    if (response.data.data) {
-      console.log('记录数量:', response.data.data.length)
-      if (response.data.data.length > 0) {
-        console.log('第一条记录:', JSON.stringify(response.data.data[0], null, 2))
-        console.log('第一条记录的键:', Object.keys(response.data.data[0]))
-        console.log('asset_no:', response.data.data[0].asset_no)
-        console.log('depreciation_amount:', response.data.data[0].depreciation_amount)
-      }
-    }
-    
     if (response.data.code === 200) {
       records.value = response.data.data
-      console.log('设置的records:', JSON.stringify(records.value, null, 2))
     } else {
       console.error('加载记录失败:', response.data.message)
       records.value = []
@@ -507,32 +492,8 @@ const calculateSingleDepreciation = async () => {
       }
     })
     
-    console.log('=== 折旧计算调试信息 ===')
-    console.log('完整响应:', response)
-    console.log('响应状态码:', response.status)
-    console.log('响应数据类型:', typeof response.data)
-    console.log('响应数据:', JSON.stringify(response.data, null, 2))
-    
-    // 检查响应结构
-    console.log('code字段值:', response.data.code)
-    console.log('code字段类型:', typeof response.data.code)
-    console.log('data字段:', response.data.data)
-    console.log('data字段类型:', typeof response.data.data)
-    
-    if (response.data.data) {
-      console.log('data字段JSON:', JSON.stringify(response.data.data, null, 2))
-      console.log('data的键:', Object.keys(response.data.data))
-      console.log('asset_no:', response.data.data.asset_no)
-      console.log('asset_name:', response.data.data.asset_name)
-      console.log('depreciation_amount:', response.data.data.depreciation_amount)
-      console.log('accumulated_depreciation:', response.data.data.accumulated_depreciation)
-      console.log('current_net_value:', response.data.data.current_net_value)
-      console.log('create_time:', response.data.data.create_time)
-    }
-    
     if (response.data.code === 200) {
       singleResult.value = response.data.data
-      console.log('设置的singleResult:', JSON.stringify(singleResult.value, null, 2))
       ElMessage.success('计算成功')
     } else {
       ElMessage.error(response.data.message || '计算失败')

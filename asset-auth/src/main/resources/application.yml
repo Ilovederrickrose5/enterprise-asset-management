@@ -4,9 +4,9 @@ spring:
   
   # MySQL数据库配置（共享库）
   datasource:
-    url: jdbc:mysql://localhost:3306/asset_management?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
-    username: root
-    password: 123456
+    url: ${DB_URL:jdbc:mysql://localhost:3306/asset_management?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true}
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:123456}
     driver-class-name: com.mysql.cj.jdbc.Driver
   
   # JPA配置
@@ -36,10 +36,15 @@ spring:
         service: ${spring.application.name}  # 服务名
         enabled: true  # 启用服务发现
 
-# JWT配置
+# JWT配置（生产环境必须通过 JWT_SECRET 覆盖默认值）
 jwt:
-  secret: mySecretKey12345678901234567890123456789012  # 密钥至少32字符
-  expiration: 86400000  # 过期时间24小时（毫秒）
+  secret: ${JWT_SECRET:mySecretKey12345678901234567890123456789012}  # 密钥至少32字符
+  expiration: ${JWT_EXPIRATION:86400000}  # 过期时间24小时（毫秒）
+
+# 跨域允许来源（逗号分隔）
+app:
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:9000}
 
 # 服务器端口配置
 server:

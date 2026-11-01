@@ -54,6 +54,24 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
         this.assetCategoryRepository = assetCategoryRepository;
     }
 
+    private boolean hasAnyRole(UserDTO user, UserRole... roles) {
+        if (user == null || user.getRoleCodes() == null) {
+            return false;
+        }
+        for (String code : user.getRoleCodes()) {
+            UserRole parsed = UserRole.fromCode(code);
+            if (parsed == null) {
+                continue;
+            }
+            for (UserRole target : roles) {
+                if (parsed == target) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
     @Override
     public List<PurchaseOrder> getAllOrders() {
         return purchaseOrderRepository.findAll();
@@ -77,10 +95,7 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
         Long departmentId = userDTO.getDeptId();
 
         // 管理员可以看到所有订单
-        List<String> roleCodes = userDTO.getRoleCodes();
-        String roleCode = (roleCodes != null && !roleCodes.isEmpty()) ? roleCodes.get(0) : null;
-        UserRole userRole = UserRole.fromCode(roleCode);
-        boolean isAdmin = userRole != null && userRole.isAdmin();
+        boolean isAdmin = hasAnyRole(userDTO, UserRole.ADMIN);
 
         if (isAdmin) {
             // 管理员：查看所有订单
@@ -153,11 +168,8 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
 
         // 2. 权限检查
         logger.info("[步骤2/6] 检查创建权限");
-        List<String> roleCodes = userDTO.getRoleCodes();
-        String roleCode = (roleCodes != null && !roleCodes.isEmpty()) ? roleCodes.get(0) : null;
-        UserRole userRole = UserRole.fromCode(roleCode);
-        boolean isManager = userRole != null && userRole.isManager();
-        boolean isAdmin = userRole != null && userRole.isAdmin();
+        boolean isManager = hasAnyRole(userDTO, UserRole.MANAGER, UserRole.ASSET_MANAGER, UserRole.DEPT_MANAGER);
+        boolean isAdmin = hasAnyRole(userDTO, UserRole.ADMIN);
         logger.info("用户角色检查: isManager={}, isAdmin={}", isManager, isAdmin);
 
         if (!isManager && !isAdmin) {
@@ -283,10 +295,7 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
             throw new SecurityException("用户不存在");
         }
 
-        List<String> roleCodes = userDTO.getRoleCodes();
-        String roleCode = (roleCodes != null && !roleCodes.isEmpty()) ? roleCodes.get(0) : null;
-        UserRole userRole = UserRole.fromCode(roleCode);
-        boolean isAdmin = userRole != null && userRole.isAdmin();
+        boolean isAdmin = hasAnyRole(userDTO, UserRole.ADMIN);
 
         if (!isAdmin && !existingOrder.getCreatorId().equals(userDTO.getId())) {
             throw new SecurityException("无权修改此采购订单");
@@ -342,10 +351,7 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
             throw new SecurityException("用户不存在");
         }
 
-        List<String> roleCodes = userDTO.getRoleCodes();
-        String roleCode = (roleCodes != null && !roleCodes.isEmpty()) ? roleCodes.get(0) : null;
-        UserRole userRole = UserRole.fromCode(roleCode);
-        boolean isAdmin = userRole != null && userRole.isAdmin();
+        boolean isAdmin = hasAnyRole(userDTO, UserRole.ADMIN);
 
         if (!isAdmin && !order.getCreatorId().equals(userDTO.getId())) {
             throw new SecurityException("无权删除此采购订单");
@@ -377,11 +383,8 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
             throw new SecurityException("用户不存在");
         }
 
-        List<String> roleCodes = userDTO.getRoleCodes();
-        String roleCode = (roleCodes != null && !roleCodes.isEmpty()) ? roleCodes.get(0) : null;
-        UserRole userRole = UserRole.fromCode(roleCode);
-        boolean isManager = userRole != null && userRole.isManager();
-        boolean isAdmin = userRole != null && userRole.isAdmin();
+        boolean isManager = hasAnyRole(userDTO, UserRole.MANAGER, UserRole.ASSET_MANAGER, UserRole.DEPT_MANAGER);
+        boolean isAdmin = hasAnyRole(userDTO, UserRole.ADMIN);
 
         if (!isManager && !isAdmin) {
             throw new SecurityException("只有部门资产管理员或管理员才能更新订单状态");
@@ -425,11 +428,8 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
 
         // 3. 权限检查
         logger.info("[步骤3/5] 检查完成权限");
-        List<String> roleCodes = userDTO.getRoleCodes();
-        String roleCode = (roleCodes != null && !roleCodes.isEmpty()) ? roleCodes.get(0) : null;
-        UserRole userRole = UserRole.fromCode(roleCode);
-        boolean isManager = userRole != null && userRole.isManager();
-        boolean isAdmin = userRole != null && userRole.isAdmin();
+        boolean isManager = hasAnyRole(userDTO, UserRole.MANAGER, UserRole.ASSET_MANAGER, UserRole.DEPT_MANAGER);
+        boolean isAdmin = hasAnyRole(userDTO, UserRole.ADMIN);
         logger.info("用户角色: isManager={}, isAdmin={}", isManager, isAdmin);
 
         if (!isManager && !isAdmin) {

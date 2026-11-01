@@ -7,11 +7,11 @@
     :validate-on-rule-change="false"
   >
     <slot></slot>
-    
-    <el-form-item>
-      <el-button type="primary" @click="submit" :loading="submitting">提交</el-button>
+
+    <div class="form-actions" :style="{ paddingLeft: labelWidth }">
+      <el-button type="primary" :loading="submitting" @click="submit">提交申请</el-button>
       <el-button @click="reset">重置</el-button>
-    </el-form-item>
+    </div>
   </el-form>
 </template>
 
@@ -72,3 +72,13 @@ export default {
   }
 }
 </script>
+
+<style scoped>
+.form-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 6px;
+  padding-top: 18px;
+  border-top: 1px solid var(--eam-line-soft);
+}
+</style>

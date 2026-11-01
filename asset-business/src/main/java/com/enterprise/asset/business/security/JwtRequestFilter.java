@@ -3,7 +3,9 @@ package com.enterprise.asset.business.security;
 import com.enterprise.asset.business.client.AuthFeignClient;
 import com.enterprise.asset.common.dto.UserDTO;
 import com.enterprise.asset.common.dto.ValidateTokenRequest;
+import com.enterprise.asset.common.security.JwtUtil;
 import com.enterprise.asset.common.util.Result;
+import io.jsonwebtoken.Claims;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -18,12 +20,15 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
 import java.util.stream.Collectors;
 
 /**
  * 业务服务JWT过滤器
- * 所有token验证统一通过Feign调用auth服务的/api/auth/validate-token接口
+ * 优先本地校验签名与claims（避免每个请求都调用auth服务）；
+ * 旧版Token缺少uid等claims时，回退到auth服务的validate-token接口。
  */
 @Component
 public class JwtRequestFilter extends OncePerRequestFilter {
@@ -31,9 +36,11 @@ public class JwtRequestFilter extends OncePerRequestFilter {
     private static final Logger logger = LoggerFactory.getLogger(JwtRequestFilter.class);
 
     private final AuthFeignClient authFeignClient;
+    private final JwtUtil jwtUtil;
 
-    public JwtRequestFilter(AuthFeignClient authFeignClient) {
+    public JwtRequestFilter(AuthFeignClient authFeignClient, JwtUtil jwtUtil) {
         this.authFeignClient = authFeignClient;
+        this.jwtUtil = jwtUtil;
     }
 
     @Override
@@ -56,41 +63,81 @@ public class JwtRequestFilter extends OncePerRequestFilter {
         }
 
         if (jwt != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-            try {
-                // 通过Feign调用auth服务验证token
-                ValidateTokenRequest validateRequest = new ValidateTokenRequest();
-                validateRequest.setToken(jwt);
+            UserDTO userDTO = authenticateLocally(jwt);
+            if (userDTO == null) {
+                userDTO = authenticateRemotely(jwt);
+            }
 
-                Result<UserDTO> result = authFeignClient.validateToken(validateRequest);
+            if (userDTO != null) {
+                UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
+                        userDTO,
+                        null,
+                        userDTO.getRoleCodes() != null
+                                ? userDTO.getRoleCodes().stream()
+                                        .map(role -> new SimpleGrantedAuthority("ROLE_" + role.toUpperCase()))
+                                        .collect(Collectors.toList())
+                                : Collections.emptyList());
 
-                if (result != null && result.getCode() == 200 && result.getData() != null) {
-                    UserDTO userDTO = result.getData();
-                    logger.debug("Token validated successfully for user: {}", userDTO.getUsername());
-
-                    // 基于UserDTO创建Authentication对象
-                    UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
-                            userDTO,
-                            null,
-                            userDTO.getRoleCodes() != null ?
-                                userDTO.getRoleCodes().stream()
-                                    .map(role -> new SimpleGrantedAuthority("ROLE_" + role.toUpperCase()))
-                                    .collect(Collectors.toList()) :
-                                Collections.emptyList()
-                    );
-
-                    authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                    SecurityContextHolder.getContext().setAuthentication(authToken);
-                    logger.debug("Authentication set in SecurityContext for user: {}", userDTO.getUsername());
-                } else {
-                    logger.warn("Token validation failed: {}", result != null ? result.getMessage() : "No response");
-                }
-            } catch (Exception e) {
-                logger.error("Error in JWT filter while calling auth service: {}", e.getMessage());
-                // Feign调用失败时清除SecurityContext，避免使用失效的认证信息
-                SecurityContextHolder.clearContext();
+                authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                SecurityContextHolder.getContext().setAuthentication(authToken);
+                logger.debug("Authentication set in SecurityContext for user: {}", userDTO.getUsername());
             }
         }
 
         chain.doFilter(request, response);
+    }
+
+    /** 本地解析Token；旧版Token缺少uid时返回 null 以触发远程校验 */
+    private UserDTO authenticateLocally(String jwt) {
+        try {
+            Claims claims = jwtUtil.extractAllClaims(jwt);
+            Object uidClaim = claims.get("uid");
+            if (uidClaim == null) {
+                return null;
+            }
+
+            UserDTO userDTO = new UserDTO();
+            userDTO.setId(((Number) uidClaim).longValue());
+            userDTO.setUsername(claims.getSubject());
+            userDTO.setRealName((String) claims.get("realName"));
+
+            Object deptClaim = claims.get("deptId");
+            if (deptClaim instanceof Number number) {
+                userDTO.setDeptId(number.longValue());
+            }
+
+            List<String> roleCodes = new ArrayList<>();
+            Object rolesClaim = claims.get("roles");
+            if (rolesClaim instanceof List<?> roles) {
+                for (Object role : roles) {
+                    String code = String.valueOf(role);
+                    if (code.startsWith("ROLE_")) {
+                        code = code.substring(5);
+                    }
+                    roleCodes.add(code.toLowerCase());
+                }
+            }
+            userDTO.setRoleCodes(roleCodes);
+            return userDTO;
+        } catch (Exception e) {
+            logger.debug("本地Token校验失败: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    private UserDTO authenticateRemotely(String jwt) {
+        try {
+            ValidateTokenRequest validateRequest = new ValidateTokenRequest();
+            validateRequest.setToken(jwt);
+
+            Result<UserDTO> result = authFeignClient.validateToken(validateRequest);
+            if (result != null && result.getCode() == 200 && result.getData() != null) {
+                return result.getData();
+            }
+            logger.warn("Token validation failed: {}", result != null ? result.getMessage() : "No response");
+        } catch (Exception e) {
+            logger.error("Error in JWT filter while calling auth service: {}", e.getMessage());
+        }
+        return null;
     }
 }

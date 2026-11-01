@@ -44,9 +44,9 @@ public class UserDetailsImpl implements UserDetails {
     private Collection<? extends GrantedAuthority> authorities;
 
     public static UserDetailsImpl build(User user) {
-        // 从userRoles关联表获取所有角色
+        // 数据库角色编码为小写，Spring Security 的 hasRole 需要 ROLE_ 前缀 + 大写
         List<GrantedAuthority> authorities = user.getRoleCodes().stream()
-                .map(roleCode -> new SimpleGrantedAuthority("ROLE_" + roleCode))
+                .map(roleCode -> new SimpleGrantedAuthority("ROLE_" + roleCode.toUpperCase()))
                 .collect(Collectors.toList());
 
         // 如果没有角色，默认设置为普通用户角色

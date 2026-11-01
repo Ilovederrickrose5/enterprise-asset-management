@@ -22,17 +22,18 @@ spring:
 
       # 显式路由: 按路径前缀分发到下游服务
       routes:
+        # 认证/用户/角色/部门由 asset-auth 提供, 必须排在业务通配路由之前
         - id: asset-auth-route
           uri: lb://asset-auth          # 从 Nacos 拉取 asset-auth 实例负载均衡
           predicates:
-            - Path=/api/auth/**          # 认证相关请求
+            - Path=/api/auth/**,/api/users/**,/api/roles/**,/api/departments/**
           filters:
-            - StripPrefix=0              # 不剥前缀, 原样转发 /api/auth/**
+            - StripPrefix=0              # 不剥前缀, 原样转发
 
         - id: asset-business-route
           uri: lb://asset-business
           predicates:
-            - Path=/api/assets/**,/api/asset-applications/**,/api/reports/**,/api/depreciation/**,/api/inventory/**,/api/purchase/**
+            - Path=/api/**
           filters:
             - StripPrefix=0
 
@@ -43,8 +44,8 @@ spring:
       globalcors:
         cors-configurations:
           '[/**]':
-            allowedOriginPatterns: "*"
-            allowedMethods: "*"
+            allowedOriginPatterns: "${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:9000}"
+            allowedMethods: "GET,POST,PUT,DELETE,PATCH,OPTIONS"
             allowedHeaders: "*"
             allowCredentials: true
             maxAge: 3600

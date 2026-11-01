@@ -1,7 +1,8 @@
 <template>
-  <el-tag :type="statusType">
-    {{ statusText }}
-  </el-tag>
+  <span class="status-chip" :class="`status-chip--${statusType}`">
+    <i class="status-dot" aria-hidden="true"></i>
+    <span>{{ statusText }}</span>
+  </span>
 </template>
 
 <script>
@@ -36,3 +37,56 @@ export default {
   }
 }
 </script>
+
+<style scoped>
+.status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px 3px 9px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.5;
+  white-space: nowrap;
+  border: 1px solid transparent;
+  border-radius: var(--eam-radius-pill);
+}
+
+.status-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.85;
+}
+
+.status-chip--warning {
+  color: #8a6430;
+  background: var(--eam-warning-soft);
+  border-color: rgba(169, 122, 60, 0.14);
+}
+
+.status-chip--success {
+  color: #34634f;
+  background: var(--eam-success-soft);
+  border-color: rgba(63, 125, 100, 0.14);
+}
+
+.status-chip--danger {
+  color: #8c4646;
+  background: var(--eam-danger-soft);
+  border-color: rgba(164, 87, 87, 0.14);
+}
+
+.status-chip--info {
+  color: var(--eam-ink-500);
+  background: #f1f3f6;
+  border-color: rgba(20, 24, 33, 0.06);
+}
+
+.status-chip--primary {
+  color: var(--eam-primary-deep);
+  background: var(--eam-primary-soft);
+  border-color: rgba(61, 86, 128, 0.14);
+}
+</style>

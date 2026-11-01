@@ -1,7 +1,9 @@
 package com.enterprise.asset.business.service.impl;
 
+import com.enterprise.asset.common.dto.UserDTO;
 import com.enterprise.asset.common.enums.InventoryStatus;
 import com.enterprise.asset.common.enums.LogType;
+import com.enterprise.asset.common.enums.UserRole;
 import com.enterprise.asset.business.entity.Asset;
 import com.enterprise.asset.business.entity.AssetInventory;
 import com.enterprise.asset.business.entity.AssetInventoryDetail;
@@ -13,7 +15,6 @@ import com.enterprise.asset.business.repository.SysLogRepository;
 import com.enterprise.asset.business.service.AssetInventoryService;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -43,27 +44,19 @@ public class AssetInventoryServiceImpl implements AssetInventoryService {
     @Override
     @Transactional
     public AssetInventory createPlan(AssetInventory plan) {
+        UserDTO currentUser = getCurrentUser();
         if (!canCreatePlan()) {
             throw new RuntimeException("您没有创建盘点计划的权限");
         }
 
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication != null && authentication.getPrincipal() instanceof UserDetails) {
-            UserDetails userDetails = (UserDetails) authentication.getPrincipal();
-            String username = userDetails.getUsername();
-
-            if (!isAdmin(username)) {
-                String inventoryScope = plan.getInventoryScope();
-                String userDept = getUserDepartment(username);
-                if (userDept != null && !userDept.isEmpty() && !"全部资产".equals(inventoryScope)) {
-                    if (!userDept.equals(inventoryScope)) {
-                        throw new RuntimeException("您只能创建本部门的盘点计划");
-                    }
-                } else if ("全部资产".equals(inventoryScope)) {
-                    throw new RuntimeException("您不能创建全部资产的盘点计划");
-                }
+        if (!isAdmin(currentUser)) {
+            if ("全部资产".equals(plan.getInventoryScope())) {
+                throw new RuntimeException("您不能创建全部资产的盘点计划");
             }
+            plan.setDeptId(currentUser.getDeptId());
         }
+        plan.setCreatorId(currentUser.getId());
+        plan.setCreatorName(displayName(currentUser));
 
         String inventoryNo = generateInventoryNo();
         plan.setInventoryNo(inventoryNo);
@@ -88,7 +81,9 @@ public class AssetInventoryServiceImpl implements AssetInventoryService {
         List<Asset> assets = new ArrayList<>();
         String scope = plan.getInventoryScope();
 
-        if ("全部资产".equals(scope)) {
+        if (plan.getDeptId() != null) {
+            assets = assetRepository.findByDeptId(plan.getDeptId());
+        } else if ("全部资产".equals(scope)) {
             assets = assetRepository.findAll();
         }
 
@@ -263,17 +258,7 @@ public class AssetInventoryServiceImpl implements AssetInventoryService {
     }
 
     private boolean canAssignTask(AssetInventory plan, Long assigneeId) {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()) {
-            return false;
-        }
-
-        Object principal = authentication.getPrincipal();
-        if (!(principal instanceof UserDetails)) {
-            return false;
-        }
-
-        return false;
+        return isManagerOrAdmin(getCurrentUser());
     }
 
     @Override
@@ -403,13 +388,8 @@ public class AssetInventoryServiceImpl implements AssetInventoryService {
     }
 
     private boolean hasInventoryPermission(Long inventoryId) {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()) {
-            return false;
-        }
-
-        Object principal = authentication.getPrincipal();
-        if (!(principal instanceof UserDetails)) {
+        UserDTO currentUser = getCurrentUser();
+        if (currentUser == null) {
             return false;
         }
 
@@ -417,8 +397,14 @@ public class AssetInventoryServiceImpl implements AssetInventoryService {
         if (plan == null) {
             return false;
         }
-
-        return false;
+        if (isAdmin(currentUser)) {
+            return true;
+        }
+        if (isManagerOrAdmin(currentUser)) {
+            return plan.getDeptId() == null || currentUser.getDeptId() == null
+                    || plan.getDeptId().equals(currentUser.getDeptId());
+        }
+        return currentUser.getId().equals(plan.getAssigneeId());
     }
 
     @Override
@@ -432,44 +418,59 @@ public class AssetInventoryServiceImpl implements AssetInventoryService {
     }
 
     private boolean canCreatePlan() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()) {
-            return false;
-        }
-
-        Object principal = authentication.getPrincipal();
-        if (!(principal instanceof UserDetails)) {
-            return false;
-        }
-
-        return true;
+        UserDTO currentUser = getCurrentUser();
+        return isManagerOrAdmin(currentUser) || hasRole(currentUser, UserRole.LEADER);
     }
 
-    private boolean isAdmin(String username) {
-        if (username == null) {
+    private UserDTO getCurrentUser() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return null;
+        }
+        return authentication.getPrincipal() instanceof UserDTO userDTO ? userDTO : null;
+    }
+
+    private boolean isAdmin(UserDTO user) {
+        return hasRole(user, UserRole.ADMIN);
+    }
+
+    private boolean isManagerOrAdmin(UserDTO user) {
+        return isAdmin(user) || hasRole(user, UserRole.MANAGER, UserRole.ASSET_MANAGER, UserRole.DEPT_MANAGER);
+    }
+
+    private boolean hasRole(UserDTO user, UserRole... roles) {
+        if (user == null || user.getRoleCodes() == null) {
             return false;
+        }
+        for (String code : user.getRoleCodes()) {
+            UserRole parsed = UserRole.fromCode(code);
+            if (parsed == null) {
+                continue;
+            }
+            for (UserRole target : roles) {
+                if (parsed == target) {
+                    return true;
+                }
+            }
         }
         return false;
     }
 
-    private String getCurrentUsername() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()) {
+    private String displayName(UserDTO user) {
+        if (user == null) {
             return "system";
         }
-
-        Object principal = authentication.getPrincipal();
-        if (principal instanceof UserDetails) {
-            return ((UserDetails) principal).getUsername();
-        }
-        return principal != null ? principal.toString() : "system";
+        return user.getRealName() != null && !user.getRealName().isBlank()
+                ? user.getRealName()
+                : user.getUsername();
     }
 
-    private String getUserDepartment(String username) {
-        return null;
+    private String getCurrentUsername() {
+        return displayName(getCurrentUser());
     }
 
     private Long getCurrentUserId() {
-        return null;
+        UserDTO currentUser = getCurrentUser();
+        return currentUser != null ? currentUser.getId() : null;
     }
 }

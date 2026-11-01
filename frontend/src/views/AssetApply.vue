@@ -1,6 +1,7 @@
 <template>
   <ApplyPage
     page-class="asset-apply"
+    :page-subtitle="pageSubtitle"
     :form-title="currentTypeLabel + '申请'"
     record-title="我的申请记录"
     :show-form="showApplyForm"
@@ -11,10 +12,10 @@
     @form-reset="handleFormReset"
   >
     <template #header-extra>
-      <el-select v-model="applicationType" @change="handleTypeChange">
-        <el-option label="资产领用" value="RECEIVE" />
-        <el-option label="资产维修" value="MAINTENANCE" />
-      </el-select>
+      <el-radio-group v-model="applicationType" class="type-switch" @change="handleTypeChange">
+        <el-radio-button value="RECEIVE">资产领用</el-radio-button>
+        <el-radio-button value="MAINTENANCE">资产维修</el-radio-button>
+      </el-radio-group>
     </template>
     <template #form="{ submit, reset }">
       <ApplyForm
@@ -26,8 +27,10 @@
     </template>
     
     <template #column-assetId="{ row }">
-      <div>{{ getAssetName(row.assetId, allAssets) }}</div>
-      <div style="color: #999; font-size: 12px;">{{ getAssetModel(row.assetId, allAssets) }}</div>
+      <div class="cell-stack">
+        <span class="cell-main">{{ getAssetName(row.assetId, allAssets) }}</span>
+        <span class="cell-sub">{{ getAssetModel(row.assetId, allAssets) }}</span>
+      </div>
     </template>
     
     <template #column-status="{ row }">
@@ -75,6 +78,10 @@ const typeLabels = {
 
 const currentTypeLabel = computed(() => typeLabels[applicationType.value] || '资产申请')
 
+const pageSubtitle = computed(() => applicationType.value === 'MAINTENANCE'
+  ? '选择本人名下资产并填写故障情况，提交后进入维修审批'
+  : '选择未被领用的资产并说明用途，提交后由部门审批')
+
 // 记录表格列配置
 const recordColumns = [
   { prop: 'id', label: '申请编号', width: '100' },
@@ -100,13 +107,12 @@ const fetchAssets = async () => {
       // 领用申请：获取可领用的资产（未分配的资产）
       response = await axios.get('/assets/available')
     } else {
-      // 其他申请类型：获取所有资产
-      response = await axios.get('/assets')
+      // 其他申请类型：获取当前用户权限范围内的全部资产
+      response = await axios.get('/assets/all')
     }
-    console.log('资产接口响应:', response.data)
     if (response.data.code === 200) {
-      allAssets.value = response.data.data
-      console.log('获取到的所有资产:', allAssets.value)
+      const payload = response.data.data
+      allAssets.value = Array.isArray(payload) ? payload : (payload.content || [])
       updateAssetOptions()
     }
   } catch (error) {
@@ -115,16 +121,11 @@ const fetchAssets = async () => {
 }
 
 const updateAssetOptions = () => {
-  console.log('updateAssetOptions 被调用，当前申请类型:', applicationType.value)
-  console.log('所有资产数量:', allAssets.value.length)
-  console.log('所有资产的 userId:', allAssets.value.map(a => ({ id: a.id, userId: a.userId, status: a.status })))
-  
   if (applicationType.value === 'RECEIVE') {
     // 领用申请：选择未被分配给用户的资产（userId为空或为null的资产）
-    const filtered = allAssets.value.filter(asset => 
+    const filtered = allAssets.value.filter(asset =>
       !asset.userId || asset.userId === null || asset.userId === 0
     )
-    console.log('筛选后的资产数量:', filtered.length)
     assetOptions.value = filtered
   } else if (applicationType.value === 'MAINTENANCE') {
     // 维修申请：只能选择使用中或闲置的资产（仅限当前用户名下的资产，排除维修中的资产）
@@ -213,7 +214,50 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.asset-apply {
-  padding: 20px;
+.type-switch {
+  padding: 3px;
+  background: #eaeef4;
+  border-radius: 11px;
+}
+
+.type-switch :deep(.el-radio-button__inner) {
+  padding: 6px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--eam-ink-500);
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  box-shadow: none !important;
+  transition: background-color var(--eam-duration-fast) var(--eam-ease),
+    color var(--eam-duration-fast) var(--eam-ease);
+}
+
+.type-switch :deep(.el-radio-button__inner:hover) {
+  color: var(--eam-ink-800);
+}
+
+.type-switch :deep(.el-radio-button__original-radio:checked + .el-radio-button__inner) {
+  font-weight: 600;
+  color: var(--eam-ink-900);
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(20, 24, 33, 0.08), 0 0 0 1px rgba(20, 24, 33, 0.05) !important;
+}
+
+.cell-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.cell-main {
+  font-size: 13px;
+  color: var(--eam-ink-800);
+}
+
+.cell-sub {
+  font-size: 11.5px;
+  color: var(--eam-ink-400);
 }
 </style>

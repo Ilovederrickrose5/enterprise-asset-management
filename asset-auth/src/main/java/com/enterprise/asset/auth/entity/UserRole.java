@@ -1,5 +1,6 @@
 package com.enterprise.asset.auth.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Data;
 import org.hibernate.annotations.CreationTimestamp;
@@ -35,7 +36,8 @@ public class UserRole {
     @Column(name = "updated_at")
     private LocalDateTime updateTime;
 
-    /** 关联用户实体 */
+    /** 关联用户实体（序列化时忽略，避免 User ↔ UserRole 循环引用） */
+    @JsonIgnore
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", insertable = false, updatable = false)
     private User user;

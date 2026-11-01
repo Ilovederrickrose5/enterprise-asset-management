@@ -115,15 +115,10 @@ const fetchSuppliers = async () => {
   }
 }
 
-// 处理新增
-const handleAdd = () => {
-  console.log('新增供应商')
-}
+// 新增/编辑对话框由 ManagementPage 内部管理
+const handleAdd = () => {}
 
-// 处理编辑
-const handleEdit = (row) => {
-  console.log('编辑供应商', row)
-}
+const handleEdit = () => {}
 
 // 处理删除
 const handleDelete = async (row) => {

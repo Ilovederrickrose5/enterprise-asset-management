@@ -3,19 +3,49 @@
     <el-header class="header">
       <div class="header-content">
         <div class="header-left">
-          <h1 v-if="!isCollapse">企业固定资产管理系统</h1>
-          <h1 v-else style="margin-left: 10px; font-size: 1.2rem;">资产管理</h1>
+          <button
+            class="nav-toggle"
+            type="button"
+            :aria-label="isCollapse ? '展开侧边栏' : '收起侧边栏'"
+            @click="isCollapse = !isCollapse"
+          >
+            <el-icon><Menu /></el-icon>
+          </button>
+          <div class="brand">
+            <span class="brand-mark">EA</span>
+            <div class="brand-copy">
+              <strong>企业固定资产</strong>
+              <span>Asset Management</span>
+            </div>
+          </div>
         </div>
-        <div class="user-info">
-          <el-tag type="success" effect="dark">欢迎，{{ getUserName() }}</el-tag>
+
+        <div class="header-actions">
+          <div class="header-search">
+            <el-icon class="header-search-icon"><Search /></el-icon>
+            <input
+              v-model="searchKeyword"
+              class="header-search-input"
+              type="text"
+              placeholder="搜索资产名称或编号"
+              @keyup.enter="handleSearch"
+            />
+            <button class="header-search-submit" type="button" @click="handleSearch">搜索</button>
+          </div>
+
           <el-dropdown trigger="click">
-            <el-button circle>
-              <el-icon><Setting /></el-icon>
-            </el-button>
+            <button class="user-chip" type="button">
+              <span class="avatar">{{ getUserName().slice(0, 1) }}</span>
+              <span class="user-meta">
+                <strong>{{ getUserName() }}</strong>
+                <span>{{ getRoleName() }}</span>
+              </span>
+              <el-icon class="user-caret"><Setting /></el-icon>
+            </button>
             <template #dropdown>
               <el-dropdown-menu>
                 <el-dropdown-item @click="navigateTo('/settings')">系统设置</el-dropdown-item>
-                <el-dropdown-item @click="logout">退出登录</el-dropdown-item>
+                <el-dropdown-item divided @click="logout">退出登录</el-dropdown-item>
               </el-dropdown-menu>
             </template>
           </el-dropdown>
@@ -24,166 +54,225 @@
     </el-header>
     
     <el-container class="content">
-      <el-aside :width="isCollapse ? '80px' : '240px'" class="sidebar" :class="{ 'sidebar-collapsed': isCollapse }">
-        <el-menu
-          :default-active="currentMenu"
-          class="el-menu-vertical"
-          @select="handleMenuSelect"
-          :collapse="isCollapse"
-        >
-          <template v-for="menu in accessibleMenus" :key="menu.id">
-            <!-- 有子菜单的情况 -->
-            <el-sub-menu v-if="menu.children && menu.children.length > 0" :index="String(menu.id)">
-              <template #title>
+      <el-aside :width="isCollapse ? '84px' : '248px'" class="sidebar" :class="{ 'sidebar-collapsed': isCollapse }">
+        <div class="sidebar-inner">
+          <p v-if="!isCollapse" class="nav-caption">导航</p>
+
+          <el-menu
+            :default-active="currentMenu"
+            class="el-menu-vertical"
+            @select="handleMenuSelect"
+            :collapse="isCollapse"
+          >
+            <template v-for="menu in accessibleMenus" :key="menu.id">
+              <!-- 有子菜单的情况 -->
+              <el-sub-menu v-if="menu.children && menu.children.length > 0" :index="String(menu.id)">
+                <template #title>
+                  <el-icon><component :is="getMenuIcon(menu.id)" /></el-icon>
+                  <span v-if="!isCollapse">{{ menu.title }}</span>
+                </template>
+                <el-menu-item
+                  v-for="subMenu in menu.children"
+                  :key="subMenu.id"
+                  :index="String(subMenu.id)"
+                >
+                  <el-icon><component :is="getMenuIcon(subMenu.id)" /></el-icon>
+                  <span v-if="!isCollapse">{{ getMenuTitle(subMenu) }}</span>
+                </el-menu-item>
+              </el-sub-menu>
+              <!-- 没有子菜单的情况 -->
+              <el-menu-item v-else :index="String(menu.id)">
                 <el-icon><component :is="getMenuIcon(menu.id)" /></el-icon>
                 <span v-if="!isCollapse">{{ menu.title }}</span>
-              </template>
-              <el-menu-item 
-                v-for="subMenu in menu.children" 
-                :key="subMenu.id"
-                :index="String(subMenu.id)"
-              >
-                <el-icon><component :is="getMenuIcon(subMenu.id)" /></el-icon>
-                <span v-if="!isCollapse">{{ getMenuTitle(subMenu) }}</span>
               </el-menu-item>
-            </el-sub-menu>
-            <!-- 没有子菜单的情况 -->
-            <el-menu-item v-else :index="String(menu.id)">
-              <el-icon><component :is="getMenuIcon(menu.id)" /></el-icon>
-              <span v-if="!isCollapse">{{ menu.title }}</span>
-            </el-menu-item>
-          </template>
-        </el-menu>
-        
-        <!-- 待处理任务 -->
-        <el-card v-if="!isCollapse && pendingTasks.length > 0" class="pending-tasks-card" shadow="hover" style="margin-top: 20px;">
-          <template #header>
-            <div class="card-header">
-              <span class="task-count">{{ pendingTasks.length }}</span>
-              <span>待我处理</span>
-            </div>
-          </template>
-          
-          <el-scrollbar max-height="200px">
-            <el-timeline>
-              <el-timeline-item
-                v-for="(task, index) in pendingTasks"
-                :key="index"
-                :timestamp="task.timeText"
-                placement="top"
-              >
-                <div class="task-content">
-                  <el-tag type="warning" size="small" class="task-type">{{ getTypeLabel(task.type) }}</el-tag>
-                  <span>{{ task.content }}</span>
+            </template>
+          </el-menu>
+
+          <div v-if="!isCollapse" class="sidebar-footer">
+            <!-- 待处理任务 -->
+            <el-card v-if="pendingTasks.length > 0" class="pending-tasks-card" shadow="never">
+              <template #header>
+                <div class="panel-head">
+                  <div class="panel-title">
+                    <span class="panel-icon"><el-icon><Operation /></el-icon></span>
+                    <div>
+                      <strong>待我处理</strong>
+                      <span>需要关注的任务</span>
+                    </div>
+                  </div>
+                  <span class="task-count">{{ pendingTasks.length }}</span>
                 </div>
-              </el-timeline-item>
-            </el-timeline>
-          </el-scrollbar>
-        </el-card>
-        
-        <!-- 最近动态 -->
-        <el-card v-if="!isCollapse" class="recent-activities-card" shadow="hover" style="margin-top: 20px;">
-          <template #header>
-            <div class="card-header">
-              <span>最近动态</span>
-            </div>
-          </template>
-          
-          <el-scrollbar max-height="250px">
-            <el-timeline v-if="recentActivities.length > 0">
-              <el-timeline-item
-                v-for="(activity, index) in recentActivities"
-                :key="index"
-                :timestamp="activity.timeText"
-                placement="top"
-              >
-                <div class="activity-content">
-                  <el-tag :type="getActivityTagType(activity.type)" size="small" class="activity-type">{{ getTypeLabel(activity.type) }}</el-tag>
-                  <span><strong>{{ activity.operator }}：</strong>{{ activity.content }}</span>
+              </template>
+
+              <el-scrollbar max-height="210px">
+                <el-timeline>
+                  <el-timeline-item
+                    v-for="(task, index) in pendingTasks"
+                    :key="index"
+                    :timestamp="task.timeText"
+                    placement="top"
+                  >
+                    <div class="task-content">
+                      <el-tag type="warning" size="small" class="task-type" effect="plain">{{ getTypeLabel(task.type) }}</el-tag>
+                      <span>{{ task.content }}</span>
+                    </div>
+                  </el-timeline-item>
+                </el-timeline>
+              </el-scrollbar>
+            </el-card>
+
+            <!-- 最近动态 -->
+            <el-card class="recent-activities-card" shadow="never">
+              <template #header>
+                <div class="panel-head">
+                  <div class="panel-title">
+                    <span class="panel-icon"><el-icon><Clock /></el-icon></span>
+                    <div>
+                      <strong>最近动态</strong>
+                      <span>系统操作记录</span>
+                    </div>
+                  </div>
                 </div>
-              </el-timeline-item>
-            </el-timeline>
-            <el-empty v-else description="暂无操作记录" />
-          </el-scrollbar>
-        </el-card>
-      </el-aside>
-      
-      <el-main class="main-content">
-        <!-- 资产搜索 -->
-        <div class="search-filter-container">
-          <div class="search-filter-section">
-            <el-input
-              v-model="searchKeyword"
-              placeholder="搜索资产..."
-              size="small"
-              class="search-input"
-              @keyup.enter="handleSearch"
-            >
-              <template #prefix>
-                <el-icon><Search /></el-icon>
               </template>
-              <template #suffix>
-                <el-button type="primary" plain size="small" @click="handleSearch">
-                  搜索
-                </el-button>
-              </template>
-            </el-input>
+
+              <el-scrollbar max-height="230px">
+                <el-timeline v-if="recentActivities.length > 0">
+                  <el-timeline-item
+                    v-for="(activity, index) in recentActivities"
+                    :key="index"
+                    :timestamp="activity.timeText"
+                    placement="top"
+                  >
+                    <div class="activity-content">
+                      <el-tag :type="getActivityTagType(activity.type)" size="small" class="activity-type" effect="plain">{{ getTypeLabel(activity.type) }}</el-tag>
+                      <span><strong>{{ activity.operator }}</strong>{{ activity.content }}</span>
+                    </div>
+                  </el-timeline-item>
+                </el-timeline>
+                <div v-else class="empty-state">
+                  <span class="empty-state__icon"><el-icon><Clock /></el-icon></span>
+                  <strong>暂无操作记录</strong>
+                  <span>系统操作后会自动记录在这里</span>
+                </div>
+              </el-scrollbar>
+            </el-card>
           </div>
         </div>
+      </el-aside>
 
-        <!--根据用户角色展示不同的资产概览卡片-->
-        <el-card shadow="hover" style="margin-bottom: 20px;">
-          <template #header>
-            <div class="card-header">
-              <el-icon><User /></el-icon>
-              <span>{{ getUserRoleFromLocalStorage() === 'user' ? '个人资产概览' : (getUserRoleFromLocalStorage() === 'admin' ? '公司资产概览' : '部门资产概览') }}</span>
-            </div>
-          </template>
-          <div class="stats-grid">
-            <div class="stat-item">
-              <div class="stat-value">{{ getUserRoleFromLocalStorage() === 'user' ? myAssetCount : totalAssetCount }}</div>
-              <div class="stat-label">{{ getUserRoleFromLocalStorage() === 'user' ? '资产数量' : (getUserRoleFromLocalStorage() === 'admin' ? '公司资产总数' : '部门资产总数') }}</div>
-            </div>
-            <div v-if="getUserRoleFromLocalStorage() !== 'user'" class="stat-item">
-              <div class="stat-value">{{ myApplicationCount }}</div>
-              <div class="stat-label">待处理申请</div>
-            </div>
-            <div v-if="getUserRoleFromLocalStorage() === 'user'" class="stat-item">
-              <div class="stat-value">{{ usingAssetCount }}</div>
-              <div class="stat-label">使用中资产</div>
-            </div>
-            <div v-if="getUserRoleFromLocalStorage() === 'user'" class="stat-item">
-              <div class="stat-value">{{ idleAssetCount }}</div>
-              <div class="stat-label">闲置资产</div>
-            </div>
-            <div v-if="getUserRoleFromLocalStorage() === 'user'" class="stat-item">
-              <div class="stat-value">{{ maintenanceAssetCount }}</div>
-              <div class="stat-label">维修中资产</div>
-            </div>
-            <div v-if="getUserRoleFromLocalStorage() !== 'user'" class="stat-item">
-              <div class="stat-value">{{ usingAssetCount }}</div>
-              <div class="stat-label">使用中资产</div>
-            </div>
-            <div v-if="getUserRoleFromLocalStorage() !== 'user'" class="stat-item">
-              <div class="stat-value">{{ idleAssetCount }}</div>
-              <div class="stat-label">闲置资产</div>
-            </div>
-            <div v-if="getUserRoleFromLocalStorage() === 'admin'" class="stat-item">
-              <div class="stat-value">{{ formatPrice(totalAssetValue) }}</div>
-              <div class="stat-label">资产总价值</div>
-            </div>
+      <div
+        class="sidebar-scrim"
+        :class="{ 'is-visible': !isCollapse }"
+        @click="isCollapse = true"
+      ></div>
+
+      <el-main class="main-content">
+        <section class="overview-hero">
+          <div class="overview-copy">
+            <p class="eam-eyebrow">OVERVIEW · {{ userDepartment }}</p>
+            <h2>{{ greeting }}，{{ getUserName() }}</h2>
+            <p class="overview-sub">这是当前的资产概览，数据实时更新。</p>
           </div>
-        </el-card>
+          <div class="overview-meta">
+            <span class="live-dot"></span>
+            <span>数据已同步</span>
+          </div>
+        </section>
+
+        <section class="stats-grid">
+          <template v-if="getUserRoleFromLocalStorage() === 'user'">
+            <article class="stat-card">
+              <span class="stat-icon"><el-icon><Box /></el-icon></span>
+              <div class="stat-body">
+                <span class="stat-label">资产数量</span>
+                <strong class="stat-value">{{ myAssetCount }}</strong>
+                <span class="stat-meta">当前归属资产</span>
+              </div>
+            </article>
+            <article class="stat-card">
+              <span class="stat-icon"><el-icon><TrendCharts /></el-icon></span>
+              <div class="stat-body">
+                <span class="stat-label">使用中</span>
+                <strong class="stat-value">{{ usingAssetCount }}</strong>
+                <span class="stat-meta">正在使用</span>
+              </div>
+            </article>
+            <article class="stat-card">
+              <span class="stat-icon"><el-icon><Clock /></el-icon></span>
+              <div class="stat-body">
+                <span class="stat-label">闲置</span>
+                <strong class="stat-value">{{ idleAssetCount }}</strong>
+                <span class="stat-meta">可随时领用</span>
+              </div>
+            </article>
+            <article class="stat-card">
+              <span class="stat-icon"><el-icon><Operation /></el-icon></span>
+              <div class="stat-body">
+                <span class="stat-label">维修中</span>
+                <strong class="stat-value">{{ maintenanceAssetCount }}</strong>
+                <span class="stat-meta">处理中资产</span>
+              </div>
+            </article>
+          </template>
+
+          <template v-else>
+            <article class="stat-card">
+              <span class="stat-icon"><el-icon><OfficeBuilding /></el-icon></span>
+              <div class="stat-body">
+                <span class="stat-label">{{ getUserRoleFromLocalStorage() === 'admin' ? '公司资产总数' : '部门资产总数' }}</span>
+                <strong class="stat-value">{{ totalAssetCount }}</strong>
+                <span class="stat-meta">全部状态合计</span>
+              </div>
+            </article>
+            <article class="stat-card">
+              <span class="stat-icon"><el-icon><Clock /></el-icon></span>
+              <div class="stat-body">
+                <span class="stat-label">待处理申请</span>
+                <strong class="stat-value">{{ myApplicationCount }}</strong>
+                <span class="stat-meta">等待审批</span>
+              </div>
+            </article>
+            <article class="stat-card">
+              <span class="stat-icon"><el-icon><TrendCharts /></el-icon></span>
+              <div class="stat-body">
+                <span class="stat-label">使用中</span>
+                <strong class="stat-value">{{ usingAssetCount }}</strong>
+                <span class="stat-meta">已分配资产</span>
+              </div>
+            </article>
+            <article class="stat-card">
+              <span class="stat-icon"><el-icon><Box /></el-icon></span>
+              <div class="stat-body">
+                <span class="stat-label">闲置</span>
+                <strong class="stat-value">{{ idleAssetCount }}</strong>
+                <span class="stat-meta">可调配资产</span>
+              </div>
+            </article>
+            <article v-if="getUserRoleFromLocalStorage() === 'admin'" class="stat-card stat-card--accent">
+              <span class="stat-icon"><el-icon><Document /></el-icon></span>
+              <div class="stat-body">
+                <span class="stat-label">资产总价值</span>
+                <strong class="stat-value stat-value--money" :title="formatPrice(totalAssetValue)">{{ formatMoneyCompact(totalAssetValue) }}</strong>
+                <span class="stat-meta">按原值合计</span>
+              </div>
+            </article>
+          </template>
+        </section>
 
         <!-- 最近申请 (仅普通员工) -->
-        <el-card v-if="getUserRoleFromLocalStorage() === 'user'" shadow="hover" style="margin-bottom: 20px;">
+        <el-card v-if="getUserRoleFromLocalStorage() === 'user'" shadow="never" class="panel-card">
           <template #header>
-            <div class="card-header">
-              <el-icon><Clock /></el-icon>
-              <span>最近申请</span>
+            <div class="panel-head">
+              <div class="panel-title">
+                <span class="panel-icon"><el-icon><Clock /></el-icon></span>
+                <div>
+                  <strong>最近申请</strong>
+                  <span>你最近提交的资产申请</span>
+                </div>
+              </div>
               <el-button type="primary" plain size="small" @click="navigateTo('/my-applications')">
-                <el-icon><ArrowRight /></el-icon>
                 <span>查看全部</span>
+                <el-icon><ArrowRight /></el-icon>
               </el-button>
             </div>
           </template>
@@ -195,7 +284,7 @@
                 :timestamp="formatTime(app.applicationDate)"
                 placement="top"
               >
-                <el-card shadow="hover" class="application-card">
+                <el-card shadow="never" class="application-card">
                   <div class="application-content">
                     <div class="application-title">
                       <span>{{ getApplicationTypeName(app.applicationType) }}</span>
@@ -219,31 +308,49 @@
               </el-timeline-item>
             </el-timeline>
           </div>
-          <el-empty v-else description="暂无申请记录" />
+          <div v-else class="empty-state">
+            <span class="empty-state__icon"><el-icon><Files /></el-icon></span>
+            <strong>暂无申请记录</strong>
+            <span>提交领用、维修等申请后可在这里查看进度</span>
+          </div>
         </el-card>
 
         <!-- 图表区域 -->
-        <el-row :gutter="20" style="margin-bottom: 20px;" v-if="checkChartPermission('status')">
-          <el-col :span="12">
-            <el-card class="chart-card" shadow="hover">
+        <el-row :gutter="20" class="chart-row" v-if="checkChartPermission('status')">
+          <el-col :xs="24" :md="12">
+            <el-card class="chart-card panel-card" shadow="never">
               <template #header>
-                <div class="card-header">
-                  <el-icon><PieChart /></el-icon>
-                  <span>资产状态分布</span>
+                <div class="panel-head">
+                  <div class="panel-title">
+                    <span class="panel-icon"><el-icon><PieChart /></el-icon></span>
+                    <div>
+                      <strong>资产状态分布</strong>
+                      <span>按当前状态统计</span>
+                    </div>
+                  </div>
                 </div>
               </template>
-              <div class="chart-container">
+              <div class="chart-container chart-container--donut">
                 <div ref="statusChartRef" class="chart"></div>
+                <div class="donut-center">
+                  <strong>{{ statusTotal }}</strong>
+                  <span>资产总数</span>
+                </div>
               </div>
             </el-card>
           </el-col>
-          
-          <el-col :span="12">
-            <el-card class="chart-card" shadow="hover">
+
+          <el-col :xs="24" :md="12">
+            <el-card class="chart-card panel-card" shadow="never">
               <template #header>
-                <div class="card-header">
-                  <el-icon><TrendCharts /></el-icon>
-                  <span>资产价值分布</span>
+                <div class="panel-head">
+                  <div class="panel-title">
+                    <span class="panel-icon"><el-icon><TrendCharts /></el-icon></span>
+                    <div>
+                      <strong>资产价值分布</strong>
+                      <span>各状态资产价值对比 · 对数刻度</span>
+                    </div>
+                  </div>
                 </div>
               </template>
               <div class="chart-container">
@@ -254,16 +361,21 @@
         </el-row>
 
         <!-- 部门资产统计和详细数据 - 左右布局 -->
-        <el-row :gutter="20" v-if="checkChartPermission('department')" style="margin-bottom: 20px;">
-          <el-col :span="12">
-            <el-card class="department-card" shadow="hover" style="height: 100%;">
+        <el-row :gutter="20" class="chart-row" v-if="checkChartPermission('department')">
+          <el-col :xs="24" :md="11">
+            <el-card class="department-card panel-card" shadow="never">
               <template #header>
-                <div class="card-header">
-                  <el-icon><OfficeBuilding /></el-icon>
-                  <span>部门资产统计</span>
+                <div class="panel-head">
+                  <div class="panel-title">
+                    <span class="panel-icon"><el-icon><OfficeBuilding /></el-icon></span>
+                    <div>
+                      <strong>部门资产统计</strong>
+                      <span>部门资产数量与价值</span>
+                    </div>
+                  </div>
                   <el-button type="primary" plain size="small" @click="navigateTo('/departments')">
-                    <el-icon><ArrowRight /></el-icon>
                     <span>查看详情</span>
+                    <el-icon><ArrowRight /></el-icon>
                   </el-button>
                 </div>
               </template>
@@ -272,36 +384,41 @@
               </div>
             </el-card>
           </el-col>
-          
-          <el-col :span="12">
-            <el-card class="department-detail-card" shadow="hover" style="height: 100%;">
+
+          <el-col :xs="24" :md="13">
+            <el-card class="department-detail-card panel-card" shadow="never">
               <template #header>
-                <div class="card-header">
-                  <el-icon><Document /></el-icon>
-                  <span>部门资产详细数据</span>
+                <div class="panel-head">
+                  <div class="panel-title">
+                    <span class="panel-icon"><el-icon><Document /></el-icon></span>
+                    <div>
+                      <strong>部门资产明细</strong>
+                      <span>各维度资产数据</span>
+                    </div>
+                  </div>
                   <el-button type="primary" plain size="small" @click="exportDepartmentStats">
-                    <el-icon><Download /></el-icon>
                     <span>导出数据</span>
+                    <el-icon><Download /></el-icon>
                   </el-button>
                 </div>
               </template>
-              <el-table :data="departmentStats" style="width: 100%" max-height="280">
-                <el-table-column prop="departmentName" label="部门名称" min-width="100" />
-                <el-table-column prop="assetCount" label="资产数量" width="80" />
-                <el-table-column prop="totalValue" label="资产总价值" width="110">
+              <el-table :data="departmentStats" style="width: 100%" max-height="300">
+                <el-table-column prop="departmentName" label="部门名称" min-width="84" />
+                <el-table-column prop="assetCount" label="资产数量" width="66" align="right" />
+                <el-table-column prop="totalValue" label="资产总价值" width="96" align="right">
                   <template #default="scope">
-                    {{ formatPrice(scope.row.totalValue) }}
+                    <span :title="formatPrice(scope.row.totalValue)">{{ formatMoneyCompact(scope.row.totalValue) }}</span>
                   </template>
                 </el-table-column>
-                <el-table-column prop="averageValue" label="平均价值" width="100">
+                <el-table-column prop="averageValue" label="平均价值" width="92" align="right">
                   <template #default="scope">
-                    {{ formatPrice(scope.row.averageValue) }}
+                    <span :title="formatPrice(scope.row.averageValue)">{{ formatMoneyCompact(scope.row.averageValue) }}</span>
                   </template>
                 </el-table-column>
-                <el-table-column prop="inUseCount" label="使用中" width="70" />
-                <el-table-column prop="idleCount" label="闲置" width="70" />
-                <el-table-column prop="maintenanceCount" label="维修中" width="70" />
-                <el-table-column prop="scrappedCount" label="已报废" width="70" />
+                <el-table-column prop="inUseCount" label="使用中" width="58" align="right" />
+                <el-table-column prop="idleCount" label="闲置" width="50" align="right" />
+                <el-table-column prop="maintenanceCount" label="维修中" width="58" align="right" />
+                <el-table-column prop="scrappedCount" label="已报废" width="58" align="right" />
               </el-table>
             </el-card>
           </el-col>
@@ -318,7 +435,7 @@ import axios from '../utils/request'
 import * as echarts from 'echarts'
 import { ElMessageBox } from 'element-plus'
 import { getAccessibleMenus } from '../utils/permission'
-import { checkChartPermission, getAccessLevel } from '../utils/chartPermission'
+import { checkChartPermission } from '../utils/chartPermission'
 import { useUserStore } from '../stores/userStore'
 import { 
   DataBoard, 
@@ -336,7 +453,8 @@ import {
   ArrowRight,
   Download,
   Box,
-  Message
+  Message,
+  Files
 } from '@element-plus/icons-vue'
 
 export default {
@@ -345,7 +463,7 @@ export default {
     const router = useRouter()
     const userStore = useUserStore()
     const currentMenu = ref('1')
-    const isCollapse = ref(false)
+    const isCollapse = ref(window.innerWidth <= 960)
     const statsData = ref({})
     const pendingTasks = ref([])
     const recentActivities = ref([])
@@ -361,6 +479,14 @@ export default {
     
     const username = computed(() => (userStore.user ? userStore.user.username : ''))
     const userDepartment = computed(() => (userStore.user ? (userStore.user.departmentName || userStore.user.department) : '') || '公司')
+    const greeting = computed(() => {
+      const hour = new Date().getHours()
+      if (hour < 6) return '夜深了'
+      if (hour < 12) return '早上好'
+      if (hour < 14) return '中午好'
+      if (hour < 18) return '下午好'
+      return '晚上好'
+    })
     // 获取当前用户角色（统一从 store 取）
     const getUserRoleFromLocalStorage = () => {
       return userStore.currentUserRole
@@ -374,7 +500,8 @@ export default {
     const totalAssetValue = ref(0)
     const departmentStats = ref([])
     const statusDistribution = ref([])
-    
+    const statusTotal = computed(() => statusDistribution.value.reduce((sum, item) => sum + (Number(item.count) || 0), 0))
+
     const statusChartRef = ref(null)
     const valueChartRef = ref(null)
     const departmentChartRef = ref(null)
@@ -545,14 +672,14 @@ export default {
               }
             }
           } else {
-            // 普通员工：查看自己发起的申请
+            // 普通员工：统计自己仍在审批中的资产申请（采购申请接口不对普通员工开放）
             const assetResponse = await axios.get(`/asset-applications/applicant/${user.id}`)
             if (assetResponse.data.code === 200) {
-              totalCount += assetResponse.data.data.length
-            }
-            const purchaseResponse = await axios.get(`/purchase-requests/applicant/${user.id}`)
-            if (purchaseResponse.data.code === 200) {
-              totalCount += purchaseResponse.data.data.length
+              const payload = assetResponse.data.data
+              const applications = Array.isArray(payload) ? payload : (payload?.content || [])
+              totalCount += applications.filter(
+                item => !['approved', 'rejected'].includes(item.status)
+              ).length
             }
           }
           
@@ -572,7 +699,7 @@ export default {
             const token = userStore.token
 
             // 加载用户资产数量
-            const response = await axios.get('/assets')
+            const response = await axios.get('/assets/all')
 
             if (response.data.code === 200) {
               // 过滤出当前用户的资产，包括使用中的、闲置的和维修中的
@@ -640,15 +767,11 @@ export default {
     
     const loadRecentOperations = async () => {
       try {
-        console.log('=== [前端调试] 开始调用 /dashboard/operations 接口 ===');
         const response = await axios.get('/dashboard/operations', {
           params: {
             limit: 10
           }
         });
-        
-        console.log('=== [前端调试] 响应数据:', response.data);
-        
         if (response.data.code === 200) {
           pendingTasks.value = response.data.data.pendingTasks || []
           recentActivities.value = response.data.data.recentActivities || []
@@ -656,19 +779,9 @@ export default {
           console.error('获取操作数据失败:', response.data.message)
         }
       } catch (error) {
-        console.error('=== [前端调试] 获取操作数据异常 ===');
-        if (error.response) {
-          console.error('HTTP状态码:', error.response.status);
-          console.error('响应数据:', error.response.data);
-        } else if (error.request) {
-          console.error('请求已发送但无响应');
-        } else {
-          console.error('请求配置错误:', error.message);
-        }
-        
+        console.error('获取操作数据异常:', error)
         // 如果新版API失败，降级到旧版API
         try {
-          console.log('=== [前端调试] 尝试降级到旧版API ===');
           const oldResponse = await axios.get('/dashboard/recent-operations', {
             params: {
               limit: 10
@@ -719,7 +832,28 @@ export default {
     
     const formatPrice = (price) => {
       if (price === null || price === undefined) return '-'
-      return '¥' + parseFloat(price).toFixed(2)
+      const amount = parseFloat(price)
+      if (!Number.isFinite(amount)) return '-'
+      return '¥' + amount.toLocaleString('zh-CN', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      })
+    }
+
+    const formatMoneyAxis = (amount) => {
+      const value = Number(amount) || 0
+      if (Math.abs(value) >= 100000000) return (value / 100000000).toFixed(1) + '亿'
+      if (Math.abs(value) >= 10000) return (value / 10000).toFixed(0) + '万'
+      return String(value)
+    }
+
+    const formatMoneyCompact = (value) => {
+      if (value === null || value === undefined) return '-'
+      const amount = Number(value)
+      if (!Number.isFinite(amount)) return '-'
+      if (Math.abs(amount) >= 100000000) return '¥' + (amount / 100000000).toFixed(2) + ' 亿'
+      if (Math.abs(amount) >= 10000) return '¥' + (amount / 10000).toFixed(1) + ' 万'
+      return '¥' + amount.toFixed(0)
     }
     
     const getApplicationTypeName = (type) => {
@@ -879,21 +1013,32 @@ export default {
             axisPointer: {
               type: 'cross',
               crossStyle: {
-                color: '#999'
+                color: 'rgba(20, 24, 33, 0.16)'
               }
             },
+            backgroundColor: 'rgba(255, 255, 255, 0.96)',
+            borderColor: 'rgba(20, 24, 33, 0.08)',
+            borderWidth: 1,
+            padding: [9, 12],
+            textStyle: { color: '#2c3342', fontSize: 12 },
+            extraCssText: 'box-shadow: 0 12px 32px rgba(16, 24, 40, 0.12); border-radius: 10px;',
             formatter: function(params) {
               let result = params[0].name + '<br/>';
               for (let i = 0; i < params.length; i++) {
-                result += params[i].marker + params[i].seriesName + ': ' + 
-                  (params[i].seriesIndex === 0 ? params[i].value + ' 件' : '¥' + (params[i].value * 1000).toFixed(2)) + '<br/>';
+                result += params[i].marker + params[i].seriesName + ': ' +
+                  (params[i].seriesIndex === 0 ? params[i].value + ' 件' : formatPrice(params[i].value * 1000)) + '<br/>';
               }
               return result;
             }
           },
           legend: {
             data: ['资产数量', '资产价值'],
-            bottom: 0
+            bottom: 0,
+            icon: 'circle',
+            itemWidth: 8,
+            itemHeight: 8,
+            itemGap: 18,
+            textStyle: { color: '#626b7c', fontSize: 11 }
           },
           grid: {
             left: departments.length === 1 ? '25%' : '3%',
@@ -904,8 +1049,12 @@ export default {
           xAxis: {
             type: 'category',
             data: departments,
+            axisLine: { lineStyle: { color: 'rgba(20, 24, 33, 0.1)' } },
+            axisTick: { show: false },
             axisLabel: {
-              rotate: departments.length > 4 ? 45 : 0
+              rotate: departments.length > 4 ? 40 : 0,
+              color: '#8b93a3',
+              fontSize: 10
             }
           },
           yAxis: [
@@ -913,7 +1062,12 @@ export default {
               type: 'value',
               name: '资产数量',
               min: 0,
+              nameTextStyle: { color: '#8b93a3', fontSize: 10 },
+              axisLine: { show: false },
+              splitLine: { lineStyle: { color: 'rgba(20, 24, 33, 0.06)' } },
               axisLabel: {
+                color: '#8b93a3',
+                fontSize: 10,
                 formatter: '{value} 件'
               }
             },
@@ -921,8 +1075,13 @@ export default {
               type: 'value',
               name: '资产价值',
               min: 0,
+              nameTextStyle: { color: '#8b93a3', fontSize: 10 },
+              axisLine: { show: false },
+              splitLine: { show: false },
               axisLabel: {
-                formatter: '¥{value}K'
+                color: '#8b93a3',
+                fontSize: 10,
+                formatter: (value) => '¥' + formatMoneyAxis(value * 1000)
               }
             }
           ],
@@ -940,12 +1099,12 @@ export default {
                   x2: 0,
                   y2: 1,
                   colorStops: [{
-                    offset: 0, color: '#409EFF' // 开始颜色
+                    offset: 0, color: '#8fa3c4'
                   }, {
-                    offset: 1, color: '#69c0ff' // 结束颜色
+                    offset: 1, color: '#3d5680'
                   }]
                 },
-                borderRadius: [4, 4, 0, 0] // 添加圆角
+                borderRadius: [6, 6, 0, 0]
               },
               emphasis: {
                 itemStyle: {
@@ -956,9 +1115,9 @@ export default {
                     x2: 0,
                     y2: 1,
                     colorStops: [{
-                      offset: 0, color: '#66b1ff' // 开始颜色
+                      offset: 0, color: '#a3b4d0'
                     }, {
-                      offset: 1, color: '#91d5ff' // 结束颜色
+                      offset: 1, color: '#46608c'
                     }]
                   }
                 }
@@ -969,17 +1128,19 @@ export default {
               type: 'line',
               yAxisIndex: 1,
               data: totalValues,
+              smooth: true,
               itemStyle: {
-                color: '#67C23A'
+                color: '#a9885f'
               },
               lineStyle: {
-                width: 3
+                width: 2,
+                color: '#a9885f'
               },
               symbol: 'circle',
-              symbolSize: 8,
+              symbolSize: 7,
               emphasis: {
                 itemStyle: {
-                  color: '#85ce61',
+                  color: '#c2a67f',
                   borderColor: '#ffffff',
                   borderWidth: 2
                 }
@@ -1019,30 +1180,52 @@ export default {
             
             const statusNames = statusDistribution.value.map(item => item.statusName)
             const counts = statusDistribution.value.map(item => item.count)
-            
+
             // 默认使用饼图
             const option = {
+              color: ['#3d5680', '#8fa3c4', '#a9885f', '#7c9a8a', '#b9c0cc', '#8b93a3'],
               tooltip: {
-                trigger: 'item'
+                trigger: 'item',
+                backgroundColor: 'rgba(255, 255, 255, 0.96)',
+                borderColor: 'rgba(20, 24, 33, 0.08)',
+                borderWidth: 1,
+                padding: [9, 12],
+                textStyle: { color: '#2c3342', fontSize: 12 },
+                extraCssText: 'box-shadow: 0 12px 32px rgba(16, 24, 40, 0.12); border-radius: 10px;'
               },
               legend: {
                 orient: 'vertical',
-                left: 'left'
+                left: 'left',
+                top: 'middle',
+                icon: 'circle',
+                itemWidth: 8,
+                itemHeight: 8,
+                itemGap: 14,
+                textStyle: { color: '#626b7c', fontSize: 11 }
               },
               series: [
                 {
                   name: '资产状态',
                   type: 'pie',
-                  radius: '60%',
+                  radius: ['46%', '66%'],
+                  center: ['63%', '50%'],
+                  avoidLabelOverlap: true,
+                  itemStyle: {
+                    borderColor: '#ffffff',
+                    borderWidth: 3,
+                    borderRadius: 5
+                  },
+                  label: { show: false },
                   data: statusDistribution.value.map(item => ({
                     name: item.statusName,
                     value: item.count
                   })),
                   emphasis: {
+                    scale: true,
+                    scaleSize: 4,
                     itemStyle: {
-                      shadowBlur: 10,
-                      shadowOffsetX: 0,
-                      shadowColor: 'rgba(0, 0, 0, 0.5)'
+                      shadowBlur: 18,
+                      shadowColor: 'rgba(20, 24, 33, 0.16)'
                     }
                   }
                 }
@@ -1085,47 +1268,84 @@ export default {
               tooltip: {
                 trigger: 'axis',
                 axisPointer: {
-                  type: 'shadow'
-                }
+                  type: 'shadow',
+                  shadowStyle: { color: 'rgba(61, 86, 128, 0.04)' }
+                },
+                backgroundColor: 'rgba(255, 255, 255, 0.96)',
+                borderColor: 'rgba(20, 24, 33, 0.08)',
+                borderWidth: 1,
+                padding: [9, 12],
+                textStyle: { color: '#2c3342', fontSize: 12 },
+                extraCssText: 'box-shadow: 0 12px 32px rgba(16, 24, 40, 0.12); border-radius: 10px;'
               },
               grid: {
-                left: '3%',
-                right: '4%',
-                bottom: '3%',
+                left: 8,
+                right: 14,
+                top: 22,
+                bottom: 6,
                 containLabel: true
               },
               xAxis: {
                 type: 'category',
                 data: statusNames,
+                axisLine: { lineStyle: { color: 'rgba(20, 24, 33, 0.08)' } },
+                axisTick: { show: false },
                 axisLabel: {
-                  rotate: 45
+                  color: '#7d8595',
+                  fontSize: 11,
+                  margin: 12
                 }
               },
               yAxis: {
                 type: 'log',
                 min: 1,
-                axisLabel: {
-                  formatter: function(value) {
-                    if (value >= 1000000) {
-                      return (value / 1000000).toFixed(1) + 'M';
-                    } else if (value >= 1000) {
-                      return (value / 1000).toFixed(1) + 'K';
-                    }
-                    return value;
-                  }
-                }
+                axisLine: { show: false },
+                axisTick: { show: false },
+                splitLine: { lineStyle: { color: 'rgba(20, 24, 33, 0.05)', type: 'dashed' } },
+                axisLabel: { show: false }
               },
               series: [
                 {
                   name: '资产价值',
                   type: 'bar',
                   data: values,
-                  showBackground: true,
-                  backgroundStyle: {
-                    color: 'rgba(180, 180, 180, 0.2)'
-                  },
+                  barMaxWidth: 26,
                   itemStyle: {
-                    color: '#67C23A'
+                    borderRadius: [6, 6, 0, 0],
+                    color: {
+                      type: 'linear',
+                      x: 0,
+                      y: 0,
+                      x2: 0,
+                      y2: 1,
+                      colorStops: [
+                        { offset: 0, color: '#93a7c7' },
+                        { offset: 1, color: '#3d5680' }
+                      ]
+                    }
+                  },
+                  label: {
+                    show: true,
+                    position: 'top',
+                    distance: 8,
+                    color: '#626b7c',
+                    fontSize: 11,
+                    formatter: (params) => formatMoneyCompact(params.value)
+                  },
+                  emphasis: {
+                    itemStyle: {
+                      color: {
+                        type: 'linear',
+                        x: 0,
+                        y: 0,
+                        x2: 0,
+                        y2: 1,
+                        colorStops: [
+                          { offset: 0, color: '#a8b8d3' },
+                          { offset: 1, color: '#46608c' }
+                        ]
+                      }
+                    }
                   }
                 }
               ]
@@ -1139,7 +1359,15 @@ export default {
       }
     }
 
+    let compactViewport = window.innerWidth <= 960
+
     const handleResize = () => {
+      const compact = window.innerWidth <= 960
+      if (compact !== compactViewport) {
+        compactViewport = compact
+        isCollapse.value = compact
+      }
+
       try {
         // 检查图表实例是否存在且未被销毁
         if (departmentChart.value && typeof departmentChart.value.resize === 'function' && !departmentChart.value.isDisposed()) {
@@ -1206,6 +1434,8 @@ export default {
       searchKeyword,
       getRoleName,
       getUserName,
+      greeting,
+      statusTotal,
       getMenuIcon,
       getMenuTitle,
       handleMenuSelect,
@@ -1217,6 +1447,7 @@ export default {
       handleSearch,
       formatTime,
       formatPrice,
+      formatMoneyCompact,
       getApplicationTypeName,
       getApplicationStatusName,
       getApplicationStatusType,
@@ -1245,354 +1476,716 @@ export default {
 <style scoped>
 .home-container {
   height: 100vh;
-  background-color: #f5f7fa;
+  background:
+    radial-gradient(1100px 520px at 8% -12%, rgba(61, 86, 128, 0.07), transparent 62%),
+    radial-gradient(900px 480px at 102% 104%, rgba(169, 136, 95, 0.06), transparent 58%),
+    var(--eam-canvas);
 }
 
+/* ---------- Header ---------- */
+
 .header {
-  background-color: #409EFF;
-  color: white;
+  height: 72px;
   padding: 0;
-  display: flex;
-  align-items: center;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  background: rgba(250, 250, 251, 0.78);
+  border-bottom: 1px solid var(--eam-line);
+  backdrop-filter: blur(18px) saturate(1.2);
+  -webkit-backdrop-filter: blur(18px) saturate(1.2);
 }
 
 .header-content {
-  width: 100%;
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  padding: 0 2rem;
+  justify-content: space-between;
+  gap: 24px;
+  height: 100%;
+  padding: 0 28px;
 }
 
 .header-left {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: 16px;
+  min-width: 0;
 }
 
-.sidebar-toggle {
-  color: white;
-  border-color: white;
+.nav-toggle {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  color: var(--eam-ink-500);
+  background: rgba(255, 255, 255, 0.62);
+  border: 1px solid var(--eam-line);
+  border-radius: var(--eam-radius-sm);
+  cursor: pointer;
+  transition: background-color var(--eam-duration-fast) var(--eam-ease),
+    color var(--eam-duration-fast) var(--eam-ease),
+    box-shadow var(--eam-duration) var(--eam-ease);
 }
 
-.sidebar-toggle:hover {
-  background-color: rgba(255, 255, 255, 0.1);
-  border-color: white;
+.nav-toggle:hover {
+  color: var(--eam-primary);
+  background: #fff;
+  box-shadow: var(--eam-shadow-sm);
 }
 
-.header h1 {
-  margin: 0;
-  font-size: 1.5rem;
-  font-weight: 600;
-}
-
-.user-info {
+.brand {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: 12px;
+  min-width: 0;
 }
 
+.brand-mark {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 36px;
+  height: 36px;
+  border-radius: 11px;
+  font-family: var(--eam-font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: #efe6d6;
+  background: linear-gradient(160deg, #2b3648 0%, #1b2432 100%);
+  box-shadow: 0 6px 14px rgba(20, 24, 33, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.14);
+}
+
+.brand-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.brand-copy strong {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--eam-ink-900);
+  white-space: nowrap;
+}
+
+.brand-copy span {
+  font-size: 9.5px;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--eam-ink-300);
+  white-space: nowrap;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.header-search {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 300px;
+  height: 40px;
+  padding: 0 5px 0 13px;
+  background: rgba(255, 255, 255, 0.68);
+  border: 1px solid var(--eam-line);
+  border-radius: var(--eam-radius-pill);
+  transition: background-color var(--eam-duration) var(--eam-ease),
+    border-color var(--eam-duration) var(--eam-ease),
+    box-shadow var(--eam-duration) var(--eam-ease);
+}
+
+.header-search:focus-within {
+  background: #fff;
+  border-color: rgba(61, 86, 128, 0.26);
+  box-shadow: 0 0 0 4px var(--eam-primary-ghost);
+}
+
+.header-search-icon {
+  flex: 0 0 auto;
+  font-size: 14px;
+  color: var(--eam-ink-400);
+}
+
+.header-search-input {
+  flex: 1;
+  min-width: 0;
+  padding: 0 9px;
+  font-family: inherit;
+  font-size: 12.5px;
+  color: var(--eam-ink-700);
+  background: transparent;
+  border: none;
+  outline: none;
+}
+
+.header-search-input::placeholder {
+  color: var(--eam-ink-300);
+}
+
+.header-search-submit {
+  flex: 0 0 auto;
+  padding: 6px 12px;
+  font-family: inherit;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--eam-primary);
+  background: transparent;
+  border: none;
+  border-radius: var(--eam-radius-pill);
+  cursor: pointer;
+  transition: background-color var(--eam-duration-fast) var(--eam-ease);
+}
+
+.header-search-submit:hover {
+  background: var(--eam-primary-ghost);
+}
+
+.user-chip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 10px 5px 6px;
+  font-family: inherit;
+  text-align: left;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--eam-radius-pill);
+  cursor: pointer;
+  transition: background-color var(--eam-duration-fast) var(--eam-ease),
+    border-color var(--eam-duration-fast) var(--eam-ease);
+}
+
+.user-chip:hover {
+  background: rgba(255, 255, 255, 0.72);
+  border-color: var(--eam-line);
+}
+
+.avatar {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  font-size: 12px;
+  font-weight: 600;
+  color: #33445f;
+  background: linear-gradient(160deg, #e2e7ef 0%, #cbd5e3 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+
+.user-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  line-height: 1.25;
+}
+
+.user-meta strong {
+  max-width: 120px;
+  overflow: hidden;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--eam-ink-800);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.user-meta span {
+  font-size: 10.5px;
+  color: var(--eam-ink-400);
+}
+
+.user-caret {
+  margin-left: 2px;
+  font-size: 13px;
+  color: var(--eam-ink-300);
+  transition: color var(--eam-duration-fast) var(--eam-ease);
+}
+
+.user-chip:hover .user-caret {
+  color: var(--eam-primary);
+}
+
+/* ---------- Layout ---------- */
+
 .content {
-  height: calc(100vh - 60px);
+  height: calc(100vh - 72px);
 }
 
 .sidebar {
-  background-color: white;
-  border-right: 1px solid #e4e7ed;
-  transition: width 0.3s ease;
+  background: rgba(250, 250, 251, 0.55);
+  border-right: 1px solid var(--eam-line);
+  transition: width 0.35s var(--eam-ease);
+}
+
+.sidebar-scrim {
+  display: none;
+}
+
+.sidebar-inner {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 18px 0 26px;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .sidebar-collapsed {
   overflow: hidden;
 }
 
+.nav-caption {
+  margin: 0;
+  padding: 0 22px 10px;
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--eam-ink-300);
+}
+
 .el-menu-vertical {
+  padding: 0 10px;
+  background: transparent;
   border-right: none;
 }
 
-.main-content {
-  padding: 0 20px 20px 20px !important;
-  margin: 0 !important;
-  overflow-y: auto;
+.sidebar :deep(.el-sub-menu__title),
+.sidebar :deep(.el-menu-item) {
+  height: 42px;
+  margin: 2px 0;
+  line-height: 42px;
+  font-size: 13px;
+  color: var(--eam-ink-500);
+  border-radius: var(--eam-radius-sm);
+  transition: background-color var(--eam-duration-fast) var(--eam-ease),
+    color var(--eam-duration-fast) var(--eam-ease),
+    box-shadow var(--eam-duration) var(--eam-ease);
 }
 
-.overview-card,
-.recent-operations-card,
-.quick-actions-card,
-.chart-card,
-.department-card,
-.department-detail-card {
-  margin-bottom: 20px;
+.sidebar :deep(.el-sub-menu__title:hover),
+.sidebar :deep(.el-menu-item:hover) {
+  color: var(--eam-ink-800);
+  background: rgba(255, 255, 255, 0.66);
 }
 
-.card-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+.sidebar :deep(.el-menu-item.is-active) {
+  position: relative;
   font-weight: 600;
-  color: #303133;
-  justify-content: space-between;
+  color: var(--eam-primary);
+  background: #fff;
+  box-shadow: var(--eam-shadow-sm);
 }
 
-.date-picker {
-  margin-left: auto;
+.sidebar :deep(.el-menu-item.is-active)::before {
+  content: "";
+  position: absolute;
+  top: 11px;
+  bottom: 11px;
+  left: 0;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--eam-primary);
 }
 
-.change-tag {
-  margin-bottom: 8px;
-}
-
-.quick-action-btn {
-  width: 100%;
-  justify-content: center;
-  gap: 8px;
-}
-
-.search-filter-container {
-  position: sticky;
-  top: 0;
-  z-index: 100;
-  background-color: #f5f7fa;
-  padding: 0 0 10px 0;
-  border-bottom: 1px solid #e4e7ed;
-  margin: 0 0 20px 0;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-}
-
-.search-filter-section {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  width: 100%;
-  max-width: 100%;
-}
-
-.status-filter {
-  width: 180px;
-}
-
-.search-input {
-  flex: 1;
-  max-width: none;
-  width: 100%;
-}
-
-.quick-search-actions {
-  display: flex;
-  gap: 8px;
-  flex-shrink: 0;
-}
-
-.chart-container {
-  height: 350px;
-  width: 100%;
-}
-
-/* 响应式设计 */
-@media screen and (max-width: 1200px) {
-  .main-content {
-    padding: 16px;
-  }
-  
-  .card-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 8px;
-  }
-  
-  .date-picker {
-    margin-left: 0;
-    width: 100%;
-  }
-  
-  .search-filter-container {
-    width: 100%;
-    margin-top: 8px;
-  }
-  
-  .status-filter {
-    flex: 1;
-    min-width: 100px;
-  }
-  
-  .search-filter-section {
-    max-width: 100%;
-  }
-  
-  .status-filter {
-    width: 150px;
-  }
-  
-  .search-input {
-    max-width: 250px;
-  }
-  
-  .chart-container {
-    height: 300px;
-  }
-}
-
-@media screen and (max-width: 768px) {
-  .home-container {
-    flex-direction: column;
-  }
-  
-  .header {
-    padding: 0 16px;
-  }
-  
-  .header-content {
-    flex-direction: column;
-    gap: 12px;
-    padding: 12px 0;
-  }
-  
-  .header-left {
-    justify-content: center;
-  }
-  
-  .user-info {
-    width: 100%;
-    justify-content: space-between;
-  }
-  
-  .sidebar {
-    width: 100% !important;
-    max-height: 200px;
-    overflow-y: auto;
-  }
-  
-  .main-content {
-    padding: 12px;
-  }
-  
-  .search-filter-section {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 8px;
-  }
-  
-  .status-filter {
-    width: 100%;
-  }
-  
-  .search-input {
-    width: 100%;
-    max-width: unset;
-  }
-  
-  .overview-card .el-col {
-    flex: 1;
-    min-width: 150px;
-  }
-  
-  .chart-card {
-    margin-bottom: 16px;
-  }
-  
-  .chart-container {
-    height: 250px;
-  }
-  
-  .department-detail-card .el-table {
-    font-size: 12px;
-  }
-  
-  .el-table-column {
-    min-width: 80px !important;
-  }
-}
-
-/* 待处理任务卡片样式 */
-.pending-tasks-card .el-card__header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 15px;
-  margin-bottom: 0;
-  background-color: #fff7e6;
-}
-
-.pending-tasks-card .el-card__body {
-  background-color: #fffaf0;
-}
-
-.task-count {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 22px;
-  height: 22px;
-  background-color: #f59e0b;
-  color: white;
-  border-radius: 50%;
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.task-content {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.task-type {
-  flex-shrink: 0;
-}
-
-/* 最近动态卡片样式 */
-.recent-activities-card .el-card__header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 15px;
-  margin-bottom: 0;
-}
-
-.recent-activities-card .el-card__header .el-icon {
-  font-size: 16px;
-}
-
-.recent-activities-card .el-card__header span {
-  font-size: 16px;
+.sidebar :deep(.el-sub-menu.is-active > .el-sub-menu__title) {
+  color: var(--eam-primary);
   font-weight: 500;
 }
 
-.activity-content {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  flex-wrap: wrap;
+.sidebar :deep(.el-menu-item .el-icon),
+.sidebar :deep(.el-sub-menu__title .el-icon) {
+  font-size: 16px;
+  color: var(--eam-ink-400);
+  transition: color var(--eam-duration-fast) var(--eam-ease);
 }
 
+.sidebar :deep(.el-menu-item.is-active .el-icon),
+.sidebar :deep(.el-sub-menu.is-active > .el-sub-menu__title .el-icon) {
+  color: var(--eam-primary);
+}
+
+.sidebar :deep(.el-menu--collapse) {
+  width: 64px;
+}
+
+.sidebar :deep(.el-menu--collapse .el-menu-item),
+.sidebar :deep(.el-menu--collapse .el-sub-menu__title) {
+  justify-content: center;
+  padding: 0 !important;
+}
+
+.sidebar :deep(.el-menu) {
+  background: transparent;
+}
+
+.sidebar-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 22px;
+  padding: 0 12px;
+}
+
+.pending-tasks-card,
+.recent-activities-card {
+  background: rgba(255, 255, 255, 0.66);
+  border: 1px solid var(--eam-line);
+  border-radius: var(--eam-radius-md);
+  box-shadow: none;
+}
+
+.pending-tasks-card :deep(.el-card__header),
+.recent-activities-card :deep(.el-card__header) {
+  padding: 12px 14px;
+  border-bottom-color: var(--eam-line-soft);
+}
+
+.pending-tasks-card :deep(.el-card__body),
+.recent-activities-card :deep(.el-card__body) {
+  padding: 12px 14px;
+}
+
+.panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.panel-title {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+
+.panel-icon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  font-size: 14px;
+  color: var(--eam-primary);
+  background: var(--eam-primary-soft);
+  border-radius: 8px;
+}
+
+.panel-title > div {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.panel-title strong {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--eam-ink-800);
+}
+
+.panel-title span {
+  font-size: 10.5px;
+  color: var(--eam-ink-400);
+}
+
+.task-count {
+  display: grid;
+  place-items: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 7px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--eam-warning);
+  background: var(--eam-warning-soft);
+  border-radius: var(--eam-radius-pill);
+}
+
+.task-content,
+.activity-content {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 7px;
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--eam-ink-500);
+}
+
+.activity-content strong {
+  margin-right: 4px;
+  font-weight: 600;
+  color: var(--eam-ink-700);
+}
+
+.task-type,
 .activity-type {
   flex-shrink: 0;
 }
 
-.el-timeline {
-  padding-left: 0;
+.sidebar :deep(.el-timeline) {
+  padding-left: 2px;
 }
 
-.el-timeline-item {
-  padding-bottom: 16px;
+.sidebar :deep(.el-timeline-item) {
+  padding-bottom: 12px;
 }
 
-.el-timeline-item__tail {
+.sidebar :deep(.el-timeline-item__tail),
+.sidebar :deep(.el-timeline-item__node) {
   display: none;
 }
 
-.el-timeline-item__node {
-  display: none;
-}
-
-.el-timeline-item__content {
-  margin-left: 0;
+.sidebar :deep(.el-timeline-item__content) {
   padding: 0;
+}
+
+.sidebar :deep(.el-timeline-item__timestamp) {
+  font-size: 10.5px;
+  color: var(--eam-ink-300);
+}
+
+/* ---------- Main ---------- */
+
+.main-content {
+  padding: 30px 32px 48px !important;
+  overflow-y: auto;
+}
+
+.overview-hero {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 24px;
+  animation: eam-rise 0.6s var(--eam-ease) both;
+}
+
+.overview-copy h2 {
+  margin: 9px 0 6px;
+  font-size: 27px;
+  font-weight: 600;
+  letter-spacing: -0.035em;
+  color: var(--eam-ink-900);
+}
+
+.overview-sub {
+  margin: 0;
+  font-size: 13px;
+  color: var(--eam-ink-400);
+}
+
+.overview-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 13px;
+  font-size: 11px;
+  color: var(--eam-ink-400);
+  background: rgba(255, 255, 255, 0.55);
+  border: 1px solid var(--eam-line);
+  border-radius: var(--eam-radius-pill);
+  backdrop-filter: blur(8px);
+}
+
+.live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--eam-success);
+  box-shadow: 0 0 0 0 rgba(63, 125, 100, 0.4);
+  animation: live-pulse 2.8s var(--eam-ease-soft) infinite;
+}
+
+@keyframes live-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(63, 125, 100, 0.36); }
+  50% { box-shadow: 0 0 0 6px rgba(63, 125, 100, 0); }
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(188px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.stat-card {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 20px;
+  overflow: hidden;
+  background: linear-gradient(180deg, #ffffff 0%, #fcfcfd 100%);
+  border: 1px solid var(--eam-line);
+  border-radius: var(--eam-radius-lg);
+  box-shadow: var(--eam-shadow-sm);
+  animation: eam-rise 0.65s var(--eam-ease) both;
+}
+
+.stat-card:nth-child(2) { animation-delay: 60ms; }
+.stat-card:nth-child(3) { animation-delay: 120ms; }
+.stat-card:nth-child(4) { animation-delay: 180ms; }
+.stat-card:nth-child(5) { animation-delay: 240ms; }
+
+.stat-card::after {
+  content: "";
+  position: absolute;
+  right: -58px;
+  bottom: -74px;
+  width: 170px;
+  height: 170px;
+  pointer-events: none;
+  background: radial-gradient(circle, rgba(61, 86, 128, 0.09), transparent 70%);
+}
+
+.stat-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(61, 86, 128, 0.2);
+  box-shadow: var(--eam-shadow-md);
+}
+
+.stat-icon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  font-size: 18px;
+  color: var(--eam-primary);
+  background: var(--eam-primary-soft);
+  border-radius: 12px;
+}
+
+.stat-card:nth-child(2) .stat-icon {
+  color: var(--eam-warning);
+  background: var(--eam-warning-soft);
+}
+
+.stat-card:nth-child(3) .stat-icon {
+  color: var(--eam-success);
+  background: var(--eam-success-soft);
+}
+
+.stat-card:nth-child(4) .stat-icon {
+  color: var(--eam-bronze);
+  background: var(--eam-bronze-soft);
+}
+
+.stat-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.stat-label {
+  font-size: 12px;
+  color: var(--eam-ink-400);
+}
+
+.stat-value {
+  font-size: 28px;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.035em;
+  color: var(--eam-ink-900);
+  font-variant-numeric: tabular-nums;
+}
+
+.stat-value--money {
+  font-size: 23px;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+
+.stat-meta {
+  font-size: 10.5px;
+  color: var(--eam-ink-300);
+}
+
+.stat-card--accent {
+  background: linear-gradient(155deg, #1b2432 0%, #2a3549 100%);
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 14px 32px rgba(20, 24, 33, 0.18);
+}
+
+.stat-card--accent::after {
+  background: radial-gradient(circle, rgba(217, 199, 167, 0.18), transparent 70%);
+}
+
+.stat-card--accent .stat-icon {
+  color: #d9c7a7;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.stat-card--accent .stat-label {
+  color: rgba(255, 255, 255, 0.54);
+}
+
+.stat-card--accent .stat-value {
+  color: #f6f7f9;
+}
+
+.stat-card--accent .stat-meta {
+  color: rgba(255, 255, 255, 0.32);
+}
+
+/* ---------- Panels ---------- */
+
+.panel-card {
+  margin-bottom: 20px;
+  background: rgba(255, 255, 255, 0.86);
+  border-radius: var(--eam-radius-lg);
+  box-shadow: var(--eam-shadow-sm);
+}
+
+.panel-card :deep(.el-card__header) {
+  padding: 18px 22px;
+  border-bottom: 1px solid var(--eam-line-soft);
+}
+
+.panel-card :deep(.el-card__body) {
+  padding: 20px 22px;
+}
+
+.panel-card .panel-title strong {
+  font-size: 14px;
+}
+
+.panel-card .panel-title span {
+  font-size: 11px;
+}
+
+.panel-card .panel-icon {
+  width: 32px;
+  height: 32px;
+  font-size: 15px;
+  border-radius: 9px;
+}
+
+.chart-row {
+  margin-bottom: 20px;
+}
+
+.chart-row .el-col {
+  margin-bottom: 20px;
+}
+
+.chart-container {
+  width: 100%;
+  height: 320px;
 }
 
 .chart {
@@ -1600,128 +2193,300 @@ export default {
   height: 100%;
 }
 
-/* 快捷操作 */
-.quick-actions {
+.chart-container--donut {
+  position: relative;
+}
+
+.donut-center {
+  position: absolute;
+  top: 50%;
+  left: 63%;
   display: flex;
-  gap: 16px;
-  margin-bottom: 20px;
-  flex-wrap: wrap;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
 }
 
-.quick-action-card {
-  flex: 1;
-  min-width: 180px;
-  cursor: pointer;
-  transition: all 0.3s ease;
+.donut-center strong {
+  font-size: 25px;
+  font-weight: 600;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+  color: var(--eam-ink-900);
+  font-variant-numeric: tabular-nums;
 }
 
-.quick-action-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+.donut-center span {
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  color: var(--eam-ink-300);
 }
 
-.quick-action-item {
+.department-detail-card :deep(.el-table) {
+  font-size: 12px;
+  --el-table-row-hover-bg-color: #f4f7fb;
+}
+
+.department-detail-card :deep(.el-table .el-table__cell) {
+  padding: 10px 0;
+}
+
+.department-detail-card :deep(.el-table .cell) {
+  padding: 0 7px;
+  white-space: nowrap;
+}
+
+.department-detail-card :deep(.el-table th.el-table__cell .cell) {
+  font-weight: 500;
+  font-size: 11.5px;
+  color: var(--eam-ink-400);
+}
+
+.department-detail-card :deep(.el-table td.el-table__cell) {
+  font-variant-numeric: tabular-nums;
+}
+
+.recent-applications :deep(.el-timeline) {
+  padding-left: 2px;
+}
+
+.recent-applications :deep(.el-timeline-item__tail),
+.recent-applications :deep(.el-timeline-item__node) {
+  display: none;
+}
+
+.recent-applications :deep(.el-timeline-item__timestamp) {
+  font-size: 11px;
+  color: var(--eam-ink-300);
+}
+
+.application-card {
+  background: var(--eam-surface-muted);
+  border: 1px solid var(--eam-line-soft);
+  border-radius: var(--eam-radius-md);
+  box-shadow: none;
+}
+
+.application-card :deep(.el-card__body) {
+  padding: 14px 16px;
+}
+
+.application-title {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 12px;
-  padding: 16px;
-}
-
-.action-icon {
-  font-size: 24px;
-  color: #409EFF;
-}
-
-/* 个人资产概览 */
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 20px;
-  margin-top: 16px;
-}
-
-.stat-item {
-  text-align: center;
-  padding: 16px;
-  background: #f5f7fa;
-  border-radius: 8px;
-}
-
-.stat-value {
-  font-size: 24px;
-  font-weight: bold;
-  color: #409EFF;
   margin-bottom: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--eam-ink-800);
 }
 
-.stat-label {
-  font-size: 14px;
-  color: #606266;
-}
-
-:deep(.el-statistic__head) {
-  font-size: 14px;
-  color: #606266;
-}
-
-:deep(.el-statistic__content) {
-  font-size: 28px;
-  font-weight: bold;
-  color: #409EFF;
-}
-
-:deep(.el-timeline-item__timestamp) {
-  color: #909399;
+.application-details {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
   font-size: 12px;
+  color: var(--eam-ink-500);
+}
+
+.detail-item {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.detail-item .el-icon {
+  color: var(--eam-ink-400);
+}
+
+.asset-no {
+  color: var(--eam-ink-300);
+  font-size: 11px;
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 42px 0;
+}
+
+.empty-state__icon {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  margin-bottom: 4px;
+  font-size: 18px;
+  color: var(--eam-ink-300);
+  background: #f3f5f8;
+  border: 1px solid var(--eam-line-soft);
+  border-radius: 13px;
+}
+
+.empty-state strong {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--eam-ink-500);
+}
+
+.empty-state span:last-child {
+  font-size: 12px;
+  color: var(--eam-ink-300);
+}
+
+.recent-activities-card .empty-state {
+  padding: 30px 0;
+}
+
+/* ---------- Responsive ---------- */
+
+@media (max-width: 1180px) {
+  .header-search {
+    width: 220px;
+  }
+
+  .stats-grid:has(.stat-card--accent) {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .stats-grid:has(.stat-card--accent) .stat-card--accent {
+    grid-column: span 2;
+  }
+
+  .main-content {
+    padding: 24px 24px 40px !important;
+  }
+}
+
+@media (max-width: 960px) {
+  .brand-copy span {
+    display: none;
+  }
+
+  .header-search {
+    width: 180px;
+  }
+
+  .user-meta span {
+    display: none;
+  }
+
+  .chart-container {
+    height: 290px;
+  }
+
+  .sidebar {
+    position: fixed;
+    top: 72px;
+    bottom: 0;
+    left: 0;
+    z-index: 45;
+    width: 258px !important;
+    background: var(--eam-surface);
+    box-shadow: var(--eam-shadow-lg);
+    transform: translateX(-102%);
+    transition: transform 0.32s var(--eam-ease);
+  }
+
+  .sidebar.sidebar-collapsed {
+    transform: translateX(-102%);
+  }
+
+  .sidebar:not(.sidebar-collapsed) {
+    transform: translateX(0);
+  }
+
+  .sidebar-scrim {
+    position: fixed;
+    inset: 72px 0 0 0;
+    z-index: 44;
+    display: block;
+    background: rgba(16, 22, 33, 0.3);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.32s var(--eam-ease);
+  }
+
+  .sidebar-scrim.is-visible {
+    opacity: 1;
+    pointer-events: auto;
+  }
 }
 
 @media (max-width: 768px) {
   .header-content {
-    padding: 0 1rem;
+    gap: 12px;
+    padding: 0 16px;
   }
-  
-  .header h1 {
-    font-size: 1.2rem;
+
+  .header-search {
+    display: none;
   }
-  
+
+  .brand-copy {
+    display: none;
+  }
+
+  .overview-hero {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .overview-copy h2 {
+    font-size: 23px;
+  }
+
+  .stats-grid,
+  .stats-grid:has(.stat-card--accent) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .stat-card {
+    padding: 16px;
+  }
+
+  .stat-value {
+    font-size: 24px;
+  }
+
   .main-content {
-    padding: 10px;
+    padding: 20px 16px 32px !important;
   }
-  
+
   .chart-container {
-    height: 250px;
+    height: 260px;
   }
-  
-  .application-card {
-    width: 100%;
-    margin-bottom: 10px;
+
+  .panel-card :deep(.el-card__header),
+  .panel-card :deep(.el-card__body) {
+    padding: 16px;
   }
-  
-  .application-content {
-    padding: 10px;
+}
+
+@media (max-width: 520px) {
+  .stats-grid,
+  .stats-grid:has(.stat-card--accent) {
+    grid-template-columns: 1fr;
   }
-  
-  .application-title {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 8px;
+
+  .stats-grid:has(.stat-card--accent) .stat-card--accent {
+    grid-column: span 1;
   }
-  
-  .application-details {
-    font-size: 14px;
-    color: #606266;
-    line-height: 1.5;
+
+  .user-meta {
+    display: none;
   }
-  
-  .application-details span {
-    display: block;
-    margin-bottom: 4px;
-  }
-  
-  .recent-applications {
-    max-height: 400px;
-    overflow-y: auto;
+
+  .user-caret {
+    display: none;
   }
 }
 </style>
+

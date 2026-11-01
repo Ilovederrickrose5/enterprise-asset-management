@@ -746,35 +746,8 @@ const submitPlanForm = async () => {
       creatorName: user.realName || user.username
     }
     
-    // ========== 详细调试日志 ==========
-    console.log('========== 创建盘点计划调试 ==========')
-    console.log('当前用户信息:', user)
-    console.log('表单原始数据:', { ...planForm.value })
-    console.log('构建的请求数据:', requestData)
-    console.log('各字段类型检查:')
-    console.log('  - inventoryName:', typeof requestData.inventoryName, requestData.inventoryName)
-    console.log('  - inventoryDate:', typeof requestData.inventoryDate, requestData.inventoryDate)
-    console.log('  - inventoryScope:', typeof requestData.inventoryScope, requestData.inventoryScope)
-    console.log('  - creatorId:', typeof requestData.creatorId, requestData.creatorId)
-    console.log('  - expectedCompletionTime:', typeof requestData.expectedCompletionTime, requestData.expectedCompletionTime)
-    console.log('localStorage中的token:', userStore.token ? '存在' : '不存在')
-    console.log('======================================')
+    const response = await axios.post('/asset-inventory', requestData)
 
-    // 创建请求配置
-    const requestConfig = {
-      baseURL: '',  // 避免重复添加/api前缀
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + userStore.token
-      }
-    }
-    
-    console.log('请求配置:', requestConfig)
-    
-    const response = await axios.post('/api/asset-inventory', requestData, requestConfig)
-
-    console.log('响应数据:', response)
-    
     if (response.data.code === 200) {
       ElMessage.success('创建盘点计划成功')
       createDialogVisible.value = false

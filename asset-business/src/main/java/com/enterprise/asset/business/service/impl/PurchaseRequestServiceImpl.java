@@ -107,6 +107,24 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
         return purchaseRequestRepository.findByApproverIdOrderByApprovalDateDesc(approverId);
     }
 
+    private boolean hasAnyRole(UserDTO user, UserRole... roles) {
+        if (user == null || user.getRoleCodes() == null) {
+            return false;
+        }
+        for (String code : user.getRoleCodes()) {
+            UserRole parsed = UserRole.fromCode(code);
+            if (parsed == null) {
+                continue;
+            }
+            for (UserRole target : roles) {
+                if (parsed == target) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
     @Override
     public PurchaseRequest createRequest(PurchaseRequest request) {
         logger.info("========== 开始创建采购需求申请 ==========");
@@ -138,11 +156,8 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
 
         // 2. 权限检查
         logger.info("[步骤2/3] 检查创建权限");
-        List<String> roleCodes = userDTO.getRoleCodes();
-        String roleCode = (roleCodes != null && !roleCodes.isEmpty()) ? roleCodes.get(0) : null;
-        UserRole userRole = UserRole.fromCode(roleCode);
-        boolean isManager = userRole != null && userRole.isManager();
-        boolean isAdmin = userRole != null && userRole.isAdmin();
+        boolean isManager = hasAnyRole(userDTO, UserRole.MANAGER, UserRole.ASSET_MANAGER, UserRole.DEPT_MANAGER);
+        boolean isAdmin = hasAnyRole(userDTO, UserRole.ADMIN);
 
         logger.info("角色检查: isManager={}, isAdmin={}", isManager, isAdmin);
 
@@ -186,7 +201,7 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
             log.setStatus("success");
             sysLogRepository.save(log);
         } catch (Exception e) {
-            System.err.println("添加采购需求申请创建日志失败: " + e.getMessage());
+            logger.warn("添加采购需求申请创建日志失败: {}", e.getMessage());
         }
 
         return savedRequest;
@@ -210,10 +225,7 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
             throw new SecurityException("用户不存在");
         }
 
-        List<String> roleCodes = userDTO.getRoleCodes();
-        String roleCode = (roleCodes != null && !roleCodes.isEmpty()) ? roleCodes.get(0) : null;
-        UserRole userRole = UserRole.fromCode(roleCode);
-        boolean isAdmin = userRole != null && userRole.isAdmin();
+        boolean isAdmin = hasAnyRole(userDTO, UserRole.ADMIN);
 
         if (!isAdmin && !existingRequest.getApplicantId().equals(userDTO.getId())) {
             throw new SecurityException("无权修改此采购申请");
@@ -256,10 +268,7 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
             throw new SecurityException("用户不存在");
         }
 
-        List<String> roleCodes = userDTO.getRoleCodes();
-        String roleCode = (roleCodes != null && !roleCodes.isEmpty()) ? roleCodes.get(0) : null;
-        UserRole userRole = UserRole.fromCode(roleCode);
-        boolean isAdmin = userRole != null && userRole.isAdmin();
+        boolean isAdmin = hasAnyRole(userDTO, UserRole.ADMIN);
 
         if (!isAdmin && !request.getApplicantId().equals(userDTO.getId())) {
             throw new SecurityException("无权删除此采购申请");
@@ -307,11 +316,8 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
 
         // 3. 权限检查
         logger.info("[步骤3/4] 检查审批权限");
-        List<String> roleCodes = userDTO.getRoleCodes();
-        String roleCode = (roleCodes != null && !roleCodes.isEmpty()) ? roleCodes.get(0) : null;
-        UserRole userRole = UserRole.fromCode(roleCode);
-        boolean isLeader = userRole != null && userRole.isLeader();
-        boolean isAdmin = userRole != null && userRole.isAdmin();
+        boolean isLeader = hasAnyRole(userDTO, UserRole.LEADER);
+        boolean isAdmin = hasAnyRole(userDTO, UserRole.ADMIN);
 
         logger.info("角色检查: isLeader={}, isAdmin={}", isLeader, isAdmin);
 
@@ -362,7 +368,7 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
             log.setStatus("success");
             sysLogRepository.save(log);
         } catch (Exception e) {
-            System.err.println("添加采购需求申请批准日志失败: " + e.getMessage());
+            logger.warn("添加采购需求申请批准日志失败: {}", e.getMessage());
         }
 
         return savedRequest;
@@ -384,14 +390,21 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
             throw new SecurityException("用户不存在");
         }
 
-        List<String> roleCodes = userDTO.getRoleCodes();
-        String roleCode = (roleCodes != null && !roleCodes.isEmpty()) ? roleCodes.get(0) : null;
-        UserRole userRole = UserRole.fromCode(roleCode);
-        boolean isLeader = userRole != null && userRole.isLeader();
-        boolean isAdmin = userRole != null && userRole.isAdmin();
+        boolean isLeader = hasAnyRole(userDTO, UserRole.LEADER);
+        boolean isAdmin = hasAnyRole(userDTO, UserRole.ADMIN);
 
         if (!isAdmin && !isLeader) {
             throw new SecurityException("只有部门领导或管理员才能审批采购申请");
+        }
+
+        // 部门领导只能驳回本部门的采购申请
+        if (isLeader && !isAdmin) {
+            if (userDTO.getDeptId() == null) {
+                throw new SecurityException("领导用户没有部门信息");
+            }
+            if (request.getDepartmentId() == null || !request.getDepartmentId().equals(userDTO.getDeptId())) {
+                throw new SecurityException("部门领导只能审批本部门的采购申请");
+            }
         }
 
         if (!PurchaseRequestStatus.PENDING.getCode().equals(request.getStatus())) {
@@ -416,7 +429,7 @@ public class PurchaseRequestServiceImpl implements PurchaseRequestService {
             log.setStatus("success");
             sysLogRepository.save(log);
         } catch (Exception e) {
-            System.err.println("添加采购需求申请拒绝日志失败: " + e.getMessage());
+            logger.warn("添加采购需求申请拒绝日志失败: {}", e.getMessage());
         }
 
         return savedRequest;

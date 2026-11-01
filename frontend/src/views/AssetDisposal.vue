@@ -18,7 +18,10 @@
     </template>
 
     <template #column-assetId="{ row }">
-      {{ getAssetInfo(row.assetId, allAssets) }}
+      <div class="cell-stack">
+        <span class="cell-main">{{ getAssetName(row.assetId, allAssets) }}</span>
+        <span class="cell-sub">{{ getAssetModel(row.assetId, allAssets) }}</span>
+      </div>
     </template>
 
     <template #column-status="{ row }">
@@ -34,7 +37,7 @@ import axios from '../utils/request'
 import ApplyPage from '../components/business/ApplyPage.vue'
 import DisposalForm from '../components/business/DisposalForm.vue'
 import StatusTag from '../components/common/StatusTag.vue'
-import { getAssetInfo } from '../utils/common.js'
+import { getAssetName, getAssetModel } from '../utils/common.js'
 import { useUserStore } from '../stores/userStore'
 
 const userStore = useUserStore()
@@ -66,14 +69,11 @@ const getCurrentUser = () => {
 
 const fetchAssetOptions = async () => {
   try {
-    const token = getToken()
-    const response = await axios.get('/assets', {
-      headers: { Authorization: `Bearer ${token}` }
-    })
+    const response = await axios.get('/assets/all')
     if (response.data.code === 200) {
       allAssets.value = response.data.data
       // 只显示当前用户名下的资产
-      assetOptions.value = response.data.data.filter(asset => 
+      assetOptions.value = response.data.data.filter(asset =>
         ['using', 'idle', 'maintenance'].includes(asset.status) &&
         asset.userId === currentUser.value.id
       )
@@ -144,7 +144,4 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.asset-disposal {
-  padding: 20px;
-}
 </style>

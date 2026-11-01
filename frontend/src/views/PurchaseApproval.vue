@@ -214,10 +214,6 @@ const handleReject = (row) => {
 
 const handleApprovalSubmit = async () => {
   try {
-    console.log('[采购流程-步骤2] 开始审批采购需求申请')
-    console.log('[采购流程-步骤2] 当前用户:', currentUser.value)
-    console.log('[采购流程-步骤2] 审批表单:', approvalForm.value)
-    
     await approvalFormRef.value.validate()
     const url = approvalForm.value.action === 'approve' 
       ? `/purchase-requests/${approvalForm.value.id}/approve`
@@ -229,7 +225,6 @@ const handleApprovalSubmit = async () => {
       approvalRemark: approvalForm.value.approvalRemark
     })
     
-    console.log('[采购流程-步骤2] 响应结果:', response.data)
     if (response.data.code === 200) {
       ElMessage.success(approvalForm.value.action === 'approve' ? '批准成功' : '拒绝成功')
       approvalDialogVisible.value = false

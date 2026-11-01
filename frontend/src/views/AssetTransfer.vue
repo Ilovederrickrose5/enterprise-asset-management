@@ -19,7 +19,10 @@
     </template>
 
     <template #column-assetId="{ row }">
-      {{ getAssetInfo(row.assetId, allAssets) }}
+      <div class="cell-stack">
+        <span class="cell-main">{{ getAssetName(row.assetId, allAssets) }}</span>
+        <span class="cell-sub">{{ getAssetModel(row.assetId, allAssets) }}</span>
+      </div>
     </template>
 
     <template #column-status="{ row }">
@@ -39,7 +42,7 @@ import axios from '../utils/request'
 import ApplyPage from '../components/business/ApplyPage.vue'
 import TransferForm from '../components/business/TransferForm.vue'
 import StatusTag from '../components/common/StatusTag.vue'
-import { getAssetInfo } from '../utils/common.js'
+import { getAssetName, getAssetModel } from '../utils/common.js'
 import { useUserStore } from '../stores/userStore'
 
 const userStore = useUserStore()
@@ -51,7 +54,6 @@ const userOptions = ref([])
 const myTransfers = ref([])
 const currentUser = ref(null)
 
-const getToken = () => userStore.token
 
 // 记录表格列配置
 const recordColumns = [
@@ -71,13 +73,10 @@ const getCurrentUser = () => {
 
 const fetchAssetOptions = async () => {
   try {
-    const token = getToken()
-    const response = await axios.get('/assets', {
-      headers: { Authorization: `Bearer ${token}` }
-    })
+    const response = await axios.get('/assets/all')
     if (response.data.code === 200) {
       allAssets.value = response.data.data
-      assetOptions.value = response.data.data.filter(asset => 
+      assetOptions.value = response.data.data.filter(asset =>
         asset.status === 'using' && asset.userId === currentUser.value.id
       )
     }
@@ -151,9 +150,7 @@ const handleFormSubmit = async (formData) => {
   }
 }
 
-const handleFormReset = () => {
-  console.log('表单重置')
-}
+const handleFormReset = () => {}
 
 onMounted(() => {
   getCurrentUser()
@@ -166,7 +163,4 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.asset-transfer {
-  padding: 20px;
-}
 </style>

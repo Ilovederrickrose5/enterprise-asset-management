@@ -37,9 +37,12 @@ public class JwtRequestFilter extends OncePerRequestFilter {
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) throws ServletException {
-        // 跳过登录和认证相关接口
+        // 仅登录/注册/登出/Token校验无需预先认证；其余 /api/auth/** 接口需携带有效 Token
         String path = request.getRequestURI();
-        return path.startsWith("/api/auth/");
+        return path.equals("/api/auth/login")
+                || path.equals("/api/auth/register")
+                || path.equals("/api/auth/logout")
+                || path.equals("/api/auth/validate-token");
     }
 
     @Override

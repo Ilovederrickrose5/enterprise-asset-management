@@ -1,14 +1,15 @@
 package com.enterprise.asset.business.controller;
 
-import com.enterprise.asset.common.util.Result;
 import com.enterprise.asset.common.dto.DashboardOperationsDTO;
 import com.enterprise.asset.common.dto.DashboardStatsDTO;
 import com.enterprise.asset.common.dto.RecentOperationDTO;
 import com.enterprise.asset.common.dto.UserDTO;
-import com.enterprise.asset.business.client.AuthFeignClient;
-import com.enterprise.asset.business.repository.AssetRepository;
+import com.enterprise.asset.common.enums.UserRole;
+import com.enterprise.asset.common.util.Result;
 import com.enterprise.asset.business.service.DashboardService;
 import com.enterprise.asset.business.service.RecentOperationService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -17,35 +18,24 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 /**
  * 仪表盘控制器 - 处理首页统计数据和操作记录
- * 
- * Feign改造说明：
- * - 删除了UserRepository本地DAO依赖
- * - 通过AuthFeignClient远程调用asset-auth服务获取用户信息
- * - 使用UserDTO替代User实体进行跨服务数据传输
  */
 @RestController
 @RequestMapping("/api/dashboard")
 public class DashboardController {
 
+    private static final Logger logger = LoggerFactory.getLogger(DashboardController.class);
+
     private final DashboardService dashboardService;
-    private final AssetRepository assetRepository;
     private final RecentOperationService recentOperationService;
-    private final AuthFeignClient authFeignClient;
 
     public DashboardController(DashboardService dashboardService,
-            AssetRepository assetRepository,
-            RecentOperationService recentOperationService,
-            AuthFeignClient authFeignClient) {
+            RecentOperationService recentOperationService) {
         this.dashboardService = dashboardService;
-        this.assetRepository = assetRepository;
         this.recentOperationService = recentOperationService;
-        this.authFeignClient = authFeignClient;
     }
 
     /**
@@ -54,24 +44,15 @@ public class DashboardController {
      */
     @GetMapping("/stats")
     public ResponseEntity<Result<DashboardStatsDTO>> getStats() {
-        // 【本次修改点】直接从SecurityContext获取UserDTO，不再通过Feign调用
-        // JwtRequestFilter已将UserDTO存入SecurityContext，无需重复远程查询
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !(authentication.getPrincipal() instanceof UserDTO)) {
+        UserDTO user = getCurrentUser();
+        if (user == null) {
             return ResponseEntity.ok(Result.error(401, "用户未登录"));
         }
 
-        UserDTO user = (UserDTO) authentication.getPrincipal();
         DashboardStatsDTO stats;
-
-        List<String> roleCodes = user.getRoleCodes();
-        boolean isAdmin = roleCodes != null && roleCodes.stream().anyMatch(r -> r.equalsIgnoreCase("ADMIN"));
-        boolean isManager = roleCodes != null && roleCodes.stream().anyMatch(r -> r.equalsIgnoreCase("MANAGER"));
-        boolean isLeader = roleCodes != null && roleCodes.stream().anyMatch(r -> r.equalsIgnoreCase("LEADER"));
-
-        if (isAdmin) {
+        if (hasRole(user, UserRole.ADMIN)) {
             stats = dashboardService.getStatsForAdmin();
-        } else if (isManager || isLeader) {
+        } else if (hasRole(user, UserRole.LEADER, UserRole.MANAGER, UserRole.ASSET_MANAGER, UserRole.DEPT_MANAGER)) {
             stats = dashboardService.getStatsForDepartment(user.getDeptId());
         } else {
             stats = dashboardService.getStatsForUser(user.getId());
@@ -81,80 +62,66 @@ public class DashboardController {
     }
 
     /**
-     * GET /api/dashboard/test-asset-count - 测试接口：查询资产总数
-     */
-    @GetMapping("/test-asset-count")
-    public ResponseEntity<Result<Map<String, Object>>> testAssetCount() {
-        Map<String, Object> result = new HashMap<>();
-        try {
-            long count = assetRepository.countAllAssets();
-            result.put("assetCount", count);
-            result.put("message", "查询成功");
-            System.out.println("测试接口 - 资产总数: " + count);
-        } catch (Exception e) {
-            result.put("error", e.getMessage());
-            result.put("message", "查询失败");
-            System.err.println("测试接口 - 查询失败: " + e.getMessage());
-            e.printStackTrace();
-        }
-        return ResponseEntity.ok(Result.success(result));
-    }
-
-    /**
      * GET /api/dashboard/recent-operations - 获取最近操作记录
      */
     @GetMapping("/recent-operations")
     public ResponseEntity<Result<List<RecentOperationDTO>>> getRecentOperations(
             @RequestParam(defaultValue = "10") int limit) {
+        UserDTO user = getCurrentUser();
+        if (user == null) {
+            return ResponseEntity.ok(Result.error(401, "用户未登录"));
+        }
         try {
-            // 【本次修改点】直接从SecurityContext获取UserDTO
-            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-            if (authentication == null || !(authentication.getPrincipal() instanceof UserDTO)) {
-                return ResponseEntity.ok(Result.error(401, "用户未登录"));
-            }
-
-            UserDTO user = (UserDTO) authentication.getPrincipal();
             List<RecentOperationDTO> operations = recentOperationService.getRecentOperations(limit, user);
             return ResponseEntity.ok(Result.success(operations));
         } catch (Exception e) {
-            System.err.println("获取最近操作失败: " + e.getMessage());
-            e.printStackTrace();
+            logger.error("获取最近操作失败", e);
             return ResponseEntity.ok(Result.error(500, "获取最近操作失败"));
         }
     }
 
     /**
-     * GET /api/dashboard/operations - 获取仪表盘操作数据（新版）
-     * 包含待处理任务和最近动态
+     * GET /api/dashboard/operations - 获取仪表盘操作数据（待处理任务和最近动态）
      */
     @GetMapping("/operations")
     public ResponseEntity<Result<DashboardOperationsDTO>> getDashboardOperations(
             @RequestParam(defaultValue = "10") int limit) {
+        UserDTO user = getCurrentUser();
+        if (user == null) {
+            return ResponseEntity.ok(Result.error(401, "用户未登录"));
+        }
         try {
-            // 【本次修改点】直接从SecurityContext获取UserDTO
-            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-            if (authentication == null || !(authentication.getPrincipal() instanceof UserDTO)) {
-                return ResponseEntity.ok(Result.error(401, "用户未登录"));
-            }
-
-            UserDTO user = (UserDTO) authentication.getPrincipal();
-            System.out.println("=== [operations接口] 用户信息, id: " + user.getId()
-                    + ", roleCodes: " + user.getRoleCodes()
-                    + ", deptId: " + user.getDeptId());
-
             DashboardOperationsDTO operations = recentOperationService.getDashboardOperations(limit, user);
-            System.out.println("=== [operations接口] 操作数据获取成功, pendingTasks: "
-                    + (operations.getPendingTasks() != null ? operations.getPendingTasks().size() : 0)
-                    + ", recentActivities: "
-                    + (operations.getRecentActivities() != null ? operations.getRecentActivities().size() : 0));
-
             return ResponseEntity.ok(Result.success(operations));
         } catch (Exception e) {
-            System.err.println("=== [operations接口] 获取仪表盘操作数据失败 ===");
-            System.err.println("异常类型: " + e.getClass().getName());
-            System.err.println("异常消息: " + e.getMessage());
-            e.printStackTrace();
-            return ResponseEntity.ok(Result.error(500, "获取仪表盘操作数据失败: " + e.getMessage()));
+            logger.error("获取仪表盘操作数据失败", e);
+            return ResponseEntity.ok(Result.error(500, "获取仪表盘操作数据失败"));
         }
+    }
+
+    private UserDTO getCurrentUser() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return null;
+        }
+        return authentication.getPrincipal() instanceof UserDTO user ? user : null;
+    }
+
+    private boolean hasRole(UserDTO user, UserRole... roles) {
+        if (user.getRoleCodes() == null) {
+            return false;
+        }
+        for (String code : user.getRoleCodes()) {
+            UserRole parsed = UserRole.fromCode(code);
+            if (parsed == null) {
+                continue;
+            }
+            for (UserRole target : roles) {
+                if (parsed == target) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 }

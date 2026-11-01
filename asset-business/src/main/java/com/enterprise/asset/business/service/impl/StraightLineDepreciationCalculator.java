@@ -27,16 +27,16 @@ public class StraightLineDepreciationCalculator implements DepreciationCalculato
         DepreciationRecord record = new DepreciationRecord();
 
         BigDecimal originalValue = asset.getOriginalValue() != null ? asset.getOriginalValue() : BigDecimal.ZERO;
-        Integer usefulLifeYears = asset.getUsefulLife() != null ? asset.getUsefulLife() : 0;
+        // asset.useful_life 的单位是"月"（与数据库设计和前端表单一致）
+        Integer usefulLifeMonths = asset.getUsefulLife() != null ? asset.getUsefulLife() : 0;
+        BigDecimal accumulated = accumulatedDepreciation != null ? accumulatedDepreciation : BigDecimal.ZERO;
 
-        if (usefulLifeYears <= 0 || originalValue.compareTo(BigDecimal.ZERO) <= 0) {
+        if (usefulLifeMonths <= 0 || originalValue.compareTo(BigDecimal.ZERO) <= 0) {
             record.setDepreciationAmount(BigDecimal.ZERO);
             record.setCurrentNetValue(originalValue);
-            record.setAccumulatedDepreciation(accumulatedDepreciation);
+            record.setAccumulatedDepreciation(accumulated);
             return record;
         }
-
-        Integer usefulLifeMonths = usefulLifeYears * 12;
 
         BigDecimal monthlyDepreciation = originalValue.divide(
                 new BigDecimal(usefulLifeMonths),
@@ -48,12 +48,12 @@ public class StraightLineDepreciationCalculator implements DepreciationCalculato
         BigDecimal periodDepreciation = monthlyDepreciation.multiply(new BigDecimal(monthsInPeriod))
                 .setScale(DECIMAL_PLACES, ROUNDING_MODE);
 
-        BigDecimal newAccumulatedDepreciation = accumulatedDepreciation.add(periodDepreciation);
+        BigDecimal newAccumulatedDepreciation = accumulated.add(periodDepreciation);
         BigDecimal currentNetValue = originalValue.subtract(newAccumulatedDepreciation);
 
         if (currentNetValue.compareTo(BigDecimal.ZERO) < 0) {
             currentNetValue = BigDecimal.ZERO;
-            periodDepreciation = originalValue.subtract(accumulatedDepreciation);
+            periodDepreciation = originalValue.subtract(accumulated);
             newAccumulatedDepreciation = originalValue;
         }
 
@@ -68,7 +68,8 @@ public class StraightLineDepreciationCalculator implements DepreciationCalculato
         record.setDepreciationAmount(periodDepreciation);
         record.setAccumulatedDepreciation(newAccumulatedDepreciation);
         record.setUsefulLife(usefulLifeMonths);
-        record.setUsedMonths(usedMonths + (int) monthsInPeriod);
+        int safeUsedMonths = usedMonths != null ? usedMonths : 0;
+        record.setUsedMonths(safeUsedMonths + (int) monthsInPeriod);
         record.setDepreciationPeriod(periodStartDate.toString() + "至" + periodEndDate.toString());
         record.setDepreciationMonth(
                 periodStartDate.getYear() + "-" + String.format("%02d", periodStartDate.getMonthValue()));

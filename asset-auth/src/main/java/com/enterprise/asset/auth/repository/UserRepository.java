@@ -4,6 +4,7 @@ import com.enterprise.asset.auth.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -31,6 +32,9 @@ public interface UserRepository extends JpaRepository<User, Long> {
     /** 判断手机号是否存在 */
     boolean existsByPhone(String phone);
     
+    /** 根据部门ID查询用户列表 */
+    List<User> findByDeptId(Long deptId);
+
     /** 根据部门ID统计用户数量 */
     long countByDeptId(Long deptId);
     

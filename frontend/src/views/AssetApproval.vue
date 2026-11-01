@@ -15,14 +15,18 @@
       <el-table-column prop="id" label="申请编号" width="100" />
       <el-table-column label="申请人" width="150">
         <template #default="scope">
-          <div>{{ scope.row.applicantName }}</div>
-          <div style="color: #999; font-size: 12px;">{{ scope.row.departmentName || '未分配部门' }}</div>
+          <div class="cell-stack">
+            <span class="cell-main">{{ scope.row.applicantName }}</span>
+            <span class="cell-sub">{{ scope.row.departmentName || '未分配部门' }}</span>
+          </div>
         </template>
       </el-table-column>
       <el-table-column label="申请资产" min-width="200">
           <template #default="scope">
-            <div>{{ scope.row.assetName || getAssetName(scope.row.assetId, assetOptions) }}</div>
-            <div style="color: #999; font-size: 12px;">{{ scope.row.model || getAssetModel(scope.row.assetId, assetOptions) }}</div>
+            <div class="cell-stack">
+              <span class="cell-main">{{ scope.row.assetName || getAssetName(scope.row.assetId, assetOptions) }}</span>
+              <span class="cell-sub">{{ scope.row.model || getAssetModel(scope.row.assetId, assetOptions) }}</span>
+            </div>
           </template>
         </el-table-column>
       <el-table-column label="申请原因" min-width="200" show-overflow-tooltip>
@@ -35,47 +39,38 @@
           <TimeFormatter :time="scope.row.applicationDate" />
         </template>
       </el-table-column>
-      <el-table-column prop="status" label="审批状态" width="160">
+      <el-table-column prop="status" label="审批状态" width="170">
         <template #default="scope">
-          <el-tag :type="getStatusTagType(scope.row.status)" size="small">
-            {{ getStatusText(scope.row.status) }}
-          </el-tag>
-          <div v-if="scope.row.status === 'leader_approved'" style="color: #67c23a; font-size: 12px; margin-top: 4px;">
-            ✓ 领导已批准，可执行最终审批
-          </div>
-          <div v-else-if="scope.row.status === 'final_approval_created'" style="color: #e6a23c; font-size: 12px; margin-top: 4px;">
-            ⏳ 等待领导审批中
+          <div class="cell-stack">
+            <StatusTag :status="scope.row.status" :status-map="pendingStatusMap" />
+            <span v-if="scope.row.status === 'leader_approved'" class="cell-sub cell-sub--success">
+              领导已批准，可执行最终审批
+            </span>
+            <span v-else-if="scope.row.status === 'final_approval_created'" class="cell-sub">
+              等待领导审批中
+            </span>
           </div>
         </template>
       </el-table-column>
     </template>
     
-    <!-- 操作按钮插槽 -->
-    <template #actionButtons="{ row }">
-      <el-button 
-        v-if="!leaderStatus && row.applicationType === 'DISPOSAL'"
-        type="primary" 
-        size="small" 
-        @click="createFinalApproval(row)"
-        :disabled="row.status !== 'pending' || row.status === 'final_approval_created' || row.status === 'leader_approved'"
-      >
-        创建终审申请
-      </el-button>
-    </template>
-
     <!-- 已审批列 -->
     <template #approvedColumns>
       <el-table-column prop="id" label="申请编号" width="100" />
       <el-table-column label="申请人" width="150">
         <template #default="scope">
-          <div>{{ scope.row.applicantName }}</div>
-          <div style="color: #999; font-size: 12px;">{{ scope.row.departmentName || '未分配部门' }}</div>
+          <div class="cell-stack">
+            <span class="cell-main">{{ scope.row.applicantName }}</span>
+            <span class="cell-sub">{{ scope.row.departmentName || '未分配部门' }}</span>
+          </div>
         </template>
       </el-table-column>
       <el-table-column label="申请资产" min-width="200">
           <template #default="scope">
-            <div>{{ scope.row.assetName || getAssetName(scope.row.assetId, assetOptions) }}</div>
-            <div style="color: #999; font-size: 12px;">{{ scope.row.model || getAssetModel(scope.row.assetId, assetOptions) }}</div>
+            <div class="cell-stack">
+              <span class="cell-main">{{ scope.row.assetName || getAssetName(scope.row.assetId, assetOptions) }}</span>
+              <span class="cell-sub">{{ scope.row.model || getAssetModel(scope.row.assetId, assetOptions) }}</span>
+            </div>
           </template>
         </el-table-column>
       <el-table-column label="申请原因" min-width="200" show-overflow-tooltip>
@@ -96,7 +91,7 @@
       </el-table-column>
       <el-table-column label="操作" width="100">
         <template #default="scope">
-          <el-button type="primary" size="small" @click="approvalPageRef.handleView(scope.row)">查看</el-button>
+          <el-button link class="action-link" @click="approvalPageRef.handleView(scope.row)">查看</el-button>
         </template>
       </el-table-column>
     </template>
@@ -338,7 +333,7 @@ const fetchApprovedApplications = async () => {
 
 const fetchAssets = async () => {
   try {
-    const response = await axios.get('/assets')
+    const response = await axios.get('/assets/all')
     if (response.data.code === 200) {
       assetOptions.value = response.data.data
     }
@@ -350,26 +345,8 @@ const fetchAssets = async () => {
 const handleSubmitApproval = async ({ formData, item, type }) => {
   approvalPageRef.value.setLoading(true)
   try {
-    // 检查是否为报废申请，只有领导可以批准报废申请（支持多种角色格式）
-    const isLeaderUser = currentUser.value?.roles?.some(role => role.toLowerCase().includes('leader')) || false
-    const isAdmin = currentUser.value?.roles?.some(role => {
-      const roleLower = role.toLowerCase()
-      return roleLower === 'admin' || roleLower === 'role_admin'
-    }) || false
-    
-    // 资产报废申请需要特殊处理
-    // 领导可以批准 pending_leader 状态的申请
-    // 资产管理员可以批准 leader_approved 状态的申请
-    if (item.applicationType === 'DISPOSAL' && !isLeaderUser && !isAdmin) {
-      // 检查状态是否为可批准状态
-      if (item.status !== 'pending_leader' && item.status !== 'leader_approved') {
-        ElMessage.error('资产报废申请需要领导批准')
-        approvalPageRef.value.setLoading(false)
-        return
-      }
-    }
-
-    const url = type === 'approve' 
+    // 审批权限由后端根据当前登录用户角色判定，前端不再做角色分支
+    const url = type === 'approve'
       ? `/asset-applications/${item.id}/approve`
       : `/asset-applications/${item.id}/reject`
 
@@ -396,65 +373,13 @@ const handleSubmitApproval = async ({ formData, item, type }) => {
   }
 }
 
-const createFinalApproval = async (item) => {
-  if (item.applicationType !== 'DISPOSAL') {
-    ElMessage.error('只有报废申请需要创建终审申请')
-    return
-  }
-
-  approvalPageRef.value.setLoading(true)
-  try {
-    const finalApprovalData = {
-      originalApplicationId: item.id,
-      applicantId: currentUser.value.id,
-      applicantName: currentUser.value.realName || currentUser.value.username,
-      departmentId: currentUser.value.departmentId,
-      departmentName: currentUser.value.departmentName,
-      applicationType: 'DISPOSAL',
-      applicationReason: `资产报废终审申请：${item.applicantName} - ${getAssetName(item.assetId, assetOptions)}`,
-      assetId: item.assetId,
-      estimatedValue: item.estimatedValue
-    }
-    
-    const response = await axios.post('/asset-applications/create-final-approval', finalApprovalData)
-
-    if (response.data.code === 200) {
-      ElMessage.success('终审申请创建成功')
-      fetchPendingApplications()
-    } else {
-      ElMessage.error(response.data.message || '操作失败')
-    }
-  } catch (error) {
-    ElMessage.error('操作失败')
-  } finally {
-    approvalPageRef.value.setLoading(false)
-  }
-}
-
-// 状态文字映射
-const getStatusText = (status) => {
-  const statusMap = {
-    'pending': '待处理',
-    'final_approval_created': '已提交终审',
-    'pending_leader': '等待领导审批',
-    'leader_approved': '领导已批准',
-    'approved': '已完成',
-    'rejected': '已拒绝'
-  }
-  return statusMap[status] || status
-}
-
-// 状态标签类型映射
-const getStatusTagType = (status) => {
-  const typeMap = {
-    'pending': 'info',
-    'final_approval_created': 'warning',
-    'pending_leader': 'warning',
-    'leader_approved': 'success',
-    'approved': 'success',
-    'rejected': 'danger'
-  }
-  return typeMap[status] || 'info'
+const pendingStatusMap = {
+  pending: { text: '待处理', type: 'warning' },
+  final_approval_created: { text: '已提交终审', type: 'info' },
+  pending_leader: { text: '等待领导审批', type: 'warning' },
+  leader_approved: { text: '领导已批准', type: 'primary' },
+  approved: { text: '已完成', type: 'success' },
+  rejected: { text: '已拒绝', type: 'danger' }
 }
 
 onMounted(() => {
@@ -466,7 +391,37 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.asset-approval {
-  padding: 20px;
+.cell-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.cell-main {
+  font-size: 13px;
+  color: var(--eam-ink-800);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cell-sub {
+  font-size: 11.5px;
+  line-height: 1.4;
+  color: var(--eam-ink-400);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cell-sub--success {
+  color: #34634f;
+}
+
+.action-link {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--eam-primary-deep);
 }
 </style>

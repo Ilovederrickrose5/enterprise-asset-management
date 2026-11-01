@@ -4,6 +4,7 @@ import com.enterprise.asset.business.entity.Asset;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -15,7 +16,7 @@ import java.util.List;
  * 关联表: asset(资产表)
  * 主要操作: 资产的增删改查、统计查询
  */
-public interface AssetRepository extends JpaRepository<Asset, Long> {
+public interface AssetRepository extends JpaRepository<Asset, Long>, JpaSpecificationExecutor<Asset> {
 
         /** 查询所有资产总数(包含所有状态) */
         @Query(value = "SELECT COUNT(*) FROM asset", nativeQuery = true)
@@ -32,6 +33,15 @@ public interface AssetRepository extends JpaRepository<Asset, Long> {
         /** 根据部门ID查询资产列表 */
         List<Asset> findByDeptId(Long deptId);
 
+        /** 根据用户ID查询资产列表 */
+        List<Asset> findByUserId(Long userId);
+
+        /** 查询所有未分配使用人的资产 */
+        List<Asset> findByUserIdIsNull();
+
+        /** 查询指定部门未分配使用人的资产 */
+        List<Asset> findByDeptIdAndUserIdIsNull(Long deptId);
+
         /** 分页查询所有资产 */
         Page<Asset> findAll(Pageable pageable);
 
@@ -46,6 +56,9 @@ public interface AssetRepository extends JpaRepository<Asset, Long> {
 
         /** 根据部门ID和状态分页查询资产 */
         Page<Asset> findByDeptIdAndStatus(Long deptId, String status, Pageable pageable);
+
+        /** 根据用户ID和状态分页查询资产 */
+        Page<Asset> findByUserIdAndStatus(Long userId, String status, Pageable pageable);
 
         /**
          * 原子占用资产: 仅当 current_application_id 为空时,设置为新申请ID

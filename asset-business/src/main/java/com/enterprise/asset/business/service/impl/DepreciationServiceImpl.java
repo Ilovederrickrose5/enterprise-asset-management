@@ -85,9 +85,14 @@ public class DepreciationServiceImpl implements DepreciationService {
 
         Optional<DepreciationRecord> lastRecordOpt = depreciationRecordRepository
                 .findTopByAssetIdOrderByCreateTimeDesc(assetId);
-        BigDecimal accumulatedDepreciation = lastRecordOpt.map(DepreciationRecord::getAccumulatedDepreciation)
+        BigDecimal accumulatedDepreciation = lastRecordOpt
+                .map(record -> record.getAccumulatedDepreciation() != null
+                        ? record.getAccumulatedDepreciation()
+                        : BigDecimal.ZERO)
                 .orElse(BigDecimal.ZERO);
-        Integer usedMonths = lastRecordOpt.map(DepreciationRecord::getUsedMonths).orElse(0);
+        Integer usedMonths = lastRecordOpt
+                .map(record -> record.getUsedMonths() != null ? record.getUsedMonths() : 0)
+                .orElse(0);
 
         if (usedMonths >= asset.getUsefulLife()) {
             logger.info("资产已达到使用年限，不再计提折旧: {}", asset.getAssetNo());
@@ -95,6 +100,9 @@ public class DepreciationServiceImpl implements DepreciationService {
         }
 
         DepreciationMethod method = DepreciationMethod.fromCode(asset.getDepreciationMethod());
+        if (method == null) {
+            method = DepreciationMethod.STRAIGHT_LINE;
+        }
         DepreciationCalculator calculator = calculatorFactory.getCalculator(method.getCode());
 
         DepreciationRecord record;
@@ -151,12 +159,23 @@ public class DepreciationServiceImpl implements DepreciationService {
             throw new RuntimeException("资产使用年限必须大于0");
         }
 
+        // 当月已有记录时先撤销旧记录，避免基于"已包含本月"的累计值重复计提
+        String depreciationMonth = startDate.getYear() + "-" + String.format("%02d", startDate.getMonthValue());
+        depreciationRecordRepository.findTopByAssetIdAndDepreciationMonth(assetId, depreciationMonth)
+                .ifPresent(depreciationRecordRepository::delete);
+        depreciationRecordRepository.flush();
+
         // 查累计折旧和已使用月数
         Optional<DepreciationRecord> lastRecordOpt = depreciationRecordRepository
                 .findTopByAssetIdOrderByCreateTimeDesc(assetId);
-        BigDecimal accumulatedDepreciation = lastRecordOpt.map(DepreciationRecord::getAccumulatedDepreciation)
+        BigDecimal accumulatedDepreciation = lastRecordOpt
+                .map(existing -> existing.getAccumulatedDepreciation() != null
+                        ? existing.getAccumulatedDepreciation()
+                        : BigDecimal.ZERO)
                 .orElse(BigDecimal.ZERO);
-        Integer usedMonths = lastRecordOpt.map(DepreciationRecord::getUsedMonths).orElse(0);
+        Integer usedMonths = lastRecordOpt
+                .map(existing -> existing.getUsedMonths() != null ? existing.getUsedMonths() : 0)
+                .orElse(0);
 
         // 检查使用年限
         if (usedMonths >= asset.getUsefulLife()) {
@@ -168,13 +187,9 @@ public class DepreciationServiceImpl implements DepreciationService {
         DepreciationMethod method = (depreciationMethod != null && !depreciationMethod.isEmpty())
                 ? DepreciationMethod.fromCode(depreciationMethod)
                 : DepreciationMethod.fromCode(asset.getDepreciationMethod());
-
-        // 检查当月是否已有记录
-        String depreciationMonth = startDate.getYear() + "-" + String.format("%02d", startDate.getMonthValue());
-        List<DepreciationRecord> existingRecords = depreciationRecordRepository
-                .findByAssetId(assetId).stream()
-                .filter(r -> depreciationMonth.equals(r.getDepreciationMonth()))
-                .toList();
+        if (method == null) {
+            method = DepreciationMethod.STRAIGHT_LINE;
+        }
 
         // 调计算器计算
         DepreciationCalculator calculator = calculatorFactory.getCalculator(method.getCode());
@@ -188,20 +203,7 @@ public class DepreciationServiceImpl implements DepreciationService {
             throw new RuntimeException("折旧计算结果验证失败");
         }
 
-        // 当月已有记录（执行更新逻辑）
-        if (!existingRecords.isEmpty()) {
-            DepreciationRecord existingRecord = existingRecords.get(0);
-            existingRecord.setDepreciationMethod(record.getDepreciationMethod());
-            existingRecord.setDepreciationAmount(record.getDepreciationAmount());
-            existingRecord.setAccumulatedDepreciation(record.getAccumulatedDepreciation());
-            existingRecord.setCurrentNetValue(record.getCurrentNetValue());
-            existingRecord.setUsedMonths(record.getUsedMonths());
-            existingRecord.setDepreciationPeriod(record.getDepreciationPeriod());
-            record = depreciationRecordRepository.save(existingRecord);
-            // 当月没有记录（执行新增逻辑）
-        } else {
-            record = depreciationRecordRepository.save(record);
-        }
+        record = depreciationRecordRepository.save(record);
 
         // 更新资产净值
         asset.setNetValue(record.getCurrentNetValue());
@@ -335,26 +337,21 @@ public class DepreciationServiceImpl implements DepreciationService {
 
     @Override
     public boolean validateDepreciationCalculation(Asset asset, DepreciationRecord record) {
-        if (record.getDepreciationAmount().compareTo(BigDecimal.ZERO) < 0) {
+        if (record.getDepreciationAmount() == null || record.getDepreciationAmount().compareTo(BigDecimal.ZERO) < 0) {
             logger.error("折旧金额不能为负数: {}", record.getDepreciationAmount());
             return false;
         }
 
-        if (record.getCurrentNetValue().compareTo(BigDecimal.ZERO) < 0) {
+        if (record.getCurrentNetValue() == null || record.getCurrentNetValue().compareTo(BigDecimal.ZERO) < 0) {
             logger.error("净值不能为负数: {}", record.getCurrentNetValue());
             return false;
         }
 
-        if (record.getAccumulatedDepreciation().compareTo(asset.getOriginalValue()) > 0) {
+        // accumulatedDepreciation 已包含本期折旧，无需再次相加
+        if (record.getAccumulatedDepreciation() == null
+                || record.getAccumulatedDepreciation().compareTo(asset.getOriginalValue()) > 0) {
             logger.error("累计折旧不能超过原值: {} > {}",
                     record.getAccumulatedDepreciation(), asset.getOriginalValue());
-            return false;
-        }
-
-        BigDecimal totalDepreciation = record.getAccumulatedDepreciation().add(record.getDepreciationAmount());
-        if (totalDepreciation.compareTo(asset.getOriginalValue()) > 0) {
-            logger.error("累计折旧加本期折旧不能超过原值: {} > {}",
-                    totalDepreciation, asset.getOriginalValue());
             return false;
         }
 

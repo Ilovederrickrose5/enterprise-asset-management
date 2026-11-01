@@ -39,11 +39,12 @@ public class WorkUnitDepreciationCalculator implements DepreciationCalculator {
 
         BigDecimal originalValue = asset.getOriginalValue() != null ? asset.getOriginalValue() : BigDecimal.ZERO;
         Integer usefulLife = asset.getUsefulLife() != null ? asset.getUsefulLife() : 0;
+        BigDecimal accumulated = accumulatedDepreciation != null ? accumulatedDepreciation : BigDecimal.ZERO;
 
         if (usefulLife <= 0 || originalValue.compareTo(BigDecimal.ZERO) <= 0) {
             record.setDepreciationAmount(BigDecimal.ZERO);
             record.setCurrentNetValue(originalValue);
-            record.setAccumulatedDepreciation(accumulatedDepreciation);
+            record.setAccumulatedDepreciation(accumulated);
             return record;
         }
 
@@ -51,7 +52,9 @@ public class WorkUnitDepreciationCalculator implements DepreciationCalculator {
         BigDecimal totalExpectedWorkUnits = new BigDecimal(usefulLife);
 
         // 确保实际工作量不为负数
-        BigDecimal periodWorkUnits = actualWorkUnits.compareTo(BigDecimal.ZERO) < 0 ? BigDecimal.ZERO : actualWorkUnits;
+        BigDecimal periodWorkUnits = actualWorkUnits != null && actualWorkUnits.compareTo(BigDecimal.ZERO) > 0
+                ? actualWorkUnits
+                : BigDecimal.ZERO;
 
         BigDecimal depreciationPerUnit = originalValue.divide(
                 totalExpectedWorkUnits,
@@ -61,12 +64,12 @@ public class WorkUnitDepreciationCalculator implements DepreciationCalculator {
         BigDecimal periodDepreciation = depreciationPerUnit.multiply(periodWorkUnits)
                 .setScale(DECIMAL_PLACES, ROUNDING_MODE);
 
-        BigDecimal newAccumulatedDepreciation = accumulatedDepreciation.add(periodDepreciation);
+        BigDecimal newAccumulatedDepreciation = accumulated.add(periodDepreciation);
         BigDecimal currentNetValue = originalValue.subtract(newAccumulatedDepreciation);
 
         if (currentNetValue.compareTo(BigDecimal.ZERO) < 0) {
             currentNetValue = BigDecimal.ZERO;
-            periodDepreciation = originalValue.subtract(accumulatedDepreciation);
+            periodDepreciation = originalValue.subtract(accumulated);
             newAccumulatedDepreciation = originalValue;
         }
 
@@ -81,7 +84,8 @@ public class WorkUnitDepreciationCalculator implements DepreciationCalculator {
         record.setDepreciationAmount(periodDepreciation);
         record.setAccumulatedDepreciation(newAccumulatedDepreciation);
         record.setUsefulLife(usefulLife);
-        record.setUsedMonths(usedMonths + periodWorkUnits.intValue());
+        int safeUsedMonths = usedMonths != null ? usedMonths : 0;
+        record.setUsedMonths(safeUsedMonths + periodWorkUnits.intValue());
         record.setDepreciationPeriod(periodStartDate.toString() + "至" + periodEndDate.toString());
         record.setDepreciationMonth(periodStartDate.getYear() + "-" + String.format("%02d", periodStartDate.getMonthValue()));
         record.setNetValue(currentNetValue);

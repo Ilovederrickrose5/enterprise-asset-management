@@ -2,9 +2,10 @@ package com.enterprise.asset.auth.service;
 
 import com.enterprise.asset.auth.entity.Role;
 import com.enterprise.asset.auth.entity.User;
-
+import com.enterprise.asset.auth.entity.UserRole;
 import com.enterprise.asset.auth.repository.RoleRepository;
 import com.enterprise.asset.auth.repository.UserRepository;
+import com.enterprise.asset.auth.repository.UserRoleRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -15,14 +16,18 @@ import java.util.List;
 @Service
 public class UserService {
 
+    private static final String DEFAULT_ROLE_CODE = "user";
+
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
+    private final UserRoleRepository userRoleRepository;
     private final PasswordEncoder passwordEncoder;
 
     public UserService(UserRepository userRepository, RoleRepository roleRepository,
-            PasswordEncoder passwordEncoder) {
+            UserRoleRepository userRoleRepository, PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
+        this.userRoleRepository = userRoleRepository;
         this.passwordEncoder = passwordEncoder;
     }
 
@@ -50,9 +55,7 @@ public class UserService {
 
     /** 根据部门ID获取用户列表 */
     public List<User> getUsersByDepartment(Long departmentId) {
-        return userRepository.findAll().stream()
-                .filter(user -> user.getDeptId() != null && user.getDeptId().equals(departmentId))
-                .toList();
+        return userRepository.findByDeptId(departmentId);
     }
 
     /**
@@ -78,16 +81,15 @@ public class UserService {
             }
         }
 
-        if (user.getRole() == null || user.getRole().isEmpty()) {
-            user.setRole("user");
-        } else {
-            user.setRole(user.getRole().toLowerCase());
+        if (user.getPassword() == null || user.getPassword().isEmpty()) {
+            throw new RuntimeException("密码不能为空");
         }
+        user.setPassword(passwordEncoder.encode(user.getPassword()));
 
-        if (user.getPassword() != null && !user.getPassword().startsWith("$2a$")) {
-            user.setPassword(passwordEncoder.encode(user.getPassword()));
-        }
-        return userRepository.save(user);
+        String requestedRole = user.getRole();
+        User savedUser = userRepository.save(user);
+        applyRole(savedUser, requestedRole);
+        return savedUser;
     }
 
     /**
@@ -110,15 +112,19 @@ public class UserService {
         existingUser.setDeptId(user.getDeptId());
         existingUser.setPosition(user.getPosition());
         existingUser.setStatus(user.getStatus());
-        if (user.getRole() != null) {
-            existingUser.setRole(user.getRole().toLowerCase());
-        }
 
         if (user.getPassword() != null && !user.getPassword().isEmpty()) {
             existingUser.setPassword(passwordEncoder.encode(user.getPassword()));
         }
 
-        return userRepository.save(existingUser);
+        User savedUser = userRepository.save(existingUser);
+
+        String requestedRole = user.getRole();
+        if (requestedRole != null && !requestedRole.isBlank()) {
+            applyRole(savedUser, requestedRole);
+        }
+
+        return savedUser;
     }
 
     /**
@@ -145,22 +151,46 @@ public class UserService {
         if (user == null) {
             return null;
         }
+        if (roleIdStr == null || roleIdStr.isBlank()) {
+            throw new RuntimeException("角色不能为空");
+        }
 
-        String roleCode = roleIdStr;
+        Role role;
         try {
-            Long roleId = Long.parseLong(roleIdStr);
-            Role role = roleRepository.findById(roleId).orElse(null);
-            if (role != null) {
-                roleCode = role.getCode();
-            }
+            Long roleId = Long.parseLong(roleIdStr.trim());
+            role = roleRepository.findById(roleId)
+                    .orElseThrow(() -> new RuntimeException("角色不存在: " + roleIdStr));
         } catch (NumberFormatException e) {
+            role = resolveRole(roleIdStr);
         }
 
-        if (roleCode != null) {
-            roleCode = roleCode.toLowerCase();
-        }
-        user.setRole(roleCode);
-        return userRepository.save(user);
+        applyRole(user, role.getCode());
+        return user;
+    }
+
+    /**
+     * 将角色写入 user_role 关联表（先清空旧角色），并同步内存中的角色列表供响应序列化。
+     */
+    private void applyRole(User user, String roleCode) {
+        Role role = resolveRole(roleCode == null || roleCode.isBlank() ? DEFAULT_ROLE_CODE : roleCode);
+
+        userRoleRepository.deleteByUserId(user.getId());
+
+        UserRole userRole = new UserRole();
+        userRole.setUserId(user.getId());
+        userRole.setRoleId(role.getId());
+        userRole.setRole(role);
+        userRoleRepository.save(userRole);
+
+        user.getUserRoles().clear();
+        user.getUserRoles().add(userRole);
+        user.setRole(role.getCode());
+    }
+
+    private Role resolveRole(String roleCode) {
+        String normalized = roleCode.trim().toLowerCase();
+        return roleRepository.findByCode(normalized)
+                .orElseThrow(() -> new RuntimeException("角色不存在: " + roleCode));
     }
 
     /** 获取活跃用户数量 */

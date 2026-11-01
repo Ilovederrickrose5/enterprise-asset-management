@@ -25,9 +25,18 @@ public class AssetController {
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(required = false) String status,
             @RequestParam(defaultValue = "id") String sortBy,
-            @RequestParam(defaultValue = "desc") String sortDir) {
-        Page<Asset> assets = assetService.getAssetsWithPagination(page, size, status, sortBy, sortDir);
+            @RequestParam(defaultValue = "desc") String sortDir,
+            @RequestParam(required = false) String keyword,
+            @RequestParam(defaultValue = "false") boolean onlyMine) {
+        Page<Asset> assets = assetService.getAssetsWithPagination(
+                page, size, status, sortBy, sortDir, keyword, onlyMine);
         return ResponseEntity.ok(Result.success(assets));
+    }
+
+    /** 不分页的全量资产列表（按当前用户权限范围），用于下拉选项和统计 */
+    @GetMapping("/all")
+    public ResponseEntity<Result<List<Asset>>> getAssetList() {
+        return ResponseEntity.ok(Result.success(assetService.getAllAssets()));
     }
 
     @GetMapping("/{id}")
@@ -98,11 +107,15 @@ public class AssetController {
     public ResponseEntity<Result<Asset>> updateAssetUseStatus(
             @PathVariable Long id,
             @RequestBody UseStatusUpdateRequest useStatusUpdate) {
-        Asset asset = assetService.updateAssetUseStatus(id, useStatusUpdate.getUseStatus());
-        if (asset == null) {
-            return ResponseEntity.ok(Result.error(404, "资产不存在"));
+        try {
+            Asset asset = assetService.updateAssetUseStatus(id, useStatusUpdate.getUseStatus());
+            if (asset == null) {
+                return ResponseEntity.ok(Result.error(404, "资产不存在"));
+            }
+            return ResponseEntity.ok(Result.success(asset));
+        } catch (SecurityException e) {
+            return ResponseEntity.ok(Result.error(403, e.getMessage()));
         }
-        return ResponseEntity.ok(Result.success(asset));
     }
 
     static class UseStatusUpdateRequest {
@@ -119,7 +132,7 @@ public class AssetController {
 
     @GetMapping("/department/{departmentId}")
     public ResponseEntity<Result<List<Asset>>> getAssetsByDepartment(@PathVariable Long departmentId) {
-        List<Asset> assets = assetService.getAllAssets();
+        List<Asset> assets = assetService.getAssetsByDepartment(departmentId);
         return ResponseEntity.ok(Result.success(assets));
     }
 
@@ -149,7 +162,7 @@ public class AssetController {
 
     @GetMapping("/count/department/{departmentId}")
     public ResponseEntity<Result<Long>> getAssetCountByDepartment(@PathVariable Long departmentId) {
-        long count = assetService.getAssetCount();
+        long count = assetService.getAssetCountByDepartment(departmentId);
         return ResponseEntity.ok(Result.success(count));
     }
 

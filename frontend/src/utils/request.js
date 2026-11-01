@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { ElMessage } from 'element-plus'
 import { pinia } from '../stores'
 import { useUserStore } from '../stores/userStore'
 
@@ -51,7 +52,8 @@ service.interceptors.response.use(
     }
     // 403错误处理（无权限）
     if (error.response && error.response.status === 403) {
-      // 可以在这里添加提示信息
+      const message = error.response.data?.message || '没有权限执行该操作'
+      ElMessage.error(message)
     }
     return Promise.reject(error)
   }

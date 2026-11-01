@@ -24,6 +24,9 @@ public interface DepreciationRecordRepository extends JpaRepository<Depreciation
         /** 获取资产最新折旧记录 */
         Optional<DepreciationRecord> findTopByAssetIdOrderByCreateTimeDesc(Long assetId);
 
+        /** 查询资产指定月份的折旧记录 */
+        Optional<DepreciationRecord> findTopByAssetIdAndDepreciationMonth(Long assetId, String depreciationMonth);
+
         /** 根据折旧期间和创建时间范围查询 */
         List<DepreciationRecord> findByDepreciationPeriodAndCreateTimeBetween(
                         String depreciationPeriod,

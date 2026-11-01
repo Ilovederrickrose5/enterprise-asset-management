@@ -27,46 +27,43 @@ public class DoubleDecliningBalanceDepreciationCalculator implements Depreciatio
         DepreciationRecord record = new DepreciationRecord();
         
         BigDecimal originalValue = asset.getOriginalValue() != null ? asset.getOriginalValue() : BigDecimal.ZERO;
-        Integer usefulLife = asset.getUsefulLife() != null ? asset.getUsefulLife() : 0;
-        
-        if (usefulLife <= 0 || originalValue.compareTo(BigDecimal.ZERO) <= 0) {
+        // asset.useful_life 的单位是"月"
+        Integer usefulLifeMonths = asset.getUsefulLife() != null ? asset.getUsefulLife() : 0;
+        BigDecimal accumulated = accumulatedDepreciation != null ? accumulatedDepreciation : BigDecimal.ZERO;
+
+        if (usefulLifeMonths <= 0 || originalValue.compareTo(BigDecimal.ZERO) <= 0) {
             record.setDepreciationAmount(BigDecimal.ZERO);
             record.setCurrentNetValue(originalValue);
-            record.setAccumulatedDepreciation(accumulatedDepreciation);
+            record.setAccumulatedDepreciation(accumulated);
             return record;
         }
-        
-        BigDecimal currentNetValue = calculateNetValue(originalValue, accumulatedDepreciation);
-        
+
+        BigDecimal currentNetValue = calculateNetValue(originalValue, accumulated);
+
         if (currentNetValue.compareTo(BigDecimal.ZERO) <= 0) {
             record.setDepreciationAmount(BigDecimal.ZERO);
             record.setCurrentNetValue(BigDecimal.ZERO);
             record.setAccumulatedDepreciation(originalValue);
             return record;
         }
-        
-        BigDecimal doubleRate = new BigDecimal(2).divide(
-            new BigDecimal(usefulLife),
-            DECIMAL_PLACES,
-            ROUNDING_MODE
-        );
-        
-        BigDecimal annualDepreciation = currentNetValue.multiply(doubleRate)
-            .setScale(DECIMAL_PLACES, ROUNDING_MODE);
-        
+
+        // 年折旧率 = 2 / 使用年数 = 24 / 使用月数；月折旧额 = 净值 × 年折旧率 / 12 = 净值 × 2 / 使用月数
+        BigDecimal monthlyRate = new BigDecimal(2).divide(
+                new BigDecimal(usefulLifeMonths),
+                10,
+                ROUNDING_MODE);
+
         long monthsInPeriod = ChronoUnit.MONTHS.between(periodStartDate, periodEndDate) + 1;
-        BigDecimal periodDepreciation = annualDepreciation.divide(
-            new BigDecimal(12),
-            DECIMAL_PLACES,
-            ROUNDING_MODE
-        ).multiply(new BigDecimal(monthsInPeriod)).setScale(DECIMAL_PLACES, ROUNDING_MODE);
-        
-        BigDecimal newAccumulatedDepreciation = accumulatedDepreciation.add(periodDepreciation);
+        BigDecimal periodDepreciation = currentNetValue.multiply(monthlyRate)
+                .multiply(new BigDecimal(monthsInPeriod))
+                .setScale(DECIMAL_PLACES, ROUNDING_MODE);
+
+        BigDecimal newAccumulatedDepreciation = accumulated.add(periodDepreciation);
         BigDecimal newNetValue = originalValue.subtract(newAccumulatedDepreciation);
         
         if (newNetValue.compareTo(BigDecimal.ZERO) < 0) {
             newNetValue = BigDecimal.ZERO;
-            periodDepreciation = originalValue.subtract(accumulatedDepreciation);
+            periodDepreciation = originalValue.subtract(accumulated);
             newAccumulatedDepreciation = originalValue;
         }
         
@@ -80,8 +77,9 @@ public class DoubleDecliningBalanceDepreciationCalculator implements Depreciatio
         record.setCurrentNetValue(newNetValue);
         record.setDepreciationAmount(periodDepreciation);
         record.setAccumulatedDepreciation(newAccumulatedDepreciation);
-        record.setUsefulLife(usefulLife);
-        record.setUsedMonths(usedMonths + (int)monthsInPeriod);
+        record.setUsefulLife(usefulLifeMonths);
+        int safeUsedMonths = usedMonths != null ? usedMonths : 0;
+        record.setUsedMonths(safeUsedMonths + (int) monthsInPeriod);
         record.setDepreciationPeriod(periodStartDate.toString() + "至" + periodEndDate.toString());
         record.setDepreciationMonth(periodStartDate.getYear() + "-" + String.format("%02d", periodStartDate.getMonthValue()));
         record.setNetValue(newNetValue);

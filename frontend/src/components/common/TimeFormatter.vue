@@ -1,17 +1,10 @@
 <template>
-  <el-tag size="small" type="info" effect="plain">
-    {{ formattedTime }}
-  </el-tag>
+  <span class="time-text">{{ formattedTime }}</span>
 </template>
 
 <script>
-import { ElTag } from 'element-plus'
-
 export default {
   name: 'TimeFormatter',
-  components: {
-    ElTag
-  },
   props: {
     time: {
       type: [String, Date],
@@ -20,19 +13,30 @@ export default {
     fallback: {
       type: String,
       default: '-'
-    },
-    type: {
-      type: String,
-      default: 'info',
-      validator: (value) => ['info', 'success', 'warning', 'danger'].includes(value)
     }
   },
   computed: {
     formattedTime() {
       if (!this.time) return this.fallback
       const date = new Date(this.time)
-      return date.toLocaleString('zh-CN')
+      if (Number.isNaN(date.getTime())) return this.fallback
+      return date.toLocaleString('zh-CN', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+      })
     }
   }
 }
 </script>
+
+<style scoped>
+.time-text {
+  font-size: 12.5px;
+  color: var(--eam-ink-400);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+</style>

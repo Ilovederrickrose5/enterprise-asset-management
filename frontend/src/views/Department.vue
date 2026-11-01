@@ -143,10 +143,8 @@ const handleAdd = async () => {
   }
 }
 
-// 处理编辑
-const handleEdit = (row) => {
-  console.log('编辑部门', row)
-}
+// 编辑对话框由 ManagementPage 内部管理
+const handleEdit = () => {}
 
 // 处理删除
 const handleDelete = async (row) => {

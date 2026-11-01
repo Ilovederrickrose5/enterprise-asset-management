@@ -55,14 +55,6 @@ export default {
       default: 'RECEIVE'
     }
   },
-  watch: {
-    assetOptions: {
-      immediate: true,
-      handler(val) {
-        console.log('ApplyForm 接收到的 assetOptions:', val)
-      }
-    }
-  },
   emits: ['submit', 'reset'],
   setup(props, { emit }) {
     const form = reactive({
